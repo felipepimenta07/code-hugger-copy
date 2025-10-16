@@ -1,0 +1,421 @@
+import React, { useState, useRef, useEffect } from 'react';
+import { Plus, Trash2, ZoomIn, ZoomOut, X, Building2, User, Target, Undo2, Redo2, Shuffle, Download, Upload, Maximize2, Info, Layers, BarChart3, Route } from 'lucide-react';
+import { NodeEditor } from './NodeEditor';
+import { AnalyticsPanel } from './AnalyticsPanel';
+import { ContextMenu } from './ContextMenu';
+import { PathFinderModal } from './PathFinderModal';
+import { Legend } from './Legend';
+import { QuickActionsMenu } from './QuickActionsMenu';
+import { Canvas } from './Canvas';
+import { useNetworkState } from '@/hooks/useNetworkState';
+import { useNetworkHistory } from '@/hooks/useNetworkHistory';
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
+
+const CATEGORIES = {
+  person: ['Pessoal', 'Profissional', 'Cliente', 'Fornecedor', 'Parceiro'],
+  brand: ['Bebida', 'Entretenimento', 'Hotelaria', 'Varejo', 'Serviços', 'Tecnologia', 'Alimentação'],
+  project: ['P', 'M', 'G']
+};
+
+export const NetworkMatrix = () => {
+  const [workflows, setWorkflows] = useState([
+    {
+      id: 1,
+      name: 'Comunidade',
+      color: '#EC4899',
+      nodes: [
+        { id: 1, name: 'Core Team', type: 'person', x: 700, y: 500, category: 'Profissional' },
+        { id: 2, name: 'Ana Silva', type: 'person', x: 500, y: 600, category: 'Cliente', email: 'ana@email.com' },
+        { id: 3, name: 'Pedro Costa', type: 'person', x: 900, y: 600, category: 'Parceiro' },
+        { id: 4, name: 'Community', type: 'person', x: 700, y: 750, category: 'Profissional' },
+        { id: 5, name: 'Moderadores', type: 'person', x: 400, y: 500, category: 'Profissional' }
+      ],
+      connections: [
+        { from: 1, to: 2, type: 'strong', directional: false },
+        { from: 1, to: 3, type: 'strong', directional: false },
+        { from: 1, to: 4, type: 'weak', directional: false },
+        { from: 1, to: 5, type: 'strong', directional: false },
+        { from: 4, to: 5, type: 'weak', directional: false }
+      ]
+    },
+    {
+      id: 2,
+      name: 'Tech Stack',
+      color: '#10B981',
+      nodes: [
+        { id: 11, name: 'Platform', type: 'project', x: 1800, y: 500, category: 'G', projectStatus: 'ativo' },
+        { id: 12, name: 'Design System', type: 'project', x: 1700, y: 600, category: 'M' },
+        { id: 13, name: 'API', type: 'project', x: 1900, y: 600, category: 'M' },
+        { id: 14, name: 'Mobile', type: 'project', x: 1800, y: 750, category: 'P' },
+        { id: 15, name: 'Analytics', type: 'project', x: 2000, y: 550, category: 'P' }
+      ],
+      connections: [
+        { from: 11, to: 12, type: 'strong', directional: false },
+        { from: 11, to: 13, type: 'strong', directional: false },
+        { from: 11, to: 14, type: 'weak', directional: false },
+        { from: 13, to: 15, type: 'strong', directional: false }
+      ]
+    }
+  ]);
+
+  const [activeWorkflowId, setActiveWorkflowId] = useState(1);
+  const [viewMode, setViewMode] = useState('master');
+  const [showLegend, setShowLegend] = useState(true);
+  const [selectedNodes, setSelectedNodes] = useState([]);
+  const [selectedConnection, setSelectedConnection] = useState(null);
+  const [customCategories, setCustomCategories] = useState({ person: [], brand: [], project: [] });
+  const [showPathFinder, setShowPathFinder] = useState(false);
+  const [pathStart, setPathStart] = useState(null);
+  const [pathEnd, setPathEnd] = useState(null);
+  const [highlightedPath, setHighlightedPath] = useState([]);
+  const [showQuickActions, setShowQuickActions] = useState(false);
+  const [hoveredNode, setHoveredNode] = useState(null);
+
+  const { state, updateState } = useNetworkState();
+  const { history, historyIndex, saveToHistory, undo, redo } = useNetworkHistory(workflows, setWorkflows);
+  const svgRef = useRef(null);
+
+  const activeWorkflow = workflows.find(w => w.id === activeWorkflowId);
+  const nodes = viewMode === 'master' 
+    ? workflows.flatMap(w => w.nodes.map(n => ({ ...n, workflowId: w.id, workflowColor: w.color })))
+    : activeWorkflow?.nodes || [];
+  
+  const connections = viewMode === 'master'
+    ? [
+        ...workflows.flatMap(w => w.connections.map(c => ({ ...c, workflowId: w.id }))),
+        { from: 1, to: 11, type: 'weak', workflowId: null },
+        { from: 11, to: 2, type: 'weak', workflowId: null }
+      ]
+    : activeWorkflow?.connections || [];
+
+  const setNodes = (updater) => {
+    if (viewMode === 'master') return;
+    setWorkflows(prev => prev.map(w => 
+      w.id === activeWorkflowId 
+        ? { ...w, nodes: typeof updater === 'function' ? updater(w.nodes) : updater }
+        : w
+    ));
+  };
+
+  const setConnections = (updater) => {
+    if (viewMode === 'master') return;
+    setWorkflows(prev => prev.map(w => 
+      w.id === activeWorkflowId 
+        ? { ...w, connections: typeof updater === 'function' ? updater(w.connections) : updater }
+        : w
+    ));
+  };
+
+  useKeyboardShortcuts({
+    selectedNodes,
+    setSelectedNodes,
+    setNodes,
+    setConnections,
+    updateState,
+    undo,
+    redo,
+    historyIndex,
+    history,
+    saveToHistory,
+    setSelectedConnection,
+    setShowPathFinder,
+    setHighlightedPath
+  });
+
+  const addNode = () => {
+    if (state.newNodeName.trim() && viewMode === 'single') {
+      saveToHistory();
+      const newNode = {
+        id: Date.now(),
+        name: state.newNodeName,
+        type: state.newNodeType,
+        x: (window.innerWidth / 2 - state.pan.x) / state.zoom,
+        y: (300 - state.pan.y) / state.zoom
+      };
+      setNodes([...nodes, newNode]);
+      updateState({ newNodeName: '', editingNode: newNode, showSidebar: true, showAnalytics: false });
+    }
+  };
+
+  const deleteNode = (nodeId) => {
+    saveToHistory();
+    setNodes(nodes.filter(n => n.id !== nodeId));
+    setConnections(connections.filter(c => c.from !== nodeId && c.to !== nodeId));
+    updateState({ selectedNode: null, showSidebar: false, editingNode: null });
+    setSelectedNodes(prev => prev.filter(id => id !== nodeId));
+  };
+
+  const exportData = () => {
+    try {
+      const dataStr = JSON.stringify(workflows, null, 2);
+      const dataBlob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(dataBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `network-matrix-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Erro ao exportar:', error);
+    }
+  };
+
+  const handleFileImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const result = event.target?.result;
+        if (typeof result === 'string') {
+          const imported = JSON.parse(result);
+          setWorkflows(imported);
+          alert('Dados importados com sucesso!');
+        }
+      } catch (err) {
+        alert('Erro ao importar arquivo.');
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const getAllCategories = (type) => [...CATEGORIES[type], ...(customCategories[type] || [])];
+
+  const addCustomCategory = (type, category) => {
+    if (category && !getAllCategories(type).includes(category)) {
+      setCustomCategories(prev => ({ ...prev, [type]: [...(prev[type] || []), category] }));
+      return true;
+    }
+    return false;
+  };
+
+  return (
+    <div className="min-h-screen h-screen bg-background flex flex-col overflow-hidden">
+      {state.contextMenu && (
+        <ContextMenu 
+          contextMenu={state.contextMenu}
+          updateState={updateState}
+          onCreateNode={(type) => {
+            if (state.contextMenu) {
+              saveToHistory();
+              const newNode = {
+                id: Date.now(),
+                name: 'Novo Nó',
+                type: type,
+                x: state.contextMenu.canvasX,
+                y: state.contextMenu.canvasY
+              };
+              setNodes([...nodes, newNode]);
+              updateState({ editingNode: newNode, showSidebar: true, contextMenu: null });
+            }
+          }}
+        />
+      )}
+
+      {showPathFinder && (
+        <PathFinderModal
+          nodes={nodes}
+          connections={connections}
+          pathStart={pathStart}
+          pathEnd={pathEnd}
+          setPathStart={setPathStart}
+          setPathEnd={setPathEnd}
+          setShowPathFinder={setShowPathFinder}
+          setHighlightedPath={setHighlightedPath}
+        />
+      )}
+
+      {showQuickActions && (
+        <QuickActionsMenu
+          setShowQuickActions={setShowQuickActions}
+          onAutoOrganize={() => {}}
+          onShowPathFinder={() => setShowPathFinder(true)}
+          onFitToScreen={() => {}}
+          onExport={exportData}
+        />
+      )}
+
+      {/* Header */}
+      <div className="bg-card/80 backdrop-blur-xl border-b border-border px-6 py-4 z-20">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-6">
+            <div>
+              <h1 className="text-2xl font-bold text-foreground tracking-tight">Network Matrix</h1>
+              <div className="text-xs text-muted-foreground mt-0.5 font-medium">VISION ECOSYSTEM</div>
+            </div>
+            
+            <div className="flex gap-2">
+              {workflows.map(w => (
+                <button
+                  key={w.id}
+                  onClick={() => {
+                    setActiveWorkflowId(w.id);
+                    setViewMode('single');
+                  }}
+                  className="group relative px-3 py-1.5 rounded-lg transition-all hover:bg-secondary"
+                  style={{ 
+                    borderLeft: `3px solid ${w.color}`,
+                    opacity: viewMode === 'master' || activeWorkflowId === w.id ? 1 : 0.5 
+                  }}
+                >
+                  <div className="text-xs text-muted-foreground group-hover:text-foreground font-medium">
+                    {w.name}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => setViewMode(viewMode === 'master' ? 'single' : 'master')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                viewMode === 'master' 
+                  ? 'bg-primary text-primary-foreground shadow-lg' 
+                  : 'bg-secondary text-muted-foreground hover:text-foreground'
+              }`}>
+              <Layers size={16} className="inline mr-2" />
+              {viewMode === 'master' ? 'Master View' : 'Single View'}
+            </button>
+            
+            <div className="w-px h-8 bg-border mx-1"></div>
+            
+            <input type="file" id="fileImport" accept=".json" onChange={handleFileImport} className="hidden" />
+            <button onClick={() => document.getElementById('fileImport').click()} 
+              className="p-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-all">
+              <Upload size={18} />
+            </button>
+            <button onClick={exportData} 
+              className="p-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-all">
+              <Download size={18} />
+            </button>
+            
+            <button onClick={undo} disabled={historyIndex <= 0}
+              className={`p-2 rounded-lg transition-all ${historyIndex <= 0 ? 'text-muted' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'}`}>
+              <Undo2 size={18} />
+            </button>
+            <button onClick={redo} disabled={historyIndex >= history.length - 1}
+              className={`p-2 rounded-lg transition-all ${historyIndex >= history.length - 1 ? 'text-muted' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'}`}>
+              <Redo2 size={18} />
+            </button>
+            
+            <div className="w-px h-8 bg-border mx-1"></div>
+            
+            <button onClick={() => updateState({ zoom: Math.max(state.zoom / 1.2, 0.3) })} 
+              className="p-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-all">
+              <ZoomOut size={18} />
+            </button>
+            <div className="text-sm text-muted-foreground font-mono px-2 min-w-[50px] text-center">
+              {Math.round(state.zoom * 100)}%
+            </div>
+            <button onClick={() => updateState({ zoom: Math.min(state.zoom * 1.2, 3) })} 
+              className="p-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-all">
+              <ZoomIn size={18} />
+            </button>
+            <button onClick={() => {}} 
+              className="p-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-all">
+              <Maximize2 size={18} />
+            </button>
+            
+            <div className="w-px h-8 bg-border mx-1"></div>
+            
+            <button 
+              onClick={() => updateState({ showAnalytics: !state.showAnalytics, showSidebar: false })}
+              className={`p-2 rounded-lg transition-all ${state.showAnalytics ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'}`}>
+              <BarChart3 size={18} />
+            </button>
+            <button 
+              onClick={() => setShowLegend(!showLegend)}
+              className={`p-2 rounded-lg transition-all ${showLegend ? 'bg-secondary text-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'}`}>
+              <Info size={18} />
+            </button>
+          </div>
+        </div>
+        
+        {viewMode === 'single' && (
+          <div className="flex gap-2 items-center">
+            <input 
+              type="text" 
+              value={state.newNodeName} 
+              onChange={(e) => updateState({ newNodeName: e.target.value })}
+              onKeyPress={(e) => e.key === 'Enter' && addNode()}
+              placeholder="Nome do novo nó"
+              className="flex-1 px-4 py-2.5 bg-secondary text-foreground border border-border rounded-lg text-sm focus:outline-none focus:border-primary"
+            />
+            <select 
+              value={state.newNodeType} 
+              onChange={(e) => updateState({ newNodeType: e.target.value })}
+              className="px-4 py-2.5 bg-secondary text-foreground border border-border rounded-lg text-sm focus:outline-none focus:border-primary">
+              <option value="project">🎯 Projeto</option>
+              <option value="person">👤 Pessoa</option>
+              <option value="brand">🏢 Marca</option>
+            </select>
+            <button 
+              onClick={addNode} 
+              className="px-4 py-2.5 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-all">
+              <Plus size={18} />
+            </button>
+          </div>
+        )}
+        
+        {selectedNodes.length > 0 && (
+          <div className="mt-2 text-sm text-primary flex items-center gap-2">
+            <span className="inline-block w-2 h-2 bg-primary rounded-full animate-pulse"></span>
+            {selectedNodes.length} nó(s) selecionado(s) • Shift+Click para adicionar • Backspace para deletar
+          </div>
+        )}
+      </div>
+
+      {showLegend && (
+        <Legend nodes={nodes} setShowLegend={setShowLegend} />
+      )}
+
+      <div className="flex-1 relative overflow-hidden">
+        <Canvas
+          svgRef={svgRef}
+          state={state}
+          updateState={updateState}
+          viewMode={viewMode}
+          workflows={workflows}
+          nodes={nodes}
+          connections={connections}
+          selectedNodes={selectedNodes}
+          setSelectedNodes={setSelectedNodes}
+          selectedConnection={selectedConnection}
+          setSelectedConnection={setSelectedConnection}
+          highlightedPath={highlightedPath}
+          hoveredNode={hoveredNode}
+          setHoveredNode={setHoveredNode}
+          setNodes={setNodes}
+          setConnections={setConnections}
+          saveToHistory={saveToHistory}
+        />
+
+        {state.showSidebar && state.editingNode && (
+          <NodeEditor 
+            node={state.editingNode} 
+            getAllCategories={getAllCategories}
+            addCustomCategory={addCustomCategory}
+            onUpdate={(field, value) => {
+              const updated = { ...state.editingNode, [field]: value };
+              updateState({ editingNode: updated });
+              setNodes(nodes.map(n => n.id === updated.id ? updated : n));
+            }}
+            onClose={() => updateState({ showSidebar: false, editingNode: null })}
+            onDelete={() => deleteNode(state.editingNode.id)}
+          />
+        )}
+
+        {state.showAnalytics && (
+          <AnalyticsPanel 
+            nodes={nodes} 
+            connections={connections}
+            onClose={() => updateState({ showAnalytics: false })} 
+          />
+        )}
+      </div>
+    </div>
+  );
+};
