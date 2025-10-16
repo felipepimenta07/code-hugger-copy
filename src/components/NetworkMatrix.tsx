@@ -62,6 +62,14 @@ export const NetworkMatrix = () => {
 
   // Combinar todos os nós
   const allNodes = [...projects, ...people, ...brands];
+  
+  // Debug: log inicial
+  React.useEffect(() => {
+    console.log('Projetos carregados:', projects);
+    console.log('Pessoas carregadas:', people);
+    console.log('Marcas carregadas:', brands);
+    console.log('Total de nós:', allNodes.length);
+  }, []);
 
   // Calcular anchorProjectId por nó com busca de 2º grau (useMemo)
   const anchors = React.useMemo(() => {
@@ -199,6 +207,13 @@ export const NetworkMatrix = () => {
           return { ...n, projectId: project?.id, projectColor: project ? '#8b5cf6' : '#6366f1' };
         })
     : (activeProjectId ? getNodesForSingleView(activeProjectId) : []);
+  
+  // Debug: log dos nós filtrados
+  React.useEffect(() => {
+    console.log('ViewMode:', viewMode);
+    console.log('Nós com anchors:', allNodesWithAnchors);
+    console.log('Nós filtrados para renderizar:', nodes);
+  }, [viewMode, nodes.length]);
 
   const connections = viewMode === 'master'
     ? allConnections
