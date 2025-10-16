@@ -934,21 +934,6 @@ export const NetworkMatrix = () => {
           </div>
         )}
         
-        {selectedConnection !== null && (
-          <div className="mt-2 flex items-center gap-3">
-            <div className="text-sm text-amber-500 flex items-center gap-2">
-              <span className="inline-block w-2 h-2 bg-amber-500 rounded-full animate-pulse"></span>
-              Conexão selecionada
-            </div>
-            <button
-              onClick={() => deleteConnection(selectedConnection)}
-              className="px-3 py-1.5 bg-destructive text-destructive-foreground rounded-lg text-sm hover:opacity-90 transition-all flex items-center gap-1.5"
-            >
-              <Trash2 size={14} />
-              Deletar Conexão
-            </button>
-          </div>
-        )}
       </div>
 
       {showLegend && (
