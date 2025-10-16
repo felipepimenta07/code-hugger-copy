@@ -87,6 +87,14 @@ export const NetworkMatrix = () => {
     [allNodes, anchors]
   );
 
+  // Helper: determine if a non-project node belongs to a project (strict isolation)
+  const belongsToProject = (n: any, pid: number) =>
+    n?.type !== 'project' && (
+      (n as any).homeProjectId === pid ||
+      (n as any).anchorProjectId === pid ||
+      allConnections.some(c => (c.from === n.id && c.to === pid) || (c.to === n.id && c.from === pid))
+    );
+
   // Helper to get nodes for Single View (isolated per project, no cross-project traversal)
   const getNodesForSingleView = (projectId: number) => {
     const byId = new Map(allNodesWithAnchors.map(n => [n.id, n]));
@@ -108,7 +116,7 @@ export const NetworkMatrix = () => {
       }
     });
     
-    // 2. Add connections between people/brands already included (social network within project)
+    // 2. Add connections between people/brands already included (within project only)
     let changed = true;
     let iterations = 0;
     const maxIterations = 3; // limit depth for performance
@@ -123,11 +131,11 @@ export const NetworkMatrix = () => {
         
         // Connection between two non-projects where at least one is already included
         if (fromNode?.type !== 'project' && toNode?.type !== 'project') {
-          if (included.has(c.from) && !included.has(c.to)) {
+          if (included.has(c.from) && !included.has(c.to) && toNode && belongsToProject(toNode, projectId)) {
             included.add(c.to);
             changed = true;
           }
-          if (included.has(c.to) && !included.has(c.from)) {
+          if (included.has(c.to) && !included.has(c.from) && fromNode && belongsToProject(fromNode, projectId)) {
             included.add(c.from);
             changed = true;
           }
@@ -318,20 +326,9 @@ export const NetworkMatrix = () => {
 
   const autoOrganizeSingle = (projectId: number | null) => {
     if (!projectId) return;
-    const activeProject = projects.find(p => p.id === projectId);
-    if (!activeProject) return;
-    
-    const neighbors = allNodesWithAnchors.filter(n => {
-      if (n.id === projectId) return false;
-      const isConnected = allConnections.some(c => 
-        (c.from === n.id && c.to === projectId) || 
-        (c.to === n.id && c.from === projectId)
-      );
-      const isHome = (n as any).homeProjectId === projectId;
-      return isConnected || isHome;
-    });
-    
-    const nodesToLayout = [activeProject, ...neighbors];
+    const nodesToLayout = getNodesForSingleView(projectId);
+    if (nodesToLayout.length === 0) return;
+
     const layouted = applyRadialLayout(nodesToLayout, 500, 400);
     updateAllNodePositions(layouted);
   };
