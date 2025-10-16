@@ -838,7 +838,29 @@ export const NetworkMatrix = () => {
                 Master View
               </button>
               <button
-                onClick={() => setViewMode('single')}
+                onClick={() => {
+                  setViewMode('single');
+                  
+                  // Centralizar quando mudar para single view
+                  setTimeout(() => {
+                    if (activeProjectId) {
+                      autoOrganizeSingle(activeProjectId);
+                    }
+                  }, 50);
+                  
+                  setTimeout(() => {
+                    const width = window.innerWidth;
+                    const height = window.innerHeight - 100;
+                    const currentNodes = getNodesForSingleView(activeProjectId);
+                    
+                    if (currentNodes.length > 0 && svgRef.current) {
+                      const bounds = calculateBounds(currentNodes);
+                      const zoom = calculateOptimalZoom(bounds, width, height);
+                      const pan = calculateCenterPan(bounds, zoom, width, height);
+                      updateState({ zoom, pan });
+                    }
+                  }, 300);
+                }}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                   viewMode === 'single' 
                     ? 'bg-blue-600 border border-blue-500 text-white shadow-lg' 
