@@ -905,14 +905,40 @@ export const NetworkMatrix = () => {
             
             <div className="w-px h-8 bg-border mx-1"></div>
             
-            <button onClick={() => updateState({ zoom: Math.max(state.zoom / 1.2, 0.3) })} 
+            <button onClick={() => {
+              const width = window.innerWidth;
+              const height = window.innerHeight - 100;
+              const newZoom = Math.max(state.zoom / 1.2, 0.3);
+              const centerX = (width / 2 - state.pan.x) / state.zoom;
+              const centerY = (height / 2 - state.pan.y) / state.zoom;
+              updateState({ 
+                zoom: newZoom,
+                pan: {
+                  x: width / 2 - centerX * newZoom,
+                  y: height / 2 - centerY * newZoom
+                }
+              });
+            }} 
               className="p-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-all">
               <ZoomOut size={18} />
             </button>
             <div className="text-sm text-muted-foreground font-mono px-2 min-w-[50px] text-center">
               {Math.round(state.zoom * 100)}%
             </div>
-            <button onClick={() => updateState({ zoom: Math.min(state.zoom * 1.2, 3) })} 
+            <button onClick={() => {
+              const width = window.innerWidth;
+              const height = window.innerHeight - 100;
+              const newZoom = Math.min(state.zoom * 1.2, 3);
+              const centerX = (width / 2 - state.pan.x) / state.zoom;
+              const centerY = (height / 2 - state.pan.y) / state.zoom;
+              updateState({ 
+                zoom: newZoom,
+                pan: {
+                  x: width / 2 - centerX * newZoom,
+                  y: height / 2 - centerY * newZoom
+                }
+              });
+            }} 
               className="p-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-all">
               <ZoomIn size={18} />
             </button>
@@ -1107,6 +1133,10 @@ export const NetworkMatrix = () => {
                 }}
                 onClose={() => updateState({ showSidebar: false, editingNode: null })}
                 onDelete={() => deleteNode(state.editingNode.id)}
+                onConfirm={() => {
+                  updateState({ showSidebar: false, editingNode: null });
+                  toast.success('Alterações salvas!');
+                }}
               />
             )}
           </DrawerContent>
