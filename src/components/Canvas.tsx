@@ -110,17 +110,15 @@ export const Canvas: React.FC<CanvasProps> = ({
 
   const handleNodeClick = (e: React.MouseEvent, nodeId: number) => {
     e.stopPropagation();
-    if (!e.shiftKey && !state.isDraggingConnection && viewMode === 'single') {
-      updateState({ editingNode: nodes.find(n => n.id === nodeId), showSidebar: true, showAnalytics: false });
-    }
+    // Simple click does nothing, let double click handle editing
   };
 
   const handleNodeDoubleClick = (e: React.MouseEvent, nodeId: number) => {
     e.stopPropagation();
-    if (viewMode === 'single' && onOpenEditModal) {
+    if (viewMode === 'single') {
       const node = nodes.find(n => n.id === nodeId);
       if (node) {
-        onOpenEditModal(node);
+        updateState({ editingNode: node, showSidebar: true, showAnalytics: false });
       }
     }
   };
@@ -708,30 +706,58 @@ export const Canvas: React.FC<CanvasProps> = ({
                     opacity={isHovered ? 0.4 : 0.25}
                   />
                   
-                  <circle
-                    r={nodeSize}
-                    fill={colors.primary}
-                    stroke={isInPath ? 'hsl(var(--connection-path))' : (isSelected ? 'white' : colors.primary)}
-                    strokeWidth={isInPath ? 5 : (isSelected ? 4 : 2)}
-                    opacity="0.9"
-                    style={{
-                      filter: `drop-shadow(0 0 ${isHovered ? '12' : '6'}px ${colors.primary})`
-                    }}
-                  />
+                  {node.imageUrl ? (
+                    <>
+                      <defs>
+                        <clipPath id={`clip-${node.id}`}>
+                          <circle r={nodeSize} />
+                        </clipPath>
+                      </defs>
+                      <image
+                        href={node.imageUrl}
+                        x={-nodeSize}
+                        y={-nodeSize}
+                        width={nodeSize * 2}
+                        height={nodeSize * 2}
+                        clipPath={`url(#clip-${node.id})`}
+                        preserveAspectRatio="xMidYMid slice"
+                      />
+                      <circle
+                        r={nodeSize}
+                        fill="none"
+                        stroke={isInPath ? 'hsl(var(--connection-path))' : (isSelected ? 'white' : colors.primary)}
+                        strokeWidth={isInPath ? 5 : (isSelected ? 4 : 2)}
+                        style={{
+                          filter: `drop-shadow(0 0 ${isHovered ? '12' : '6'}px ${colors.primary})`
+                        }}
+                      />
+                    </>
+                  ) : (
+                    <circle
+                      r={nodeSize}
+                      fill={colors.primary}
+                      stroke={isInPath ? 'hsl(var(--connection-path))' : (isSelected ? 'white' : colors.primary)}
+                      strokeWidth={isInPath ? 5 : (isSelected ? 4 : 2)}
+                      opacity="0.9"
+                      style={{
+                        filter: `drop-shadow(0 0 ${isHovered ? '12' : '6'}px ${colors.primary})`
+                      }}
+                    />
+                  )}
                 </>
               )}
               
-              {node.type === 'person' && (
+              {!node.imageUrl && node.type === 'person' && (
                 <foreignObject x={-14} y={-14} width={28} height={28}>
                   <User size={28} stroke="white" strokeWidth={2} />
                 </foreignObject>
               )}
-              {node.type === 'project' && (
+              {!node.imageUrl && node.type === 'project' && (
                 <foreignObject x={-14} y={-14} width={28} height={28}>
                   <Target size={28} stroke="white" strokeWidth={2} />
                 </foreignObject>
               )}
-              {node.type === 'brand' && (
+              {!node.imageUrl && node.type === 'brand' && (
                 <foreignObject x={-14} y={-14} width={28} height={28}>
                   <Building2 size={28} stroke="white" strokeWidth={2} />
                 </foreignObject>

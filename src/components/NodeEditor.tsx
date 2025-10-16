@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { X, Target, User, Building2, Plus, Trash2 } from 'lucide-react';
+import { X, Target, User, Building2, Plus, Trash2, Upload, ImageIcon } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 interface NodeEditorProps {
   node: any;
@@ -22,6 +23,21 @@ export const NodeEditor: React.FC<NodeEditorProps> = ({
   const [showCustomCategory, setShowCustomCategory] = useState(false);
   const categories = getAllCategories(node.type);
 
+  const [imagePreview, setImagePreview] = useState<string>(node.imageUrl || '');
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const result = reader.result as string;
+        setImagePreview(result);
+        onUpdate('imageUrl', result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   return (
     <div className="w-96 bg-card/95 backdrop-blur-xl border-l border-border p-6 overflow-y-auto h-full shadow-lg">
       <div className="flex items-center justify-between mb-6">
@@ -39,6 +55,37 @@ export const NodeEditor: React.FC<NodeEditorProps> = ({
       </div>
 
       <div className="space-y-5">
+        <div className="flex flex-col items-center gap-3 pb-5 border-b border-border">
+          <Avatar className="h-24 w-24">
+            <AvatarImage src={imagePreview} alt={node.name} />
+            <AvatarFallback className="bg-secondary text-2xl">
+              {node.type === 'project' ? <Target size={32} /> : node.type === 'person' ? <User size={32} /> : <Building2 size={32} />}
+            </AvatarFallback>
+          </Avatar>
+          <label className="cursor-pointer">
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleImageChange}
+              className="hidden"
+            />
+            <div className="flex items-center gap-2 px-4 py-2 bg-secondary hover:bg-secondary/80 rounded-xl text-sm font-medium transition-colors">
+              <Upload size={16} />
+              {imagePreview ? 'Alterar Foto' : 'Adicionar Foto'}
+            </div>
+          </label>
+          {imagePreview && (
+            <button
+              onClick={() => {
+                setImagePreview('');
+                onUpdate('imageUrl', '');
+              }}
+              className="text-xs text-muted-foreground hover:text-destructive transition-colors"
+            >
+              Remover foto
+            </button>
+          )}
+        </div>
         <div>
           <label className="block text-sm font-semibold text-foreground mb-2">Nome</label>
           <input 

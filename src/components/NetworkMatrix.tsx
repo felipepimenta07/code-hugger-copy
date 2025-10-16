@@ -3,6 +3,7 @@ import { Plus, Trash2, ZoomIn, ZoomOut, X, Building2, User, FolderKanban, Undo2,
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { NodeEditor } from './NodeEditor';
 import { AnalyticsPanel } from './AnalyticsPanel';
 import { ContextMenu } from './ContextMenu';
@@ -1091,20 +1092,26 @@ export const NetworkMatrix = () => {
           </button>
         </div>
 
-        {state.showSidebar && state.editingNode && (
-          <NodeEditor 
-            node={state.editingNode} 
-            getAllCategories={getAllCategories}
-            addCustomCategory={addCustomCategory}
-            onUpdate={(field, value) => {
-              const updated = { ...state.editingNode, [field]: value };
-              updateState({ editingNode: updated });
-              setNodes(nodes.map(n => n.id === updated.id ? updated : n));
-            }}
-            onClose={() => updateState({ showSidebar: false, editingNode: null })}
-            onDelete={() => deleteNode(state.editingNode.id)}
-          />
-        )}
+        <Drawer open={state.showSidebar && state.editingNode !== null} onOpenChange={(open) => {
+          if (!open) updateState({ showSidebar: false, editingNode: null });
+        }}>
+          <DrawerContent className="h-[90vh]">
+            {state.editingNode && (
+              <NodeEditor 
+                node={state.editingNode} 
+                getAllCategories={getAllCategories}
+                addCustomCategory={addCustomCategory}
+                onUpdate={(field, value) => {
+                  const updated = { ...state.editingNode, [field]: value };
+                  updateState({ editingNode: updated });
+                  setNodes(nodes.map(n => n.id === updated.id ? updated : n));
+                }}
+                onClose={() => updateState({ showSidebar: false, editingNode: null })}
+                onDelete={() => deleteNode(state.editingNode.id)}
+              />
+            )}
+          </DrawerContent>
+        </Drawer>
 
         {state.showAnalytics && (
           <AnalyticsPanel 
