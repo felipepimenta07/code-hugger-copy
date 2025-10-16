@@ -94,12 +94,14 @@ export const NetworkMatrix = () => {
     : (() => {
         const activeProject = projects.find(p => p.id === activeProjectId);
         if (!activeProject) return [];
-        const neighbors = allNodesWithAnchors.filter(n => 
-          allConnections.some(c => 
+        const neighbors = allNodesWithAnchors.filter(n => {
+          const isConnected = allConnections.some(c => 
             (c.from === n.id && c.to === activeProject.id) || 
             (c.to === n.id && c.from === activeProject.id)
-          )
-        );
+          );
+          const isHome = (n as any).homeProjectId === activeProjectId && n.id !== activeProjectId;
+          return isConnected || isHome;
+        });
         return [{ ...activeProject, anchorProjectId: activeProject.id }, ...neighbors];
       })();
 
@@ -227,12 +229,15 @@ export const NetworkMatrix = () => {
     const activeProject = projects.find(p => p.id === projectId);
     if (!activeProject) return;
     
-    const neighbors = allNodesWithAnchors.filter(n => 
-      allConnections.some(c => 
+    const neighbors = allNodesWithAnchors.filter(n => {
+      if (n.id === projectId) return false;
+      const isConnected = allConnections.some(c => 
         (c.from === n.id && c.to === projectId) || 
         (c.to === n.id && c.from === projectId)
-      )
-    );
+      );
+      const isHome = (n as any).homeProjectId === projectId;
+      return isConnected || isHome;
+    });
     
     const nodesToLayout = [activeProject, ...neighbors];
     const layouted = applyRadialLayout(nodesToLayout, 500, 400);
@@ -343,13 +348,26 @@ export const NetworkMatrix = () => {
   const addNode = () => {
     if (state.newNodeName.trim() && viewMode === 'single') {
       saveToHistory();
-      const newNode = {
+      const newNode: any = {
         id: Date.now(),
         name: state.newNodeName,
         type: state.newNodeType,
         x: (window.innerWidth / 2 - state.pan.x) / state.zoom,
         y: (300 - state.pan.y) / state.zoom
       };
+
+      // Set homeProjectId for person/brand nodes created in single view
+      if (activeProjectId && (state.newNodeType === 'person' || state.newNodeType === 'brand')) {
+        newNode.homeProjectId = activeProjectId;
+      }
+
+      // Set default fields for projects
+      if (state.newNodeType === 'project') {
+        newNode.workflows = workflows.length > 0 ? [workflows[0].id] : [];
+        newNode.status = 'ativo';
+        newNode.deadline = '';
+      }
+
       setNodes(prevNodes => [...prevNodes, newNode]);
       updateState({ newNodeName: '', editingNode: newNode, showSidebar: true, showAnalytics: false });
     }
@@ -357,14 +375,14 @@ export const NetworkMatrix = () => {
 
   const deleteConnection = (connectionIndex: number) => {
     saveToHistory();
-    setConnections(allConnections.filter((_, idx) => idx !== connectionIndex));
+    setConnections(prev => prev.filter((_, idx) => idx !== connectionIndex));
     setSelectedConnection(null);
   };
 
   const deleteNode = (nodeId) => {
     saveToHistory();
-    setNodes(nodes.filter(n => n.id !== nodeId));
-    setConnections(connections.filter(c => c.from !== nodeId && c.to !== nodeId));
+    setNodes(prev => prev.filter(n => n.id !== nodeId));
+    setConnections(prev => prev.filter(c => c.from !== nodeId && c.to !== nodeId));
     updateState({ selectedNode: null, showSidebar: false, editingNode: null });
     setSelectedNodes(prev => prev.filter(id => id !== nodeId));
   };
@@ -417,13 +435,26 @@ export const NetworkMatrix = () => {
 
   const handleNodeCreation = (nodeData: any) => {
     saveToHistory();
-    const newNode = {
+    const newNode: any = {
       id: Date.now(),
       type: nodeCreationType,
       x: nodeCreationPosition.x,
       y: nodeCreationPosition.y,
       ...nodeData
     };
+
+    // Set homeProjectId for person/brand nodes created in single view
+    if (viewMode === 'single' && activeProjectId && (nodeCreationType === 'person' || nodeCreationType === 'brand')) {
+      newNode.homeProjectId = activeProjectId;
+    }
+
+    // Set default fields for projects
+    if (nodeCreationType === 'project') {
+      newNode.workflows = nodeData.workflows || (workflows.length > 0 ? [workflows[0].id] : []);
+      newNode.status = nodeData.projectStatus || nodeData.status || 'ativo';
+      newNode.deadline = nodeData.startDate || nodeData.deadline || '';
+    }
+
     setNodes(prevNodes => [...prevNodes, newNode]);
     setShowNodeCreationModal(false);
     updateState({ editingNode: newNode, showSidebar: true });

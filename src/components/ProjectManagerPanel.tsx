@@ -240,7 +240,8 @@ export const ProjectManagerPanel: React.FC<ProjectManagerPanelProps> = ({
             ) : (
               filteredProjects.map(project => {
                 const stats = getProjectStats(project);
-                const projectWorkflows = workflows.filter((w: any) => project.workflows.includes(w.id));
+
+                const projectWorkflows = workflows.filter((w: any) => (project.workflows || []).includes(w.id));
 
                 return (
                   <div key={project.id} className="bg-secondary/50 rounded-lg p-3 space-y-2 hover:bg-secondary/70 transition-colors">

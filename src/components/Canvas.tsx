@@ -413,7 +413,7 @@ export const Canvas: React.FC<CanvasProps> = ({
           // Detectar cross-projeto: pessoa/marca conectando para projeto diferente do anchor
           const getAssignment = (node: any) => {
             if (node.type === 'project') return node.id;
-            return node.anchorProjectId ?? null;
+            return node.anchorProjectId ?? node.homeProjectId ?? null;
           };
           const fromProj = getAssignment(from);
           const toProj = getAssignment(to);

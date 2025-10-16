@@ -89,13 +89,14 @@ export const NodeCreationModal: React.FC<NodeCreationModalProps> = ({
         onKeyDown={handleKeyDown}
       >
         <DialogHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Badge className={`${config.color} border px-3 py-1`}>
-                <span className="mr-1.5">{config.emoji}</span>
-                {editingNode ? 'Editar' : 'Criar'} {config.label}
-              </Badge>
-            </div>
+          <DialogTitle>
+            {editingNode ? 'Editar' : 'Criar'} {config.label}
+          </DialogTitle>
+          <div className="flex items-center gap-3 pt-2">
+            <Badge className={`${config.color} border px-3 py-1`}>
+              <span className="mr-1.5">{config.emoji}</span>
+              {config.label}
+            </Badge>
           </div>
         </DialogHeader>
 
