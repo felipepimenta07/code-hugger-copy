@@ -421,6 +421,8 @@ export const Canvas: React.FC<CanvasProps> = ({
           const from = nodes.find(n => n.id === conn.from);
           const to = nodes.find(n => n.id === conn.to);
           if (!from || !to) return null;
+          // Não renderizar conexões projeto↔projeto
+          if (from.type === 'project' && to.type === 'project') return null;
           
           // Encontrar índice correto em allConnections
           const globalIdx = allConnections.findIndex(c => 
@@ -434,16 +436,16 @@ export const Canvas: React.FC<CanvasProps> = ({
           const toDepth = nodeDepths.get(to.id) ?? 0;
           const connectionLevel = Math.min(fromDepth, toDepth);
           
-          // Detectar cross-projeto: pessoas/marcas de projetos diferentes conectadas
+          // Detectar cross-flow: nós de projetos diferentes (exceto projeto↔projeto)
           const getAssignment = (node: any) => {
             if (node.type === 'project') return node.id;
             return node.anchorProjectId ?? node.homeProjectId ?? null;
           };
           const fromProj = getAssignment(from);
           const toProj = getAssignment(to);
-          const isCrossProject = viewMode === 'master' && 
+          const isCrossFlow = viewMode === 'master' &&
             fromProj && toProj && fromProj !== toProj &&
-            from.type !== 'project' && to.type !== 'project';
+            !(from.type === 'project' && to.type === 'project');
           
           const isInPath = highlightedPath.length > 0 && 
             highlightedPath.some((id, i) => 
@@ -463,11 +465,11 @@ export const Canvas: React.FC<CanvasProps> = ({
             strokeWidth = 5;
           } else if (isSelected) {
             strokeColor = '#f59e0b';
-            strokeWidth = isCrossProject ? 4 : (conn.type === 'strong' ? 3 : 2);
-          } else if (isCrossProject) {
-            strokeColor = '#fb923c'; // Cor laranja vibrante para cross-flow
+            strokeWidth = isCrossFlow ? 4 : (conn.type === 'strong' ? 3 : 2);
+          } else if (isCrossFlow) {
+            strokeColor = 'hsl(var(--connection-cross))';
             strokeWidth = 4;
-            strokeDasharray = '8,4'; // Linha pontilhada
+            strokeDasharray = '8,4';
           } else {
             // Normal connection - apply depth-based styling
             strokeColor = conn.type === 'strong' ? '#a855f7' : '#6366f1';
@@ -495,29 +497,41 @@ export const Canvas: React.FC<CanvasProps> = ({
           const controlY = (from.y + to.y) / 2 - 80;
           const pathData = `M ${from.x},${from.y} Q ${controlX},${controlY} ${to.x},${to.y}`;
           
-          // Gerar tooltip inteligente para conexões cross-project
+          // Gerar tooltip inteligente para conexões cross-flow
           let tooltipText = '';
-          if (isCrossProject) {
-            // Pessoa → Pessoa de projetos diferentes
+          if (isCrossFlow) {
+            // Pessoa ↔ Pessoa (projetos diferentes)
             if (from.type === 'person' && to.type === 'person') {
-              tooltipText = `${from.name} conectado a ${to.name} (projetos diferentes)`;
+              tooltipText = `${from.name} conectado(a) a ${to.name} (projetos diferentes)`;
             }
-            // Pessoa → Marca ou Marca → Pessoa
+            // Pessoa ↔ Marca
             else if ((from.type === 'person' && to.type === 'brand') || (from.type === 'brand' && to.type === 'person')) {
               const person = from.type === 'person' ? from : to;
               const brand = from.type === 'brand' ? from : to;
               tooltipText = `${person.name} trabalha na ${brand.name}`;
             }
-            // Marca → Marca de projetos diferentes
+            // Marca ↔ Marca (projetos diferentes)
             else if (from.type === 'brand' && to.type === 'brand') {
               tooltipText = `${from.name} parceira de ${to.name} (projetos diferentes)`;
+            }
+            // Pessoa ↔ Projeto (projetos diferentes)
+            else if ((from.type === 'person' && to.type === 'project') || (from.type === 'project' && to.type === 'person')) {
+              const person = from.type === 'person' ? from : to;
+              const project = from.type === 'project' ? from : to;
+              tooltipText = `${person.name} participa do projeto ${project.name}`;
+            }
+            // Marca ↔ Projeto (projetos diferentes)
+            else if ((from.type === 'brand' && to.type === 'project') || (from.type === 'project' && to.type === 'brand')) {
+              const brand = from.type === 'brand' ? from : to;
+              const project = from.type === 'project' ? from : to;
+              tooltipText = `${brand.name} participa do projeto ${project.name}`;
             }
           }
           
           return (
             <g key={idx}>
-              {/* Área de hover maior para cross-project */}
-              {isCrossProject ? (
+              {/* Área de hover maior para cross-flow */}
+              {isCrossFlow ? (
                 <>
                   <path
                     d={pathData}
@@ -525,6 +539,15 @@ export const Canvas: React.FC<CanvasProps> = ({
                     strokeWidth="20"
                     fill="none"
                     className="cursor-help"
+                    onClick={(e) => { 
+                      e.stopPropagation(); 
+                      setSelectedConnection(selectedConnection === globalIdx ? null : globalIdx);
+                      setSelectedNodes([]);
+                      if (onGoToProject && viewMode === 'master') {
+                        const targetProjectId = to.type === 'project' ? to.id : (from.type === 'project' ? from.id : toProj);
+                        if (targetProjectId) onGoToProject(targetProjectId);
+                      }
+                    }}
                   >
                     <title>{tooltipText}</title>
                   </path>
