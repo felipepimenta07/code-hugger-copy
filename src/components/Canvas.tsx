@@ -16,7 +16,7 @@ interface CanvasProps {
   highlightedPath: number[];
   hoveredNode: number | null;
   setHoveredNode: (node: number | null) => void;
-  setNodes: (updater: any) => void;
+  updateNodePosition: (nodeId: number, deltaX: number, deltaY: number) => void;
   setConnections: (updater: any) => void;
   saveToHistory: () => void;
   onOpenEditModal?: (node: any) => void;
@@ -43,7 +43,7 @@ export const Canvas: React.FC<CanvasProps> = ({
   highlightedPath,
   hoveredNode,
   setHoveredNode,
-  setNodes,
+  updateNodePosition,
   setConnections,
   saveToHistory,
   onOpenEditModal
@@ -110,12 +110,9 @@ export const Canvas: React.FC<CanvasProps> = ({
       const dx = x - state.offset.x - draggedNode.x;
       const dy = y - state.offset.y - draggedNode.y;
       
-      setNodes(nodes.map(n => {
-        if (selectedNodes.includes(n.id)) {
-          return { ...n, x: n.x + dx, y: n.y + dy };
-        }
-        return n;
-      }));
+      selectedNodes.forEach(nodeId => {
+        updateNodePosition(nodeId, dx, dy);
+      });
     } else if (state.isPanning) {
       updateState({ pan: { x: e.clientX - state.panStart.x, y: e.clientY - state.panStart.y } });
     } else if (state.isDraggingConnection) {
@@ -427,15 +424,39 @@ export const Canvas: React.FC<CanvasProps> = ({
               </text>
               
               {node.category && (
-                <text
-                  y={nodeSize + (isHovered ? 42 : 40)}
-                  textAnchor="middle"
-                  fill={colors.primary}
-                  fontSize="10"
-                  opacity={isHovered ? 1 : 0.7}
-                >
-                  {node.category}
-                </text>
+              <text
+                y={nodeSize + (isHovered ? 42 : 40)}
+                textAnchor="middle"
+                fill={colors.primary}
+                fontSize="10"
+                opacity={isHovered ? 1 : 0.7}
+              >
+                {node.category}
+              </text>
+              )}
+              
+              {/* Indicador de múltiplos workflows */}
+              {node.workflows && node.workflows.length > 1 && (
+                <>
+                  <circle
+                    cx={nodeSize - 8}
+                    cy={nodeSize - 8}
+                    r="10"
+                    fill="gold"
+                    stroke="white"
+                    strokeWidth="2"
+                  />
+                  <text
+                    x={nodeSize - 8}
+                    y={nodeSize - 4}
+                    textAnchor="middle"
+                    fill="black"
+                    fontSize="10"
+                    fontWeight="bold"
+                  >
+                    {node.workflows.length}
+                  </text>
+                </>
               )}
             </g>
           );

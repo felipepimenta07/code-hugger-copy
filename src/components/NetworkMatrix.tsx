@@ -80,6 +80,27 @@ export const NetworkMatrix = () => {
   const history = [];
   const historyIndex = -1;
 
+  // Função para atualizar posição de nós (corrige dragging)
+  const updateNodePosition = (nodeId: number, deltaX: number, deltaY: number) => {
+    const isProject = projects.find(p => p.id === nodeId);
+    const isPerson = people.find(p => p.id === nodeId);
+    const isBrand = brands.find(b => b.id === nodeId);
+    
+    if (isProject) {
+      setProjects(prev => prev.map(p => 
+        p.id === nodeId ? { ...p, x: p.x + deltaX, y: p.y + deltaY } : p
+      ));
+    } else if (isPerson) {
+      setPeople(prev => prev.map(p => 
+        p.id === nodeId ? { ...p, x: p.x + deltaX, y: p.y + deltaY } : p
+      ));
+    } else if (isBrand) {
+      setBrands(prev => prev.map(b => 
+        b.id === nodeId ? { ...b, x: b.x + deltaX, y: b.y + deltaY } : b
+      ));
+    }
+  };
+
   const setNodes = (updater) => {
     // TODO: implementar atualização de nós
   };
@@ -87,6 +108,95 @@ export const NetworkMatrix = () => {
   const setConnections = (updater) => {
     setAllConnections(typeof updater === 'function' ? updater(allConnections) : updater);
   };
+
+  // Auto-organização circular
+  const applyCircularLayout = (nodesToLayout: any[], centerX: number, centerY: number, radius: number) => {
+    const angleStep = (2 * Math.PI) / nodesToLayout.length;
+    return nodesToLayout.map((node, index) => ({
+      ...node,
+      x: centerX + radius * Math.cos(index * angleStep),
+      y: centerY + radius * Math.sin(index * angleStep)
+    }));
+  };
+
+  const updateAllNodePositions = (layoutedNodes: any[]) => {
+    layoutedNodes.forEach(node => {
+      const isProject = projects.find(p => p.id === node.id);
+      const isPerson = people.find(p => p.id === node.id);
+      const isBrand = brands.find(b => b.id === node.id);
+      
+      if (isProject) {
+        setProjects(prev => prev.map(p => p.id === node.id ? { ...p, x: node.x, y: node.y } : p));
+      } else if (isPerson) {
+        setPeople(prev => prev.map(p => p.id === node.id ? { ...p, x: node.x, y: node.y } : p));
+      } else if (isBrand) {
+        setBrands(prev => prev.map(b => b.id === node.id ? { ...b, x: node.x, y: node.y } : b));
+      }
+    });
+  };
+
+  const autoOrganize = () => {
+    if (viewMode === 'single') {
+      const layouted = applyCircularLayout(nodes, 500, 400, 280);
+      updateAllNodePositions(layouted);
+    } else {
+      workflows.forEach((workflow, wIndex) => {
+        const workflowNodes = allNodes.filter(n => n.workflows?.includes(workflow.id));
+        if (workflowNodes.length > 0) {
+          const clusterX = wIndex * 900 + 500;
+          const clusterY = 400;
+          const layouted = applyCircularLayout(workflowNodes, clusterX, clusterY, 280);
+          updateAllNodePositions(layouted);
+        }
+      });
+    }
+  };
+
+  // Funções auxiliares para zoom/pan automático
+  const calculateBounds = (nodesList: any[]) => {
+    if (nodesList.length === 0) return { minX: 0, maxX: 1000, minY: 0, maxY: 800 };
+    const xs = nodesList.map(n => n.x);
+    const ys = nodesList.map(n => n.y);
+    return {
+      minX: Math.min(...xs) - 150,
+      maxX: Math.max(...xs) + 150,
+      minY: Math.min(...ys) - 150,
+      maxY: Math.max(...ys) + 150
+    };
+  };
+
+  const calculateOptimalZoom = (bounds: any, width: number, height: number) => {
+    const scaleX = (width * 0.85) / (bounds.maxX - bounds.minX);
+    const scaleY = (height * 0.85) / (bounds.maxY - bounds.minY);
+    return Math.min(scaleX, scaleY, 1.2);
+  };
+
+  const calculateCenterPan = (bounds: any, zoom: number, width: number, height: number) => {
+    const centerX = (bounds.minX + bounds.maxX) / 2;
+    const centerY = (bounds.minY + bounds.maxY) / 2;
+    return {
+      x: width / 2 - centerX * zoom,
+      y: height / 2 - centerY * zoom
+    };
+  };
+
+  // Ajustar zoom/pan quando mudar de view ou workflow
+  useEffect(() => {
+    const width = window.innerWidth;
+    const height = window.innerHeight - 100;
+    
+    if (viewMode === 'single' && nodes.length > 0) {
+      const bounds = calculateBounds(nodes);
+      const zoom = calculateOptimalZoom(bounds, width, height);
+      const pan = calculateCenterPan(bounds, zoom, width, height);
+      updateState({ zoom, pan });
+    } else if (viewMode === 'master' && allNodes.length > 0) {
+      const bounds = calculateBounds(allNodes);
+      const zoom = calculateOptimalZoom(bounds, width, height);
+      const pan = calculateCenterPan(bounds, zoom, width, height);
+      updateState({ zoom, pan });
+    }
+  }, [viewMode, activeWorkflowId]);
 
   useKeyboardShortcuts({
     selectedNodes,
@@ -280,9 +390,16 @@ export const NetworkMatrix = () => {
       {showQuickActions && (
         <QuickActionsMenu
           setShowQuickActions={setShowQuickActions}
-          onAutoOrganize={() => {}}
+          onAutoOrganize={autoOrganize}
           onShowPathFinder={() => setShowPathFinder(true)}
-          onFitToScreen={() => {}}
+          onFitToScreen={() => {
+            const width = window.innerWidth;
+            const height = window.innerHeight - 100;
+            const bounds = calculateBounds(viewMode === 'single' ? nodes : allNodes);
+            const zoom = calculateOptimalZoom(bounds, width, height);
+            const pan = calculateCenterPan(bounds, zoom, width, height);
+            updateState({ zoom, pan });
+          }}
           onExport={exportData}
         />
       )}
@@ -421,7 +538,14 @@ export const NetworkMatrix = () => {
               className="p-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-all">
               <ZoomIn size={18} />
             </button>
-            <button onClick={() => {}} 
+            <button onClick={() => {
+              const width = window.innerWidth;
+              const height = window.innerHeight - 100;
+              const bounds = calculateBounds(viewMode === 'single' ? nodes : allNodes);
+              const zoom = calculateOptimalZoom(bounds, width, height);
+              const pan = calculateCenterPan(bounds, zoom, width, height);
+              updateState({ zoom, pan });
+            }} 
               className="p-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-all">
               <Maximize2 size={18} />
             </button>
@@ -495,7 +619,7 @@ export const NetworkMatrix = () => {
           highlightedPath={highlightedPath}
           hoveredNode={hoveredNode}
           setHoveredNode={setHoveredNode}
-          setNodes={setNodes}
+          updateNodePosition={updateNodePosition}
           setConnections={setConnections}
           saveToHistory={saveToHistory}
           onOpenEditModal={(node) => {
