@@ -21,6 +21,7 @@ interface CanvasProps {
   saveToHistory: () => void;
   onOpenEditModal?: (node: any) => void;
   projects?: any[];
+  allConnections?: any[];
 }
 
 const nodeColors = {
@@ -48,7 +49,8 @@ export const Canvas: React.FC<CanvasProps> = ({
   setConnections,
   saveToHistory,
   onOpenEditModal,
-  projects = []
+  projects = [],
+  allConnections = []
 }) => {
   const handleNodeMouseDown = (e: React.MouseEvent, nodeId: number) => {
     e.stopPropagation();
@@ -390,7 +392,23 @@ export const Canvas: React.FC<CanvasProps> = ({
           const to = nodes.find(n => n.id === conn.to);
           if (!from || !to) return null;
           
-          const isSelected = selectedConnection === idx;
+          // Encontrar índice correto em allConnections
+          const globalIdx = allConnections.findIndex(c => 
+            (c.from === conn.from && c.to === conn.to) || 
+            (c.from === conn.to && c.to === conn.from)
+          );
+          const isSelected = selectedConnection === globalIdx;
+          
+          // Detectar conexão indireta (2+ saltos)
+          const isIndirectConnection = (() => {
+            // Conexões diretas de "from"
+            const directFromIds = allConnections
+              .filter(c => c.from === from.id || c.to === from.id)
+              .map(c => c.from === from.id ? c.to : c.from);
+            
+            // Se "to" não está nas conexões diretas de "from", é indireto
+            return !directFromIds.includes(to.id);
+          })();
           
           // Detectar cross-projeto: pessoa/marca conectando para projeto diferente do anchor
           const getAssignment = (node: any) => {
@@ -434,7 +452,7 @@ export const Canvas: React.FC<CanvasProps> = ({
                 className="cursor-pointer"
                 onClick={(e) => { 
                   e.stopPropagation(); 
-                  setSelectedConnection(selectedConnection === idx ? null : idx);
+                  setSelectedConnection(selectedConnection === globalIdx ? null : globalIdx);
                   setSelectedNodes([]);
                 }}
               />
@@ -443,7 +461,7 @@ export const Canvas: React.FC<CanvasProps> = ({
                 stroke={strokeColor}
                 strokeWidth={strokeWidth}
                 fill="none"
-                strokeDasharray={conn.type === 'weak' && !isCrossProject && !isInPath ? '8,4' : '0'}
+                strokeDasharray={isIndirectConnection && !isCrossProject && !isInPath ? '8,4' : '0'}
                 markerEnd={conn.directional ? 'url(#arrowhead)' : ''}
                 className="pointer-events-none"
               />

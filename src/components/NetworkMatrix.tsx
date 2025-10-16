@@ -351,19 +351,14 @@ export const NetworkMatrix = () => {
         y: (300 - state.pan.y) / state.zoom
       };
       setNodes(prevNodes => [...prevNodes, newNode]);
-      
-      // Auto-conectar ao projeto ativo
-      if (activeProjectId && state.newNodeType !== 'project') {
-        setConnections(prev => [...prev, {
-          from: newNode.id,
-          to: activeProjectId,
-          type: 'strong',
-          directional: false
-        }]);
-      }
-      
       updateState({ newNodeName: '', editingNode: newNode, showSidebar: true, showAnalytics: false });
     }
+  };
+
+  const deleteConnection = (connectionIndex: number) => {
+    saveToHistory();
+    setConnections(allConnections.filter((_, idx) => idx !== connectionIndex));
+    setSelectedConnection(null);
   };
 
   const deleteNode = (nodeId) => {
@@ -430,17 +425,6 @@ export const NetworkMatrix = () => {
       ...nodeData
     };
     setNodes(prevNodes => [...prevNodes, newNode]);
-    
-    // Auto-conectar ao projeto ativo no Single View
-    if (viewMode === 'single' && activeProjectId && nodeCreationType !== 'project') {
-      setConnections(prev => [...prev, {
-        from: newNode.id,
-        to: activeProjectId,
-        type: 'strong',
-        directional: false
-      }]);
-    }
-    
     setShowNodeCreationModal(false);
     updateState({ editingNode: newNode, showSidebar: true });
   };
@@ -663,6 +647,22 @@ export const NetworkMatrix = () => {
             {selectedNodes.length} nó(s) selecionado(s) • Shift+Click para adicionar • Backspace para deletar
           </div>
         )}
+        
+        {selectedConnection !== null && (
+          <div className="mt-2 flex items-center gap-3">
+            <div className="text-sm text-amber-500 flex items-center gap-2">
+              <span className="inline-block w-2 h-2 bg-amber-500 rounded-full animate-pulse"></span>
+              Conexão selecionada
+            </div>
+            <button
+              onClick={() => deleteConnection(selectedConnection)}
+              className="px-3 py-1.5 bg-destructive text-destructive-foreground rounded-lg text-sm hover:opacity-90 transition-all flex items-center gap-1.5"
+            >
+              <Trash2 size={14} />
+              Deletar Conexão
+            </button>
+          </div>
+        )}
       </div>
 
       {showLegend && (
@@ -689,6 +689,7 @@ export const NetworkMatrix = () => {
           setConnections={setConnections}
           saveToHistory={saveToHistory}
           projects={projects}
+          allConnections={allConnections}
           onOpenEditModal={(node) => {
             setEditingNodeInModal(node);
             setNodeCreationType(node.type);
