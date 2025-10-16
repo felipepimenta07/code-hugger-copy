@@ -350,74 +350,6 @@ export const Canvas: React.FC<CanvasProps> = ({
           );
         })()}
         
-        {/* Red dotted lines between projects that share nodes (Master View) */}
-        {viewMode === 'master' && (() => {
-          const projectNodes = nodes.filter(n => n.type === 'project');
-          const projectLinks: Array<{A: any, B: any, shared: any[]}> = [];
-          
-          for (let i = 0; i < projectNodes.length; i++) {
-            for (let j = i + 1; j < projectNodes.length; j++) {
-              const A = projectNodes[i];
-              const B = projectNodes[j];
-              
-              // Find shared person/brand nodes
-              const shared = nodes.filter(n => n.type !== 'project').filter(n =>
-                allConnections.some(c => 
-                  (c.from === n.id && c.to === A.id) || (c.to === n.id && c.from === A.id)
-                ) &&
-                allConnections.some(c => 
-                  (c.from === n.id && c.to === B.id) || (c.to === n.id && c.from === B.id)
-                )
-              );
-              
-              if (shared.length > 0) {
-                projectLinks.push({ A, B, shared });
-              }
-            }
-          }
-          
-          return projectLinks.map((link, idx) => {
-            const { A, B, shared } = link;
-            const pathData = `M ${A.x},${A.y} Q ${(A.x + B.x) / 2},${(A.y + B.y) / 2 - 60} ${B.x},${B.y}`;
-            
-            // Gerar tooltip inteligente baseado nos tipos de nós compartilhados
-            let tooltipText = `Possível conexão entre ${A.name} e ${B.name}\n`;
-            
-            // Agrupar por tipo para descrições mais claras
-            const people = shared.filter(n => n.type === 'person');
-            const brands = shared.filter(n => n.type === 'brand');
-            
-            if (people.length > 0) {
-              tooltipText += `\nPessoas: ${people.slice(0, 3).map(p => p.name).join(', ')}${people.length > 3 ? ` +${people.length - 3}` : ''}`;
-            }
-            if (brands.length > 0) {
-              tooltipText += `\nEmpresas/Marcas: ${brands.slice(0, 3).map(b => b.name).join(', ')}${brands.length > 3 ? ` +${brands.length - 3}` : ''}`;
-            }
-            
-            return (
-              <g key={`project-link-${idx}`}>
-                <path
-                  d={pathData}
-                  stroke="transparent"
-                  strokeWidth="20"
-                  fill="none"
-                  className="cursor-help"
-                >
-                  <title>{tooltipText}</title>
-                </path>
-                <path
-                  d={pathData}
-                  stroke="#ef4444"
-                  strokeWidth="1.5"
-                  strokeDasharray="6,6"
-                  opacity="0.7"
-                  fill="none"
-                  className="pointer-events-none"
-                />
-              </g>
-            );
-          });
-        })()}
         
         {/* Clusters no Master View (por projeto) */}
         {viewMode === 'master' && projects.map(project => {
@@ -502,17 +434,16 @@ export const Canvas: React.FC<CanvasProps> = ({
           const toDepth = nodeDepths.get(to.id) ?? 0;
           const connectionLevel = Math.min(fromDepth, toDepth);
           
-          // Detectar cross-projeto: pessoa/marca conectando para projeto diferente do anchor
+          // Detectar cross-projeto: pessoas/marcas de projetos diferentes conectadas
           const getAssignment = (node: any) => {
             if (node.type === 'project') return node.id;
             return node.anchorProjectId ?? node.homeProjectId ?? null;
           };
           const fromProj = getAssignment(from);
           const toProj = getAssignment(to);
-          const isCrossProject = viewMode === 'master' && (
-            ((from.type === 'person' || from.type === 'brand') && to.type === 'project' && fromProj && fromProj !== toProj) ||
-            ((to.type === 'person' || to.type === 'brand') && from.type === 'project' && toProj && fromProj !== toProj)
-          );
+          const isCrossProject = viewMode === 'master' && 
+            fromProj && toProj && fromProj !== toProj &&
+            from.type !== 'project' && to.type !== 'project';
           
           const isInPath = highlightedPath.length > 0 && 
             highlightedPath.some((id, i) => 
@@ -535,7 +466,7 @@ export const Canvas: React.FC<CanvasProps> = ({
             strokeWidth = isCrossProject ? 4 : (conn.type === 'strong' ? 3 : 2);
           } else if (isCrossProject) {
             strokeColor = 'hsl(var(--connection-cross))';
-            strokeWidth = 4;
+            strokeWidth = 5;
           } else {
             // Normal connection - apply depth-based styling
             strokeColor = conn.type === 'strong' ? '#a855f7' : '#6366f1';
@@ -563,16 +494,22 @@ export const Canvas: React.FC<CanvasProps> = ({
           const controlY = (from.y + to.y) / 2 - 80;
           const pathData = `M ${from.x},${from.y} Q ${controlX},${controlY} ${to.x},${to.y}`;
           
-          // Gerar tooltip para conexões cross-project
+          // Gerar tooltip inteligente para conexões cross-project
           let tooltipText = '';
           if (isCrossProject) {
-            const personOrBrand = (from.type === 'person' || from.type === 'brand') ? from : to;
-            const project = from.type === 'project' ? from : to;
-            
-            if (personOrBrand.type === 'person') {
-              tooltipText = `${personOrBrand.name} - Trabalha no projeto ${project.name}`;
-            } else if (personOrBrand.type === 'brand') {
-              tooltipText = `${personOrBrand.name} - Participa do projeto ${project.name}`;
+            // Pessoa → Pessoa de projetos diferentes
+            if (from.type === 'person' && to.type === 'person') {
+              tooltipText = `${from.name} conectado a ${to.name} (projetos diferentes)`;
+            }
+            // Pessoa → Marca ou Marca → Pessoa
+            else if ((from.type === 'person' && to.type === 'brand') || (from.type === 'brand' && to.type === 'person')) {
+              const person = from.type === 'person' ? from : to;
+              const brand = from.type === 'brand' ? from : to;
+              tooltipText = `${person.name} trabalha na ${brand.name}`;
+            }
+            // Marca → Marca de projetos diferentes
+            else if (from.type === 'brand' && to.type === 'brand') {
+              tooltipText = `${from.name} parceira de ${to.name} (projetos diferentes)`;
             }
           }
           
