@@ -439,10 +439,12 @@ export const Canvas: React.FC<CanvasProps> = ({
           // Detectar cross-flow: nós de projetos diferentes (exceto projeto↔projeto)
           const getAssignment = (node: any) => {
             if (node.type === 'project') return node.id;
-            return node.anchorProjectId ?? node.homeProjectId ?? null;
+            // No master view, projectId já vem calculado
+            return node.projectId ?? node.anchorProjectId ?? node.homeProjectId ?? null;
           };
           const fromProj = getAssignment(from);
           const toProj = getAssignment(to);
+          
           const isCrossFlow = viewMode === 'master' &&
             fromProj && toProj && fromProj !== toProj &&
             !(from.type === 'project' && to.type === 'project');
@@ -467,7 +469,7 @@ export const Canvas: React.FC<CanvasProps> = ({
             strokeColor = '#f59e0b';
             strokeWidth = isCrossFlow ? 4 : (conn.type === 'strong' ? 3 : 2);
           } else if (isCrossFlow) {
-            strokeColor = 'hsl(var(--connection-cross))';
+            strokeColor = '#fb923c'; // Laranja para cross-flow
             strokeWidth = 4;
             strokeDasharray = '8,4';
           } else {
