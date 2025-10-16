@@ -441,11 +441,23 @@ export const NetworkMatrix = () => {
     return () => clearTimeout(timer);
   }, []);
 
-  // Auto-organizar quando voltar para Master View
+  // Auto-centralizar quando voltar para Master View
   useEffect(() => {
     if (viewMode === 'master' && projects.length > 0 && allNodes.length > 0) {
       const timer = setTimeout(() => {
         autoOrganize();
+        
+        // Após organizar, centralizar todos os projetos na tela
+        setTimeout(() => {
+          const projectNodes = allNodesWithAnchors.filter(n => n.type === 'project');
+          if (projectNodes.length > 0 && svgRef.current) {
+            const rect = svgRef.current.getBoundingClientRect();
+            const bounds = calculateBounds(projectNodes);
+            const optimalZoom = calculateOptimalZoom(bounds, rect.width, rect.height);
+            const centerPan = calculateCenterPan(bounds, optimalZoom, rect.width, rect.height);
+            updateState({ zoom: optimalZoom, pan: centerPan });
+          }
+        }, 100);
       }, 150);
       return () => clearTimeout(timer);
     }
@@ -813,19 +825,30 @@ export const NetworkMatrix = () => {
           </div>
           
           <div className="flex items-center gap-2">
-            <button 
-              onClick={() => {
-                const newMode = viewMode === 'master' ? 'single' : 'master';
-                setViewMode(newMode);
-              }}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                viewMode === 'master' 
-                  ? 'bg-primary text-primary-foreground shadow-lg' 
-                  : 'bg-secondary text-muted-foreground hover:text-foreground'
-              }`}>
-              <Layers size={16} className="inline mr-2" />
-              {viewMode === 'master' ? 'Master View' : 'Single View'}
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setViewMode('master')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  viewMode === 'master' 
+                    ? 'bg-purple-600 border border-purple-500 text-white shadow-lg' 
+                    : 'bg-transparent border border-purple-500/30 text-purple-400 hover:bg-purple-600/20'
+                }`}
+              >
+                <Layers size={16} className="inline mr-2" />
+                Master View
+              </button>
+              <button
+                onClick={() => setViewMode('single')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  viewMode === 'single' 
+                    ? 'bg-blue-600 border border-blue-500 text-white shadow-lg' 
+                    : 'bg-transparent border border-blue-500/30 text-blue-400 hover:bg-blue-600/20'
+                }`}
+              >
+                <Target size={16} className="inline mr-2" />
+                Single View
+              </button>
+            </div>
             
             <Button 
               onClick={() => setShowFlowStarterModal(true)}

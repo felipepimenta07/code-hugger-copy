@@ -379,20 +379,42 @@ export const Canvas: React.FC<CanvasProps> = ({
           return projectLinks.map((link, idx) => {
             const { A, B, shared } = link;
             const pathData = `M ${A.x},${A.y} Q ${(A.x + B.x) / 2},${(A.y + B.y) / 2 - 60} ${B.x},${B.y}`;
-            const tooltipText = `${shared.length} conexões: ${shared.slice(0, 5).map(x => x.name).join(', ')}${shared.length > 5 ? ` +${shared.length - 5}` : ''}`;
+            
+            // Gerar tooltip inteligente baseado nos tipos de nós compartilhados
+            let tooltipText = `Possível conexão entre ${A.name} e ${B.name}\n`;
+            
+            // Agrupar por tipo para descrições mais claras
+            const people = shared.filter(n => n.type === 'person');
+            const brands = shared.filter(n => n.type === 'brand');
+            
+            if (people.length > 0) {
+              tooltipText += `\nPessoas: ${people.slice(0, 3).map(p => p.name).join(', ')}${people.length > 3 ? ` +${people.length - 3}` : ''}`;
+            }
+            if (brands.length > 0) {
+              tooltipText += `\nEmpresas/Marcas: ${brands.slice(0, 3).map(b => b.name).join(', ')}${brands.length > 3 ? ` +${brands.length - 3}` : ''}`;
+            }
             
             return (
-              <path
-                key={`project-link-${idx}`}
-                d={pathData}
-                stroke="#ef4444"
-                strokeWidth="1.5"
-                strokeDasharray="6,6"
-                opacity="0.7"
-                fill="none"
-              >
-                <title>{tooltipText}</title>
-              </path>
+              <g key={`project-link-${idx}`}>
+                <path
+                  d={pathData}
+                  stroke="transparent"
+                  strokeWidth="20"
+                  fill="none"
+                  className="cursor-help"
+                >
+                  <title>{tooltipText}</title>
+                </path>
+                <path
+                  d={pathData}
+                  stroke="#ef4444"
+                  strokeWidth="1.5"
+                  strokeDasharray="6,6"
+                  opacity="0.7"
+                  fill="none"
+                  className="pointer-events-none"
+                />
+              </g>
             );
           });
         })()}
