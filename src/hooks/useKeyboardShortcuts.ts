@@ -15,6 +15,10 @@ interface KeyboardShortcutsProps {
   setSelectedConnection: (connection: any) => void;
   setShowPathFinder: (show: boolean) => void;
   setHighlightedPath: (path: number[]) => void;
+  nodes?: any[];
+  allNodes?: any[];
+  viewMode?: string;
+  zoom?: number;
 }
 
 export const useKeyboardShortcuts = ({
@@ -31,7 +35,11 @@ export const useKeyboardShortcuts = ({
   selectedConnection,
   setSelectedConnection,
   setShowPathFinder,
-  setHighlightedPath
+  setHighlightedPath,
+  nodes,
+  allNodes,
+  viewMode,
+  zoom
 }: KeyboardShortcutsProps) => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -75,6 +83,32 @@ export const useKeyboardShortcuts = ({
         updateState({ contextMenu: null, showSidebar: false });
         setShowPathFinder(false);
         setHighlightedPath([]);
+      }
+      
+      // Centralizar view (tecla C)
+      if ((e.key === 'c' || e.key === 'C') && !isTyping && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        const width = window.innerWidth;
+        const height = window.innerHeight - 100;
+        const currentNodes = viewMode === 'single' ? (nodes || []) : (allNodes || []);
+        
+        if (currentNodes.length > 0 && zoom) {
+          const xs = currentNodes.map((n: any) => n.x);
+          const ys = currentNodes.map((n: any) => n.y);
+          const minX = Math.min(...xs) - 150;
+          const maxX = Math.max(...xs) + 150;
+          const minY = Math.min(...ys) - 150;
+          const maxY = Math.max(...ys) + 150;
+          const centerX = (minX + maxX) / 2;
+          const centerY = (minY + maxY) / 2;
+          
+          updateState({
+            pan: {
+              x: width / 2 - centerX * zoom,
+              y: height / 2 - centerY * zoom
+            }
+          });
+        }
       }
     };
     

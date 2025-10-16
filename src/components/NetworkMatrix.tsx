@@ -339,21 +339,30 @@ export const NetworkMatrix = () => {
     if (viewMode === 'single') {
       autoOrganizeSingle(activeProjectId);
     } else {
-      // Master View: grid de clusters por projeto
-      const cols = Math.ceil(Math.sqrt(projects.length));
+      // Master View: grid de clusters por projeto com centralização automática
+      const cols = Math.max(2, Math.ceil(Math.sqrt(projects.length)));
+      
       projects.forEach((project, pIndex) => {
         const clusterNodes = allNodesWithAnchors.filter(n => 
           n.anchorProjectId === project.id && n.id !== project.id
         );
-        if (clusterNodes.length > 0 || true) {
-          const col = pIndex % cols;
-          const row = Math.floor(pIndex / cols);
-          const clusterX = col * 1400 + 700;
-          const clusterY = row * 1200 + 600;
-          const layouted = applyRadialLayout([project, ...clusterNodes], clusterX, clusterY);
-          updateAllNodePositions(layouted);
-        }
+        const col = pIndex % cols;
+        const row = Math.floor(pIndex / cols);
+        const clusterX = col * 1400 + 700;
+        const clusterY = row * 1200 + 600;
+        const layouted = applyRadialLayout([project, ...clusterNodes], clusterX, clusterY);
+        updateAllNodePositions(layouted);
       });
+      
+      // Centralizar view após organizar
+      setTimeout(() => {
+        const width = window.innerWidth;
+        const height = window.innerHeight - 100;
+        const bounds = calculateBounds(allNodes);
+        const zoom = calculateOptimalZoom(bounds, width, height);
+        const pan = calculateCenterPan(bounds, zoom, width, height);
+        updateState({ zoom, pan });
+      }, 100);
     }
   };
 
@@ -385,28 +394,7 @@ export const NetworkMatrix = () => {
     };
   };
 
-  // Ajustar zoom/pan quando mudar de view ou projeto
-  useEffect(() => {
-    const width = window.innerWidth;
-    const height = window.innerHeight - 100;
-    
-    if (viewMode === 'single' && activeProjectId) {
-      const activeProject = projects.find(p => p.id === activeProjectId);
-      if (activeProject) {
-        const desiredZoom = 0.95;
-        const pan = {
-          x: width / 2 - activeProject.x * desiredZoom,
-          y: height / 2 - activeProject.y * desiredZoom
-        };
-        updateState({ zoom: desiredZoom, pan });
-      }
-    } else if (viewMode === 'master' && allNodes.length > 0) {
-      const bounds = calculateBounds(allNodes);
-      const zoom = calculateOptimalZoom(bounds, width, height);
-      const pan = calculateCenterPan(bounds, zoom, width, height);
-      updateState({ zoom, pan });
-    }
-  }, [viewMode, activeProjectId]);
+  // Removed problematic useEffect that caused race conditions with view switching
 
   // Auto-organizar ao carregar a página
   useEffect(() => {
@@ -433,7 +421,11 @@ export const NetworkMatrix = () => {
     selectedConnection,
     setSelectedConnection,
     setShowPathFinder,
-    setHighlightedPath
+    setHighlightedPath,
+    nodes,
+    allNodes,
+    viewMode,
+    zoom: state.zoom
   });
 
   const addNode = () => {
@@ -588,11 +580,13 @@ export const NetworkMatrix = () => {
       setViewMode('single');
       toast.success(`Projeto "${newNode.name}" criado!`);
       
-      // Auto-organize after a short delay
+      // First timeout: let React recalculate nodes
       setTimeout(() => {
         autoOrganizeSingle(newNode.id);
-        
-        // Center view on new project
+      }, 50);
+      
+      // Second timeout: center view after layout is done
+      setTimeout(() => {
         const width = window.innerWidth;
         const height = window.innerHeight - 100;
         updateState({
@@ -602,7 +596,7 @@ export const NetworkMatrix = () => {
             y: height / 2 - newNode.y 
           }
         });
-      }, 100);
+      }, 250);
     } else {
       // For nodes created in Single View (including projects), just show sidebar
       updateState({ editingNode: newNode, showSidebar: true });
@@ -776,7 +770,17 @@ export const NetworkMatrix = () => {
           
           <div className="flex items-center gap-2">
             <button 
-              onClick={() => setViewMode(viewMode === 'master' ? 'single' : 'master')}
+              onClick={() => {
+                const newMode = viewMode === 'master' ? 'single' : 'master';
+                setViewMode(newMode);
+                
+                // Auto-reorganize when returning to Master View
+                if (newMode === 'master') {
+                  setTimeout(() => {
+                    autoOrganize();
+                  }, 100);
+                }
+              }}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                 viewMode === 'master' 
                   ? 'bg-primary text-primary-foreground shadow-lg' 
@@ -921,8 +925,14 @@ export const NetworkMatrix = () => {
           onGoToProject={(id) => {
             setActiveProjectId(id);
             setViewMode('single');
+            
+            // First timeout: let React recalculate nodes
             setTimeout(() => {
               autoOrganizeSingle(id);
+            }, 50);
+            
+            // Second timeout: center view after layout is done
+            setTimeout(() => {
               const project = projects.find(p => p.id === id);
               if (project) {
                 const width = window.innerWidth;
@@ -935,28 +945,66 @@ export const NetworkMatrix = () => {
                   }
                 });
               }
-            }, 100);
+            }, 250);
           }}
         />
 
-        {/* Botão flutuante de auto-organizar */}
+        {/* Botões flutuantes de ação */}
         <div className="fixed bottom-6 right-6 flex flex-col gap-3 z-30">
+          {/* Reorganizar Nós */}
           <button
             onClick={autoOrganize}
-            className="p-4 bg-primary text-primary-foreground rounded-full shadow-2xl hover:scale-110 transition-all group"
-            title="Auto-organizar (A)"
+            className="p-4 bg-primary text-primary-foreground rounded-full shadow-2xl hover:scale-110 transition-all group relative"
+            title="Reorganizar Nós (A)"
           >
             <Shuffle size={22} className="group-hover:rotate-12 transition-transform" />
+            <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 bg-popover text-popover-foreground px-3 py-1.5 rounded-lg text-sm font-medium shadow-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+              Reorganizar Nós
+            </span>
           </button>
           
+          {/* Centralizar View (NOVO) */}
+          <button
+            onClick={() => {
+              const width = window.innerWidth;
+              const height = window.innerHeight - 100;
+              const currentNodes = viewMode === 'single' ? nodes : allNodes;
+              
+              if (currentNodes.length > 0) {
+                const bounds = calculateBounds(currentNodes);
+                const centerX = (bounds.minX + bounds.maxX) / 2;
+                const centerY = (bounds.minY + bounds.maxY) / 2;
+                
+                updateState({
+                  pan: {
+                    x: width / 2 - centerX * state.zoom,
+                    y: height / 2 - centerY * state.zoom
+                  }
+                });
+              }
+            }}
+            className="p-3.5 bg-accent text-accent-foreground rounded-full shadow-xl hover:scale-110 transition-all group relative"
+            title="Centralizar (C)"
+          >
+            <Target size={20} />
+            <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 bg-popover text-popover-foreground px-3 py-1.5 rounded-lg text-sm font-medium shadow-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+              Centralizar
+            </span>
+          </button>
+          
+          {/* Encontrar Caminho */}
           <button
             onClick={() => setShowPathFinder(true)}
-            className="p-3.5 bg-secondary text-foreground rounded-full shadow-xl hover:scale-110 transition-all group"
+            className="p-3.5 bg-secondary text-foreground rounded-full shadow-xl hover:scale-110 transition-all group relative"
             title="Encontrar Caminho (P)"
           >
             <Route size={20} />
+            <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 bg-popover text-popover-foreground px-3 py-1.5 rounded-lg text-sm font-medium shadow-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+              Encontrar Caminho
+            </span>
           </button>
           
+          {/* Encaixar Tudo */}
           <button
             onClick={() => {
               const width = window.innerWidth;
@@ -966,10 +1014,13 @@ export const NetworkMatrix = () => {
               const pan = calculateCenterPan(bounds, zoom, width, height);
               updateState({ zoom, pan });
             }}
-            className="p-3.5 bg-secondary text-foreground rounded-full shadow-xl hover:scale-110 transition-all group"
-            title="Ajustar Tela (F)"
+            className="p-3.5 bg-secondary text-foreground rounded-full shadow-xl hover:scale-110 transition-all group relative"
+            title="Encaixar Tudo (F)"
           >
             <Maximize2 size={20} />
+            <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 bg-popover text-popover-foreground px-3 py-1.5 rounded-lg text-sm font-medium shadow-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+              Encaixar Tudo
+            </span>
           </button>
         </div>
 
@@ -1008,8 +1059,14 @@ export const NetworkMatrix = () => {
               setActiveProjectId(projectId);
               setViewMode('single');
               setShowProjectManager(false);
+              
+              // First timeout: let React recalculate nodes
               setTimeout(() => {
                 autoOrganizeSingle(projectId);
+              }, 50);
+              
+              // Second timeout: center view after layout is done
+              setTimeout(() => {
                 const activeProject = projects.find(p => p.id === projectId);
                 if (activeProject) {
                   const width = window.innerWidth;
@@ -1021,7 +1078,7 @@ export const NetworkMatrix = () => {
                   };
                   updateState({ zoom: desiredZoom, pan });
                 }
-              }, 100);
+              }, 250);
             }}
             onProjectCreate={(data) => {
               const newProject = {
