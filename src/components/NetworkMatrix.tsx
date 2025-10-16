@@ -36,7 +36,7 @@ export const NetworkMatrix = () => {
 
   const [activeProjectId, setActiveProjectId] = useState<number | null>(SAMPLE_PROJECTS[0]?.id ?? null);
   const [viewMode, setViewMode] = useState('master');
-  const [showLegend, setShowLegend] = useState(true);
+  const [showLegend, setShowLegend] = useState(false);
   const [selectedNodes, setSelectedNodes] = useState([]);
   const [selectedConnection, setSelectedConnection] = useState(null);
   const [customCategories, setCustomCategories] = useState({ person: [], brand: [], project: [] });
@@ -655,8 +655,7 @@ export const NetworkMatrix = () => {
         });
       }, 250);
     } else {
-      // For nodes created in Single View (including projects), just show sidebar
-      updateState({ editingNode: newNode, showSidebar: true });
+      // For nodes created in Single View (including projects), just close modal
       toast.success(`${newNode.name} criado!`);
     }
   };
