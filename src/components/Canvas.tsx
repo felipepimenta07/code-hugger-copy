@@ -518,7 +518,7 @@ export const Canvas: React.FC<CanvasProps> = ({
             highlightedPath.some((id, i) => 
               i < highlightedPath.length - 1 && 
               ((highlightedPath[i] === from.id && highlightedPath[i + 1] === to.id) ||
-               (highlightedPath[i] === to.id && highlightedPath[i + 1] === from.id))
+                (highlightedPath[i] === to.id && highlightedPath[i + 1] === from.id))
             );
           
           // Styling based on priority: path > selected > cross-project > depth-based
@@ -563,6 +563,19 @@ export const Canvas: React.FC<CanvasProps> = ({
           const controlY = (from.y + to.y) / 2 - 80;
           const pathData = `M ${from.x},${from.y} Q ${controlX},${controlY} ${to.x},${to.y}`;
           
+          // Gerar tooltip para conexões cross-project
+          let tooltipText = '';
+          if (isCrossProject) {
+            const personOrBrand = (from.type === 'person' || from.type === 'brand') ? from : to;
+            const project = from.type === 'project' ? from : to;
+            
+            if (personOrBrand.type === 'person') {
+              tooltipText = `${personOrBrand.name} - Trabalha no projeto ${project.name}`;
+            } else if (personOrBrand.type === 'brand') {
+              tooltipText = `${personOrBrand.name} - Participa do projeto ${project.name}`;
+            }
+          }
+          
           return (
             <g key={idx}>
               <path
@@ -576,7 +589,9 @@ export const Canvas: React.FC<CanvasProps> = ({
                   setSelectedConnection(selectedConnection === globalIdx ? null : globalIdx);
                   setSelectedNodes([]);
                 }}
-              />
+              >
+                {tooltipText && <title>{tooltipText}</title>}
+              </path>
               <path
                 d={pathData}
                 stroke={strokeColor}
