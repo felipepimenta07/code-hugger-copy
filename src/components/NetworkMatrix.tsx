@@ -413,7 +413,7 @@ export const NetworkMatrix = () => {
       y: nodeCreationPosition.y,
       ...nodeData
     };
-    setNodes([...nodes, newNode]);
+    setNodes(prevNodes => [...prevNodes, newNode]);
     setShowNodeCreationModal(false);
     updateState({ editingNode: newNode, showSidebar: true });
   };
