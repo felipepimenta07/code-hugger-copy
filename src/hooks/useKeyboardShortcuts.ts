@@ -11,6 +11,7 @@ interface KeyboardShortcutsProps {
   historyIndex: number;
   history: any[];
   saveToHistory: () => void;
+  selectedConnection: number | null;
   setSelectedConnection: (connection: any) => void;
   setShowPathFinder: (show: boolean) => void;
   setHighlightedPath: (path: number[]) => void;
@@ -27,6 +28,7 @@ export const useKeyboardShortcuts = ({
   historyIndex,
   history,
   saveToHistory,
+  selectedConnection,
   setSelectedConnection,
   setShowPathFinder,
   setHighlightedPath
@@ -38,6 +40,14 @@ export const useKeyboardShortcuts = ({
       
       if ((e.key === 'Delete' || e.key === 'Backspace') && !isTyping) {
         e.preventDefault();
+        
+        if (selectedConnection !== null) {
+          saveToHistory();
+          setConnections((prev: any[]) => prev.filter((_, idx) => idx !== selectedConnection));
+          setSelectedConnection(null);
+          return;
+        }
+        
         if (selectedNodes.length > 0) {
           saveToHistory();
           setNodes((prev: any[]) => prev.filter(n => !selectedNodes.includes(n.id)));
@@ -70,5 +80,5 @@ export const useKeyboardShortcuts = ({
     
     document.addEventListener('keydown', handleKeyDown, { capture: true });
     return () => document.removeEventListener('keydown', handleKeyDown, { capture: true });
-  }, [selectedNodes, historyIndex, history]);
+  }, [selectedNodes, selectedConnection, historyIndex, history]);
 };

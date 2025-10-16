@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Trash2, ZoomIn, ZoomOut, X, Building2, User, Target, Undo2, Redo2, Shuffle, Download, Upload, Maximize2, Info, Layers, BarChart3, Route, Sparkles } from 'lucide-react';
+import { Plus, Trash2, ZoomIn, ZoomOut, X, Building2, User, FolderKanban, Undo2, Redo2, Shuffle, Download, Upload, Maximize2, Info, Layers, BarChart3, Route, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { NodeEditor } from './NodeEditor';
 import { AnalyticsPanel } from './AnalyticsPanel';
@@ -139,7 +139,15 @@ export const NetworkMatrix = () => {
   };
 
   const setNodes = (updater) => {
-    // TODO: implementar atualização de nós
+    const newNodes = typeof updater === 'function' ? updater(allNodesWithAnchors) : updater;
+    
+    const newProjects = newNodes.filter(n => n.type === 'project');
+    const newPeople = newNodes.filter(n => n.type === 'person');
+    const newBrands = newNodes.filter(n => n.type === 'brand');
+    
+    setProjects(newProjects);
+    setPeople(newPeople);
+    setBrands(newBrands);
   };
 
   const setConnections = (updater) => {
@@ -244,8 +252,8 @@ export const NetworkMatrix = () => {
         if (clusterNodes.length > 0 || true) {
           const col = pIndex % cols;
           const row = Math.floor(pIndex / cols);
-          const clusterX = col * 1000 + 500;
-          const clusterY = row * 900 + 450;
+          const clusterX = col * 1400 + 700;
+          const clusterY = row * 1200 + 600;
           const layouted = applyRadialLayout([project, ...clusterNodes], clusterX, clusterY);
           updateAllNodePositions(layouted);
         }
@@ -321,6 +329,7 @@ export const NetworkMatrix = () => {
     historyIndex,
     history,
     saveToHistory,
+    selectedConnection,
     setSelectedConnection,
     setShowPathFinder,
     setHighlightedPath
@@ -605,7 +614,7 @@ export const NetworkMatrix = () => {
             <button 
               onClick={() => setShowProjectManager(!showProjectManager)}
               className={`p-2 rounded-lg transition-all ${showProjectManager ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'}`}>
-              <Target size={18} />
+              <FolderKanban size={18} />
             </button>
             <button 
               onClick={() => updateState({ showAnalytics: !state.showAnalytics, showSidebar: false })}

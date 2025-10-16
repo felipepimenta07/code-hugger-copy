@@ -332,7 +332,7 @@ export const Canvas: React.FC<CanvasProps> = ({
           const maxDist = Math.max(...allClusterNodes.map(n => 
             Math.sqrt((n.x - avgX) ** 2 + (n.y - avgY) ** 2)
           ), 200);
-          const radius = maxDist + 100;
+          const radius = maxDist + 150;
 
           return (
             <g key={project.id}>
@@ -343,8 +343,8 @@ export const Canvas: React.FC<CanvasProps> = ({
                 r={radius * 0.4}
                 fill="none"
                 stroke="url(#gradientPinkPurple)"
-                strokeWidth="25"
-                opacity="0.2"
+                strokeWidth="15"
+                opacity="0.15"
               />
               
               {/* Círculo preenchido */}
@@ -353,7 +353,7 @@ export const Canvas: React.FC<CanvasProps> = ({
                 cy={avgY}
                 r={radius + 40}
                 fill="#8b5cf615"
-                opacity="0.3"
+                opacity="0.2"
               />
               
               {/* Círculo pontilhado externo */}
@@ -365,7 +365,7 @@ export const Canvas: React.FC<CanvasProps> = ({
                 stroke="#8b5cf6"
                 strokeWidth="2"
                 strokeDasharray="10,5"
-                opacity="0.5"
+                opacity="0.35"
               />
               
               {/* Label do projeto */}
@@ -420,15 +420,17 @@ export const Canvas: React.FC<CanvasProps> = ({
           
           const strokeWidth = isInPath ? 5 : (isCrossProject ? 4 : (conn.type === 'strong' ? 3 : 2));
           
+          const controlX = (from.x + to.x) / 2;
+          const controlY = (from.y + to.y) / 2 - 80;
+          const pathData = `M ${from.x},${from.y} Q ${controlX},${controlY} ${to.x},${to.y}`;
+          
           return (
             <g key={idx}>
-              <line
-                x1={from.x}
-                y1={from.y}
-                x2={to.x}
-                y2={to.y}
+              <path
+                d={pathData}
                 stroke="transparent"
                 strokeWidth="15"
+                fill="none"
                 className="cursor-pointer"
                 onClick={(e) => { 
                   e.stopPropagation(); 
@@ -436,13 +438,11 @@ export const Canvas: React.FC<CanvasProps> = ({
                   setSelectedNodes([]);
                 }}
               />
-              <line
-                x1={from.x}
-                y1={from.y}
-                x2={to.x}
-                y2={to.y}
+              <path
+                d={pathData}
                 stroke={strokeColor}
                 strokeWidth={strokeWidth}
+                fill="none"
                 strokeDasharray={conn.type === 'weak' && !isCrossProject && !isInPath ? '8,4' : '0'}
                 markerEnd={conn.directional ? 'url(#arrowhead)' : ''}
                 className="pointer-events-none"
