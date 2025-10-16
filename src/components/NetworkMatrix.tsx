@@ -87,38 +87,63 @@ export const NetworkMatrix = () => {
     [allNodes, anchors]
   );
 
-  // BFS helper to get nodes within N jumps (for Single View depth visibility)
-  const getNodesForSingleView = (projectId: number, maxDepth = 4) => {
+  // Helper to get nodes for Single View (isolated per project, no cross-project traversal)
+  const getNodesForSingleView = (projectId: number) => {
     const byId = new Map(allNodesWithAnchors.map(n => [n.id, n]));
-    const depths = new Map<number, number>([[projectId, 0]]);
-    const queue = [projectId];
+    const projectNode = byId.get(projectId);
+    if (!projectNode) return [];
     
-    while (queue.length > 0) {
-      const curr = queue.shift()!;
-      const currDepth = depths.get(curr)!;
-      if (currDepth >= maxDepth) continue;
+    // Start with the active project
+    const included = new Set<number>([projectId]);
+    
+    // 1. Add people/brands directly connected to the project
+    allConnections.forEach(c => {
+      if (c.from === projectId) {
+        const node = byId.get(c.to);
+        if (node && node.type !== 'project') included.add(c.to);
+      }
+      if (c.to === projectId) {
+        const node = byId.get(c.from);
+        if (node && node.type !== 'project') included.add(c.from);
+      }
+    });
+    
+    // 2. Add connections between people/brands already included (social network within project)
+    let changed = true;
+    let iterations = 0;
+    const maxIterations = 3; // limit depth for performance
+    
+    while (changed && iterations < maxIterations) {
+      changed = false;
+      iterations++;
       
       allConnections.forEach(c => {
-        if (c.from === curr || c.to === curr) {
-          const nb = c.from === curr ? c.to : c.from;
-          if (!depths.has(nb) && byId.has(nb)) {
-            depths.set(nb, currDepth + 1);
-            queue.push(nb);
+        const fromNode = byId.get(c.from);
+        const toNode = byId.get(c.to);
+        
+        // Connection between two non-projects where at least one is already included
+        if (fromNode?.type !== 'project' && toNode?.type !== 'project') {
+          if (included.has(c.from) && !included.has(c.to)) {
+            included.add(c.to);
+            changed = true;
+          }
+          if (included.has(c.to) && !included.has(c.from)) {
+            included.add(c.from);
+            changed = true;
           }
         }
       });
     }
     
-    // Include "orphan" nodes with homeProjectId
-    const homeNodes = allNodesWithAnchors.filter(n => 
-      (n as any).homeProjectId === projectId && n.id !== projectId
-    );
-    const ids = new Set(depths.keys());
-    const bfsNodes = Array.from(ids).map(id => byId.get(id)!).filter(Boolean);
-    const merged = [byId.get(projectId)!, ...bfsNodes.filter(n => n.id !== projectId)];
-    homeNodes.forEach(n => { if (!ids.has(n.id)) merged.push(n); });
+    // 3. Include "orphan" nodes with homeProjectId (nodes created in project without connection)
+    allNodesWithAnchors.forEach(n => {
+      if ((n as any).homeProjectId === projectId && n.type !== 'project') {
+        included.add(n.id);
+      }
+    });
     
-    return merged;
+    // Return nodes: project first, then others
+    return [projectNode, ...Array.from(included).filter(id => id !== projectId).map(id => byId.get(id)!).filter(Boolean)];
   };
 
   // Filtrar nós e conexões por projeto/modo
@@ -132,9 +157,17 @@ export const NetworkMatrix = () => {
   const connections = viewMode === 'master'
     ? allConnections
     : allConnections.filter(c => {
-        const fromInNodes = nodes.some(n => n.id === c.from);
-        const toInNodes = nodes.some(n => n.id === c.to);
-        return fromInNodes && toInNodes;
+        const fromNode = nodes.find(n => n.id === c.from);
+        const toNode = nodes.find(n => n.id === c.to);
+        
+        // Both nodes must be in the filtered list
+        if (!fromNode || !toNode) return false;
+        
+        // If connection involves another project (not the active one), exclude it
+        if (fromNode.type === 'project' && fromNode.id !== activeProjectId) return false;
+        if (toNode.type === 'project' && toNode.id !== activeProjectId) return false;
+        
+        return true;
       });
 
   // Real history implementation

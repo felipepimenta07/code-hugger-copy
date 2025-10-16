@@ -70,8 +70,8 @@ export const Canvas: React.FC<CanvasProps> = ({
       visited.add(current.id);
       depths.set(current.id, current.depth);
       
-      // Find all connected nodes
-      allConnections
+      // Find all connected nodes (using filtered connections for current view)
+      connections
         .filter(c => c.from === current.id || c.to === current.id)
         .forEach(c => {
           const neighborId = c.from === current.id ? c.to : c.from;
