@@ -686,13 +686,12 @@ export const NetworkMatrix = () => {
       newNode.status = nodeData.projectStatus || nodeData.status || 'ativo';
       newNode.deadline = nodeData.startDate || nodeData.deadline || '';
       newNode.category = nodeData.category || 'M';
-    }
-
-    setNodes(prevNodes => [...prevNodes, newNode]);
-    setShowNodeCreationModal(false);
-    
-    // If creating a project from Master View, switch to Single View and center on it
-    if (nodeCreationType === 'project' && viewMode === 'master') {
+      
+      // Add to projects array
+      setProjects(prev => [...prev, newNode]);
+      setShowNodeCreationModal(false);
+      
+      // Switch to Single View and center on the new project
       setActiveProjectId(newNode.id);
       setViewMode('single');
       toast.success(`Projeto "${newNode.name}" criado!`);
@@ -714,8 +713,15 @@ export const NetworkMatrix = () => {
           }
         });
       }, 250);
-    } else {
-      // For nodes created in Single View (including projects), just close modal
+    } else if (nodeCreationType === 'person') {
+      // Add to people array
+      setPeople(prev => [...prev, newNode]);
+      setShowNodeCreationModal(false);
+      toast.success(`${newNode.name} criado!`);
+    } else if (nodeCreationType === 'brand') {
+      // Add to brands array
+      setBrands(prev => [...prev, newNode]);
+      setShowNodeCreationModal(false);
       toast.success(`${newNode.name} criado!`);
     }
   };
@@ -734,7 +740,16 @@ export const NetworkMatrix = () => {
   const handleNodeUpdate = (updatedData: any) => {
     if (editingNodeInModal) {
       saveToHistory();
-      setNodes(nodes.map(n => n.id === editingNodeInModal.id ? { ...n, ...updatedData } : n));
+      
+      // Update the correct array based on node type
+      if (editingNodeInModal.type === 'project') {
+        setProjects(prev => prev.map(n => n.id === editingNodeInModal.id ? { ...n, ...updatedData } : n));
+      } else if (editingNodeInModal.type === 'person') {
+        setPeople(prev => prev.map(n => n.id === editingNodeInModal.id ? { ...n, ...updatedData } : n));
+      } else if (editingNodeInModal.type === 'brand') {
+        setBrands(prev => prev.map(n => n.id === editingNodeInModal.id ? { ...n, ...updatedData } : n));
+      }
+      
       setShowNodeCreationModal(false);
       setEditingNodeInModal(null);
       updateState({ showSidebar: false });
@@ -964,24 +979,6 @@ export const NetworkMatrix = () => {
                 </TooltipTrigger>
                 <TooltipContent>
                   <p>Criar novo flow</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button 
-                    onClick={saveCurrentDesign}
-                    variant="outline" 
-                    size="icon" 
-                    className="rounded-lg hover:bg-green-500/10 border-green-500/30 text-green-500"
-                  >
-                    <Save size={18} />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Salvar Design Atual</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -1219,6 +1216,18 @@ export const NetworkMatrix = () => {
             <LayoutGrid size={22} className="group-hover:scale-110 transition-transform" />
             <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 bg-popover text-popover-foreground px-3 py-1.5 rounded-lg text-sm font-medium shadow-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
               Reorganizar Nós
+            </span>
+          </button>
+          
+          {/* Salvar Design */}
+          <button
+            onClick={saveCurrentDesign}
+            className="p-4 bg-green-600 text-white rounded-full shadow-2xl hover:scale-110 transition-all group relative"
+            title="Salvar Design (S)"
+          >
+            <Save size={22} className="group-hover:scale-110 transition-transform" />
+            <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 bg-popover text-popover-foreground px-3 py-1.5 rounded-lg text-sm font-medium shadow-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+              Salvar Design
             </span>
           </button>
           
