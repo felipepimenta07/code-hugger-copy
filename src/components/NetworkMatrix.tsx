@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Trash2, ZoomIn, ZoomOut, X, Building2, User, FolderKanban, Undo2, Redo2, LayoutGrid, Maximize2, Info, Layers, BarChart3, Route, Sparkles, Target } from 'lucide-react';
+import { Plus, Trash2, ZoomIn, ZoomOut, X, Building2, User, FolderKanban, Undo2, Redo2, LayoutGrid, Maximize2, Info, Layers, BarChart3, Route, Sparkles, Target, Save } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -63,13 +63,64 @@ export const NetworkMatrix = () => {
   // Combinar todos os nós
   const allNodes = [...projects, ...people, ...brands];
   
-  // Debug: log inicial
+  // Carregar design salvo ao iniciar
   React.useEffect(() => {
-    console.log('Projetos carregados:', projects);
-    console.log('Pessoas carregadas:', people);
-    console.log('Marcas carregadas:', brands);
-    console.log('Total de nós:', allNodes.length);
+    const savedDesign = localStorage.getItem('networkDesign');
+    if (savedDesign) {
+      try {
+        const { projects: savedProjects, people: savedPeople, brands: savedBrands } = JSON.parse(savedDesign);
+        
+        // Mesclar posições salvas com dados atuais
+        if (savedProjects) {
+          setProjects(prev => prev.map(p => {
+            const saved = savedProjects.find((sp: any) => sp.id === p.id);
+            return saved ? { ...p, x: saved.x, y: saved.y } : p;
+          }));
+        }
+        
+        if (savedPeople) {
+          setPeople(prev => prev.map(p => {
+            const saved = savedPeople.find((sp: any) => sp.id === p.id);
+            return saved ? { ...p, x: saved.x, y: saved.y } : p;
+          }));
+        }
+        
+        if (savedBrands) {
+          setBrands(prev => prev.map(b => {
+            const saved = savedBrands.find((sb: any) => sb.id === b.id);
+            return saved ? { ...b, x: saved.x, y: saved.y } : b;
+          }));
+        }
+        
+        console.log('Design carregado do localStorage');
+      } catch (error) {
+        console.error('Erro ao carregar design salvo:', error);
+      }
+    }
   }, []);
+  
+  // Função para salvar design atual
+  const saveCurrentDesign = () => {
+    try {
+      const designData = {
+        projects: projects.map(p => ({ id: p.id, x: p.x, y: p.y })),
+        people: people.map(p => ({ id: p.id, x: p.x, y: p.y })),
+        brands: brands.map(b => ({ id: b.id, x: b.x, y: b.y })),
+        savedAt: new Date().toISOString()
+      };
+      
+      localStorage.setItem('networkDesign', JSON.stringify(designData));
+      toast.success('Design salvo com sucesso!', {
+        description: 'As posições dos nós foram salvas.'
+      });
+      console.log('Design salvo:', designData);
+    } catch (error) {
+      console.error('Erro ao salvar design:', error);
+      toast.error('Erro ao salvar design', {
+        description: 'Não foi possível salvar o design atual.'
+      });
+    }
+  };
 
   // Calcular anchorProjectId por nó com busca de 2º grau (useMemo)
   const anchors = React.useMemo(() => {
@@ -207,13 +258,6 @@ export const NetworkMatrix = () => {
           return { ...n, projectId: project?.id, projectColor: project ? '#8b5cf6' : '#6366f1' };
         })
     : (activeProjectId ? getNodesForSingleView(activeProjectId) : []);
-  
-  // Debug: log dos nós filtrados
-  React.useEffect(() => {
-    console.log('ViewMode:', viewMode);
-    console.log('Nós com anchors:', allNodesWithAnchors);
-    console.log('Nós filtrados para renderizar:', nodes);
-  }, [viewMode, nodes.length]);
 
   const connections = viewMode === 'master'
     ? allConnections
@@ -920,6 +964,24 @@ export const NetworkMatrix = () => {
                 </TooltipTrigger>
                 <TooltipContent>
                   <p>Criar novo flow</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    onClick={saveCurrentDesign}
+                    variant="outline" 
+                    size="icon" 
+                    className="rounded-lg hover:bg-green-500/10 border-green-500/30 text-green-500"
+                  >
+                    <Save size={18} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Salvar Design Atual</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
