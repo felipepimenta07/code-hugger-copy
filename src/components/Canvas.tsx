@@ -760,6 +760,28 @@ export const Canvas: React.FC<CanvasProps> = ({
                 </>
               )}
               
+              {/* Alerta visual para nós órfãos */}
+              {(node as any).anchorProjectId === null && node.type !== 'project' && (
+                <g>
+                  <circle 
+                    cx={nodeSize - 8} 
+                    cy={-nodeSize + 8} 
+                    r="12" 
+                    fill="#ef4444" 
+                    stroke="white" 
+                    strokeWidth="2"
+                  />
+                  <text 
+                    x={nodeSize - 8} 
+                    y={-nodeSize + 12} 
+                    fontSize="14" 
+                    fontWeight="bold" 
+                    fill="white" 
+                    textAnchor="middle"
+                  >⚠</text>
+                </g>
+              )}
+              
               {viewMode === 'single' && (
                 <circle
                   cx={nodeSize + 10}

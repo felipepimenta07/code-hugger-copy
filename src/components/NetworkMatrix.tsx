@@ -61,24 +61,56 @@ export const NetworkMatrix = () => {
   // Combinar todos os nós
   const allNodes = [...projects, ...people, ...brands];
 
-  // Calcular anchorProjectId por nó (useMemo)
+  // Calcular anchorProjectId por nó com busca de 2º grau (useMemo)
   const anchors = React.useMemo(() => {
     const map = new Map<number, number | null>();
     const byId = new Map(allNodes.map(n => [n.id, n]));
+    
     for (const n of allNodes) {
+      // Projetos se ancoram neles mesmos
       if (n.type === 'project') { 
         map.set(n.id, n.id); 
         continue; 
       }
-      const connectedProjects = allConnections
+      
+      // 1º grau: buscar projeto conectado diretamente
+      const directProjects = allConnections
         .filter(c => c.from === n.id || c.to === n.id)
         .map(c => {
-          const other = c.from === n.id ? c.to : c.from;
-          const otherNode = byId.get(other);
-          return otherNode?.type === 'project' ? other : null;
+          const otherId = c.from === n.id ? c.to : c.from;
+          const otherNode = byId.get(otherId);
+          return otherNode?.type === 'project' ? otherId : null;
         })
         .filter(Boolean) as number[];
-      map.set(n.id, connectedProjects[0] ?? null);
+      
+      if (directProjects.length > 0) {
+        map.set(n.id, directProjects[0]);
+        continue;
+      }
+      
+      // 2º grau: buscar via vizinhos (pessoas/marcas conectadas a projetos)
+      const neighbors = allConnections
+        .filter(c => c.from === n.id || c.to === n.id)
+        .map(c => c.from === n.id ? c.to : c.from);
+      
+      let foundProject: number | null = null;
+      for (const neighborId of neighbors) {
+        const neighborProjects = allConnections
+          .filter(c => c.from === neighborId || c.to === neighborId)
+          .map(c => {
+            const otherId = c.from === neighborId ? c.to : c.from;
+            const otherNode = byId.get(otherId);
+            return otherNode?.type === 'project' ? otherId : null;
+          })
+          .filter(Boolean) as number[];
+        
+        if (neighborProjects.length > 0) {
+          foundProject = neighborProjects[0];
+          break;
+        }
+      }
+      
+      map.set(n.id, foundProject);
     }
     return map;
   }, [allNodes, allConnections]);
@@ -158,10 +190,12 @@ export const NetworkMatrix = () => {
 
   // Filtrar nós e conexões por projeto/modo
   const nodes = viewMode === 'master'
-    ? allNodesWithAnchors.map(n => {
-        const project = projects.find(p => p.id === n.anchorProjectId);
-        return { ...n, projectId: project?.id, projectColor: project ? '#8b5cf6' : '#6366f1' };
-      })
+    ? allNodesWithAnchors
+        .filter(n => n.type === 'project' || n.anchorProjectId !== null) // Ocultar nós órfãos
+        .map(n => {
+          const project = projects.find(p => p.id === n.anchorProjectId);
+          return { ...n, projectId: project?.id, projectColor: project ? '#8b5cf6' : '#6366f1' };
+        })
     : (activeProjectId ? getNodesForSingleView(activeProjectId) : []);
 
   const connections = viewMode === 'master'
