@@ -465,8 +465,9 @@ export const Canvas: React.FC<CanvasProps> = ({
             strokeColor = '#f59e0b';
             strokeWidth = isCrossProject ? 4 : (conn.type === 'strong' ? 3 : 2);
           } else if (isCrossProject) {
-            strokeColor = 'hsl(var(--connection-cross))';
-            strokeWidth = 5;
+            strokeColor = '#fb923c'; // Cor laranja vibrante para cross-flow
+            strokeWidth = 4;
+            strokeDasharray = '8,4'; // Linha pontilhada
           } else {
             // Normal connection - apply depth-based styling
             strokeColor = conn.type === 'strong' ? '#a855f7' : '#6366f1';
@@ -515,30 +516,57 @@ export const Canvas: React.FC<CanvasProps> = ({
           
           return (
             <g key={idx}>
-              <path
-                d={pathData}
-                stroke="transparent"
-                strokeWidth="15"
-                fill="none"
-                className="cursor-pointer"
-                onClick={(e) => { 
-                  e.stopPropagation(); 
-                  setSelectedConnection(selectedConnection === globalIdx ? null : globalIdx);
-                  setSelectedNodes([]);
-                }}
-              >
-                {tooltipText && <title>{tooltipText}</title>}
-              </path>
-              <path
-                d={pathData}
-                stroke={strokeColor}
-                strokeWidth={strokeWidth}
-                fill="none"
-                strokeDasharray={strokeDasharray}
-                opacity={opacity}
-                markerEnd={conn.directional ? 'url(#arrowhead)' : ''}
-                className="pointer-events-none"
-              />
+              {/* Área de hover maior para cross-project */}
+              {isCrossProject ? (
+                <>
+                  <path
+                    d={pathData}
+                    stroke="transparent"
+                    strokeWidth="20"
+                    fill="none"
+                    className="cursor-help"
+                  >
+                    <title>{tooltipText}</title>
+                  </path>
+                  <path
+                    d={pathData}
+                    stroke={strokeColor}
+                    strokeWidth={strokeWidth}
+                    fill="none"
+                    strokeDasharray={strokeDasharray}
+                    opacity={opacity}
+                    markerEnd={conn.directional ? 'url(#arrowhead)' : ''}
+                    className="pointer-events-none"
+                  />
+                </>
+              ) : (
+                <>
+                  <path
+                    d={pathData}
+                    stroke="transparent"
+                    strokeWidth="15"
+                    fill="none"
+                    className="cursor-pointer"
+                    onClick={(e) => { 
+                      e.stopPropagation(); 
+                      setSelectedConnection(selectedConnection === globalIdx ? null : globalIdx);
+                      setSelectedNodes([]);
+                    }}
+                  >
+                    {tooltipText && <title>{tooltipText}</title>}
+                  </path>
+                  <path
+                    d={pathData}
+                    stroke={strokeColor}
+                    strokeWidth={strokeWidth}
+                    fill="none"
+                    strokeDasharray={strokeDasharray}
+                    opacity={opacity}
+                    markerEnd={conn.directional ? 'url(#arrowhead)' : ''}
+                    className="pointer-events-none"
+                  />
+                </>
+              )}
             </g>
           );
         })}
