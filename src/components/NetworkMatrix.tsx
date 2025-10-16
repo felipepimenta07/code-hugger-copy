@@ -13,6 +13,7 @@ import { Canvas } from './Canvas';
 import { NodeCreationModal } from './NodeCreationModal';
 import { ProjectManagerPanel } from './ProjectManagerPanel';
 import { AIInsightsPanel } from './AIInsightsPanel';
+import { FlowStarterModal } from './FlowStarterModal';
 import { useNetworkState } from '@/hooks/useNetworkState';
 import { useNetworkHistory } from '@/hooks/useNetworkHistory';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
@@ -26,9 +27,9 @@ const CATEGORIES = {
 
 export const NetworkMatrix = () => {
   // Nova arquitetura: separar projetos, pessoas e marcas
-  const [projects, setProjects] = useState(SAMPLE_PROJECTS);
-  const [people, setPeople] = useState(SAMPLE_PEOPLE);
-  const [brands, setBrands] = useState(SAMPLE_BRANDS);
+  const [projects, setProjects] = useState<any[]>(SAMPLE_PROJECTS);
+  const [people, setPeople] = useState<any[]>(SAMPLE_PEOPLE);
+  const [brands, setBrands] = useState<any[]>(SAMPLE_BRANDS);
   const [allConnections, setAllConnections] = useState(SAMPLE_CONNECTIONS);
   const [workflows, setWorkflows] = useState(SAMPLE_WORKFLOWS);
 
@@ -52,6 +53,7 @@ export const NetworkMatrix = () => {
   const [editingProjectName, setEditingProjectName] = useState('');
   const [showProjectManager, setShowProjectManager] = useState(false);
   const [showAIInsights, setShowAIInsights] = useState(false);
+  const [showFlowStarterModal, setShowFlowStarterModal] = useState(false);
 
   const { state, updateState } = useNetworkState();
   const svgRef = useRef(null);
@@ -684,6 +686,7 @@ export const NetworkMatrix = () => {
         <ContextMenu 
           contextMenu={state.contextMenu}
           updateState={updateState}
+          viewMode={viewMode}
           onCreateNode={(type) => {
             if (state.contextMenu) {
               setNodeCreationType(type as 'person' | 'project' | 'brand');
@@ -728,6 +731,24 @@ export const NetworkMatrix = () => {
         />
       )}
 
+      {showFlowStarterModal && (
+        <FlowStarterModal
+          isOpen={showFlowStarterModal}
+          onClose={() => setShowFlowStarterModal(false)}
+          onSelectType={(type) => {
+            setShowFlowStarterModal(false);
+            const width = window.innerWidth;
+            const height = window.innerHeight - 100;
+            setNodeCreationType(type);
+            setNodeCreationPosition({
+              x: (width / 2 - state.pan.x) / state.zoom,
+              y: (height / 2 - state.pan.y) / state.zoom
+            });
+            setShowNodeCreationModal(true);
+          }}
+        />
+      )}
+
       {showNodeCreationModal && (
         <NodeCreationModal
           type={editingNodeInModal?.type || nodeCreationType}
@@ -765,60 +786,15 @@ export const NetworkMatrix = () => {
               {viewMode === 'master' ? 'Master View' : 'Single View'}
             </button>
             
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="icon" className="rounded-lg">
-                  <Plus size={18} />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem 
-                  onClick={() => {
-                    setNodeCreationType('project');
-                    const width = window.innerWidth;
-                    const height = window.innerHeight - 100;
-                    setNodeCreationPosition({
-                      x: (width / 2 - state.pan.x) / state.zoom,
-                      y: (height / 2 - state.pan.y) / state.zoom
-                    });
-                    setShowNodeCreationModal(true);
-                  }}
-                >
-                  <Target className="mr-2 h-4 w-4" />
-                  Criar Projeto
-                </DropdownMenuItem>
-                <DropdownMenuItem 
-                  onClick={() => {
-                    setNodeCreationType('person');
-                    const width = window.innerWidth;
-                    const height = window.innerHeight - 100;
-                    setNodeCreationPosition({
-                      x: (width / 2 - state.pan.x) / state.zoom,
-                      y: (height / 2 - state.pan.y) / state.zoom
-                    });
-                    setShowNodeCreationModal(true);
-                  }}
-                >
-                  <User className="mr-2 h-4 w-4" />
-                  Criar Pessoa
-                </DropdownMenuItem>
-                <DropdownMenuItem 
-                  onClick={() => {
-                    setNodeCreationType('brand');
-                    const width = window.innerWidth;
-                    const height = window.innerHeight - 100;
-                    setNodeCreationPosition({
-                      x: (width / 2 - state.pan.x) / state.zoom,
-                      y: (height / 2 - state.pan.y) / state.zoom
-                    });
-                    setShowNodeCreationModal(true);
-                  }}
-                >
-                  <Building2 className="mr-2 h-4 w-4" />
-                  Criar Marca
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <Button 
+              onClick={() => setShowFlowStarterModal(true)}
+              variant="outline" 
+              size="icon" 
+              className="rounded-lg hover:bg-primary/10"
+              title="Criar novo flow"
+            >
+              <Plus size={18} />
+            </Button>
             
             <div className="w-px h-8 bg-border mx-1"></div>
             
