@@ -87,25 +87,47 @@ export const NetworkMatrix = () => {
     [allNodes, anchors]
   );
 
+  // BFS helper to get nodes within N jumps (for Single View depth visibility)
+  const getNodesForSingleView = (projectId: number, maxDepth = 4) => {
+    const byId = new Map(allNodesWithAnchors.map(n => [n.id, n]));
+    const depths = new Map<number, number>([[projectId, 0]]);
+    const queue = [projectId];
+    
+    while (queue.length > 0) {
+      const curr = queue.shift()!;
+      const currDepth = depths.get(curr)!;
+      if (currDepth >= maxDepth) continue;
+      
+      allConnections.forEach(c => {
+        if (c.from === curr || c.to === curr) {
+          const nb = c.from === curr ? c.to : c.from;
+          if (!depths.has(nb) && byId.has(nb)) {
+            depths.set(nb, currDepth + 1);
+            queue.push(nb);
+          }
+        }
+      });
+    }
+    
+    // Include "orphan" nodes with homeProjectId
+    const homeNodes = allNodesWithAnchors.filter(n => 
+      (n as any).homeProjectId === projectId && n.id !== projectId
+    );
+    const ids = new Set(depths.keys());
+    const bfsNodes = Array.from(ids).map(id => byId.get(id)!).filter(Boolean);
+    const merged = [byId.get(projectId)!, ...bfsNodes.filter(n => n.id !== projectId)];
+    homeNodes.forEach(n => { if (!ids.has(n.id)) merged.push(n); });
+    
+    return merged;
+  };
+
   // Filtrar nós e conexões por projeto/modo
   const nodes = viewMode === 'master'
     ? allNodesWithAnchors.map(n => {
         const project = projects.find(p => p.id === n.anchorProjectId);
         return { ...n, projectId: project?.id, projectColor: project ? '#8b5cf6' : '#6366f1' };
       })
-    : (() => {
-        const activeProject = projects.find(p => p.id === activeProjectId);
-        if (!activeProject) return [];
-        const neighbors = allNodesWithAnchors.filter(n => {
-          const isConnected = allConnections.some(c => 
-            (c.from === n.id && c.to === activeProject.id) || 
-            (c.to === n.id && c.from === activeProject.id)
-          );
-          const isHome = (n as any).homeProjectId === activeProjectId && n.id !== activeProjectId;
-          return isConnected || isHome;
-        });
-        return [{ ...activeProject, anchorProjectId: activeProject.id }, ...neighbors];
-      })();
+    : (activeProjectId ? getNodesForSingleView(activeProjectId) : []);
 
   const connections = viewMode === 'master'
     ? allConnections
@@ -115,13 +137,53 @@ export const NetworkMatrix = () => {
         return fromInNodes && toInNodes;
       });
 
-  const saveToHistory = () => {};
-  const undo = () => {};
-  const redo = () => {};
-  const history = [];
-  const historyIndex = -1;
+  // Real history implementation
+  const [history, setHistory] = useState<any[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
 
-  // Função para atualizar posição de nós (corrige dragging)
+  const saveToHistory = () => {
+    const snapshot = {
+      projects: [...projects],
+      people: [...people],
+      brands: [...brands],
+      allConnections: [...allConnections],
+      viewMode,
+      activeProjectId
+    };
+    const newHistory = history.slice(0, historyIndex + 1);
+    newHistory.push(snapshot);
+    if (newHistory.length > 50) newHistory.shift();
+    setHistory(newHistory);
+    setHistoryIndex(newHistory.length - 1);
+  };
+
+  const undo = () => {
+    if (historyIndex > 0) {
+      const snapshot = history[historyIndex - 1];
+      setProjects(snapshot.projects);
+      setPeople(snapshot.people);
+      setBrands(snapshot.brands);
+      setAllConnections(snapshot.allConnections);
+      setViewMode(snapshot.viewMode);
+      setActiveProjectId(snapshot.activeProjectId);
+      setHistoryIndex(historyIndex - 1);
+    }
+  };
+
+  const redo = () => {
+    if (historyIndex < history.length - 1) {
+      const snapshot = history[historyIndex + 1];
+      setProjects(snapshot.projects);
+      setPeople(snapshot.people);
+      setBrands(snapshot.brands);
+      setAllConnections(snapshot.allConnections);
+      setViewMode(snapshot.viewMode);
+      setActiveProjectId(snapshot.activeProjectId);
+      setHistoryIndex(historyIndex + 1);
+    }
+  };
+
+  // Função para atualizar posição de nós (corrige dragging) and clear highlight
   const updateNodePosition = (nodeId: number, deltaX: number, deltaY: number) => {
     const isProject = projects.find(p => p.id === nodeId);
     const isPerson = people.find(p => p.id === nodeId);
@@ -129,15 +191,15 @@ export const NetworkMatrix = () => {
     
     if (isProject) {
       setProjects(prev => prev.map(p => 
-        p.id === nodeId ? { ...p, x: p.x + deltaX, y: p.y + deltaY } : p
+        p.id === nodeId ? { ...p, x: p.x + deltaX, y: p.y + deltaY, isNewHighlight: false } : p
       ));
     } else if (isPerson) {
       setPeople(prev => prev.map(p => 
-        p.id === nodeId ? { ...p, x: p.x + deltaX, y: p.y + deltaY } : p
+        p.id === nodeId ? { ...p, x: p.x + deltaX, y: p.y + deltaY, isNewHighlight: false } : p
       ));
     } else if (isBrand) {
       setBrands(prev => prev.map(b => 
-        b.id === nodeId ? { ...b, x: b.x + deltaX, y: b.y + deltaY } : b
+        b.id === nodeId ? { ...b, x: b.x + deltaX, y: b.y + deltaY, isNewHighlight: false } : b
       ));
     }
   };
@@ -350,7 +412,8 @@ export const NetworkMatrix = () => {
         name: state.newNodeName,
         type: state.newNodeType,
         x: (window.innerWidth / 2 - state.pan.x) / state.zoom,
-        y: (300 - state.pan.y) / state.zoom
+        y: (300 - state.pan.y) / state.zoom,
+        isNewHighlight: true
       };
 
       // Set homeProjectId for person/brand nodes created in single view
@@ -367,6 +430,7 @@ export const NetworkMatrix = () => {
 
       setNodes(prevNodes => [...prevNodes, newNode]);
       updateState({ newNodeName: '', editingNode: newNode, showSidebar: true, showAnalytics: false });
+      toast.success(`${newNode.name} criado!`);
     }
   };
 
@@ -380,16 +444,18 @@ export const NetworkMatrix = () => {
         const fromNode = allNodesWithAnchors.find(n => n.id === conn.from);
         const toNode = allNodesWithAnchors.find(n => n.id === conn.to);
         
-        // If connection is between active project and a person/brand without homeProjectId
+        // If connection involves the active project, set homeProjectId on the other node
         [fromNode, toNode].forEach(node => {
-          if (node && (node.type === 'person' || node.type === 'brand') && !(node as any).homeProjectId) {
+          if (node && (node.type === 'person' || node.type === 'brand' || node.type === 'project')) {
             const otherNodeId = node.id === conn.from ? conn.to : conn.from;
-            if (otherNodeId === activeProjectId) {
+            if (otherNodeId === activeProjectId && !(node as any).homeProjectId) {
               // Set homeProjectId to keep it visible after connection deletion
               if (node.type === 'person') {
                 setPeople(prev => prev.map(p => p.id === node.id ? { ...p, homeProjectId: activeProjectId } : p));
               } else if (node.type === 'brand') {
                 setBrands(prev => prev.map(b => b.id === node.id ? { ...b, homeProjectId: activeProjectId } : b));
+              } else if (node.type === 'project') {
+                setProjects(prev => prev.map(p => p.id === node.id ? { ...p, homeProjectId: activeProjectId } : p));
               }
             }
           }
@@ -462,12 +528,15 @@ export const NetworkMatrix = () => {
       type: nodeCreationType,
       x: nodeCreationPosition.x,
       y: nodeCreationPosition.y,
+      isNewHighlight: true,
       ...nodeData
     };
 
-    // Set homeProjectId for person/brand nodes created in single view
-    if (viewMode === 'single' && activeProjectId && (nodeCreationType === 'person' || nodeCreationType === 'brand')) {
-      newNode.homeProjectId = activeProjectId;
+    // Set homeProjectId for nodes created in single view
+    if (viewMode === 'single' && activeProjectId) {
+      if (nodeCreationType === 'person' || nodeCreationType === 'brand' || nodeCreationType === 'project') {
+        newNode.homeProjectId = activeProjectId;
+      }
     }
 
     // Set default fields for projects
@@ -481,8 +550,8 @@ export const NetworkMatrix = () => {
     setNodes(prevNodes => [...prevNodes, newNode]);
     setShowNodeCreationModal(false);
     
-    // If creating a project, switch to Single View and center on it
-    if (nodeCreationType === 'project') {
+    // If creating a project from Master View, switch to Single View and center on it
+    if (nodeCreationType === 'project' && viewMode === 'master') {
       setActiveProjectId(newNode.id);
       setViewMode('single');
       toast.success(`Projeto "${newNode.name}" criado!`);
@@ -503,7 +572,9 @@ export const NetworkMatrix = () => {
         });
       }, 100);
     } else {
+      // For nodes created in Single View (including projects), just show sidebar
       updateState({ editingNode: newNode, showSidebar: true });
+      toast.success(`${newNode.name} criado!`);
     }
   };
 
@@ -840,6 +911,25 @@ export const NetworkMatrix = () => {
             setNodeCreationType(node.type);
             setShowNodeCreationModal(true);
             updateState({ showSidebar: false });
+          }}
+          onGoToProject={(id) => {
+            setActiveProjectId(id);
+            setViewMode('single');
+            setTimeout(() => {
+              autoOrganizeSingle(id);
+              const project = projects.find(p => p.id === id);
+              if (project) {
+                const width = window.innerWidth;
+                const height = window.innerHeight - 100;
+                updateState({
+                  zoom: 0.95,
+                  pan: { 
+                    x: width / 2 - project.x * 0.95, 
+                    y: height / 2 - project.y * 0.95 
+                  }
+                });
+              }
+            }, 100);
           }}
         />
 

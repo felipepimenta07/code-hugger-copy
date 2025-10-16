@@ -22,6 +22,7 @@ interface CanvasProps {
   onOpenEditModal?: (node: any) => void;
   projects?: any[];
   allConnections?: any[];
+  onGoToProject?: (id: number) => void;
 }
 
 const nodeColors = {
@@ -50,7 +51,8 @@ export const Canvas: React.FC<CanvasProps> = ({
   saveToHistory,
   onOpenEditModal,
   projects = [],
-  allConnections = []
+  allConnections = [],
+  onGoToProject
 }) => {
   // BFS to calculate depth from center node (for connection styling by distance)
   const calculateNodeDepths = () => {
@@ -348,6 +350,53 @@ export const Canvas: React.FC<CanvasProps> = ({
           );
         })()}
         
+        {/* Red dotted lines between projects that share nodes (Master View) */}
+        {viewMode === 'master' && (() => {
+          const projectNodes = nodes.filter(n => n.type === 'project');
+          const projectLinks: Array<{A: any, B: any, shared: any[]}> = [];
+          
+          for (let i = 0; i < projectNodes.length; i++) {
+            for (let j = i + 1; j < projectNodes.length; j++) {
+              const A = projectNodes[i];
+              const B = projectNodes[j];
+              
+              // Find shared person/brand nodes
+              const shared = nodes.filter(n => n.type !== 'project').filter(n =>
+                allConnections.some(c => 
+                  (c.from === n.id && c.to === A.id) || (c.to === n.id && c.from === A.id)
+                ) &&
+                allConnections.some(c => 
+                  (c.from === n.id && c.to === B.id) || (c.to === n.id && c.from === B.id)
+                )
+              );
+              
+              if (shared.length > 0) {
+                projectLinks.push({ A, B, shared });
+              }
+            }
+          }
+          
+          return projectLinks.map((link, idx) => {
+            const { A, B, shared } = link;
+            const pathData = `M ${A.x},${A.y} Q ${(A.x + B.x) / 2},${(A.y + B.y) / 2 - 60} ${B.x},${B.y}`;
+            const tooltipText = `${shared.length} conexões: ${shared.slice(0, 5).map(x => x.name).join(', ')}${shared.length > 5 ? ` +${shared.length - 5}` : ''}`;
+            
+            return (
+              <path
+                key={`project-link-${idx}`}
+                d={pathData}
+                stroke="#ef4444"
+                strokeWidth="1.5"
+                strokeDasharray="6,6"
+                opacity="0.7"
+                fill="none"
+              >
+                <title>{tooltipText}</title>
+              </path>
+            );
+          });
+        })()}
+        
         {/* Clusters no Master View (por projeto) */}
         {viewMode === 'master' && projects.map(project => {
           const clusterNodes = nodes.filter(n => n.projectId === project.id);
@@ -429,7 +478,7 @@ export const Canvas: React.FC<CanvasProps> = ({
           // Calculate connection depth level based on node depths (distance from center)
           const fromDepth = nodeDepths.get(from.id) ?? 0;
           const toDepth = nodeDepths.get(to.id) ?? 0;
-          const connectionLevel = Math.max(fromDepth, toDepth);
+          const connectionLevel = Math.min(fromDepth, toDepth);
           
           // Detectar cross-projeto: pessoa/marca conectando para projeto diferente do anchor
           const getAssignment = (node: any) => {
@@ -608,6 +657,18 @@ export const Canvas: React.FC<CanvasProps> = ({
                 </>
               )}
               
+              {/* Yellow highlight for new nodes */}
+              {(node as any).isNewHighlight && (
+                <circle 
+                  r={nodeSize + 10} 
+                  fill="none" 
+                  stroke="#facc15" 
+                  strokeWidth="4" 
+                  opacity="0.9"
+                  className="animate-pulse"
+                />
+              )}
+              
               {/* Nós Normais (Inner/Middle) */}
               {!isCenterNode && (node as any).level !== 'outer' && (
                 <>
@@ -781,6 +842,36 @@ export const Canvas: React.FC<CanvasProps> = ({
                     {node.workflows.length}
                   </text>
                 </>
+              )}
+              
+              {/* Eye icon for project nodes to navigate */}
+              {node.type === 'project' && onGoToProject && (
+                <g 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onGoToProject(node.id);
+                  }} 
+                  className="cursor-pointer"
+                  opacity={isHovered ? 1 : 0.7}
+                >
+                  <circle 
+                    cx={nodeSize + 12} 
+                    cy={-nodeSize + 12} 
+                    r="10" 
+                    fill="rgba(0,0,0,.7)" 
+                    stroke="white" 
+                    strokeWidth="2" 
+                  />
+                  <text 
+                    x={nodeSize + 12} 
+                    y={-nodeSize + 16} 
+                    textAnchor="middle" 
+                    fill="white" 
+                    fontSize="12"
+                  >
+                    👁
+                  </text>
+                </g>
               )}
             </g>
           );
