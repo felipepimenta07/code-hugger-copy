@@ -235,13 +235,37 @@ export const Canvas: React.FC<CanvasProps> = ({
                 opacity="0.25"
               />
               
+              {/* Sun Rays - Traços radiais */}
+              {Array.from({ length: 48 }).map((_, i) => {
+                const angle = (i * Math.PI * 2) / 48;
+                const innerRadius = 130;
+                const outerRadius = 165;
+                const x1 = centerNode.x + innerRadius * Math.cos(angle);
+                const y1 = centerNode.y + innerRadius * Math.sin(angle);
+                const x2 = centerNode.x + outerRadius * Math.cos(angle);
+                const y2 = centerNode.y + outerRadius * Math.sin(angle);
+                
+                return (
+                  <line
+                    key={i}
+                    x1={x1}
+                    y1={y1}
+                    x2={x2}
+                    y2={y2}
+                    stroke="rgba(139, 92, 246, 0.6)"
+                    strokeWidth="2"
+                    opacity={(i % 2 === 0) ? 0.8 : 0.4}
+                  />
+                );
+              })}
+              
               {/* Círculo pontilhado nível 1 */}
               <circle
                 cx={centerNode.x}
                 cy={centerNode.y}
-                r={180}
+                r={200}
                 fill="none"
-                stroke="rgba(139, 92, 246, 0.3)"
+                stroke="rgba(139, 92, 246, 0.35)"
                 strokeWidth="1.5"
                 strokeDasharray="4,8"
               />
@@ -250,9 +274,9 @@ export const Canvas: React.FC<CanvasProps> = ({
               <circle
                 cx={centerNode.x}
                 cy={centerNode.y}
-                r={320}
+                r={280}
                 fill="none"
-                stroke="rgba(139, 92, 246, 0.2)"
+                stroke="rgba(139, 92, 246, 0.25)"
                 strokeWidth="1.5"
                 strokeDasharray="4,8"
               />
@@ -261,7 +285,29 @@ export const Canvas: React.FC<CanvasProps> = ({
               <circle
                 cx={centerNode.x}
                 cy={centerNode.y}
-                r={480}
+                r={350}
+                fill="none"
+                stroke="rgba(139, 92, 246, 0.2)"
+                strokeWidth="1.5"
+                strokeDasharray="4,8"
+              />
+              
+              {/* Círculo pontilhado nível 4 */}
+              <circle
+                cx={centerNode.x}
+                cy={centerNode.y}
+                r={440}
+                fill="none"
+                stroke="rgba(139, 92, 246, 0.15)"
+                strokeWidth="1"
+                strokeDasharray="3,6"
+              />
+              
+              {/* Círculo pontilhado nível 5 */}
+              <circle
+                cx={centerNode.x}
+                cy={centerNode.y}
+                r={520}
                 fill="none"
                 stroke="rgba(139, 92, 246, 0.1)"
                 strokeWidth="1"
@@ -349,11 +395,11 @@ export const Canvas: React.FC<CanvasProps> = ({
             );
           
           let strokeColor;
-          if (isInPath) strokeColor = 'hsl(var(--connection-path))';
+          if (isInPath) strokeColor = '#10b981';
           else if (isSelected) strokeColor = '#f59e0b';
           else if (isCrossWorkflow) strokeColor = 'hsl(var(--connection-cross))';
-          else if (conn.type === 'strong') strokeColor = 'hsl(var(--connection-strong))';
-          else strokeColor = 'hsl(var(--connection-weak))';
+          else if (conn.type === 'strong') strokeColor = '#a855f7';
+          else strokeColor = '#6366f1';
           
           const strokeWidth = isInPath ? 5 : (isCrossWorkflow ? 4 : (conn.type === 'strong' ? 3 : 2));
           
@@ -409,10 +455,10 @@ export const Canvas: React.FC<CanvasProps> = ({
           
           // Tamanho por nível hierárquico
           let baseSize = 40;
-          if ((node as any).level === 'center') baseSize = 55;
-          else if ((node as any).level === 'inner') baseSize = 40 + Math.min(connectionCount * 2, 15);
-          else if ((node as any).level === 'middle') baseSize = 32 + Math.min(connectionCount, 10);
-          else if ((node as any).level === 'outer') baseSize = 24;
+          if ((node as any).level === 'center') baseSize = 70;
+          else if ((node as any).level === 'inner') baseSize = 55;
+          else if ((node as any).level === 'middle') baseSize = 35;
+          else if ((node as any).level === 'outer') baseSize = 22;
           else baseSize = 40 + Math.min(connectionCount * 2, 15);
           
           const nodeSize = baseSize;
@@ -455,8 +501,29 @@ export const Canvas: React.FC<CanvasProps> = ({
                 </>
               )}
               
-              {/* Nós Normais */}
-              {!isCenterNode && (
+              {/* Nós Outer (Cyan especial) */}
+              {!isCenterNode && (node as any).level === 'outer' && (
+                <>
+                  <circle
+                    r={nodeSize + 15}
+                    fill="rgba(6, 182, 212, 0.3)"
+                    filter="url(#glow)"
+                  />
+                  <circle
+                    r={nodeSize}
+                    fill="rgba(6, 182, 212, 0.2)"
+                  />
+                  <circle
+                    r={nodeSize - 2}
+                    fill="#1a1a1a"
+                    stroke="#06b6d4"
+                    strokeWidth="3"
+                  />
+                </>
+              )}
+              
+              {/* Nós Normais (Inner/Middle) */}
+              {!isCenterNode && (node as any).level !== 'outer' && (
                 <>
                   <circle
                     r={nodeSize + (isInPath ? 35 : (isHovered ? 30 : 20))}

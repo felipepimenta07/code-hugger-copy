@@ -118,11 +118,19 @@ export const NetworkMatrix = () => {
   const distributeInCircle = (nodesToLayout: any[], centerX: number, centerY: number, radius: number) => {
     if (nodesToLayout.length === 0) return [];
     const angleStep = (2 * Math.PI) / nodesToLayout.length;
-    return nodesToLayout.map((node, index) => ({
-      ...node,
-      x: centerX + radius * Math.cos(index * angleStep - Math.PI / 2),
-      y: centerY + radius * Math.sin(index * angleStep - Math.PI / 2)
-    }));
+    return nodesToLayout.map((node, index) => {
+      // Adicionar variação orgânica (jitter)
+      const radiusVariation = (Math.random() - 0.5) * 30;
+      const angleVariation = (Math.random() - 0.5) * 0.2;
+      const finalRadius = radius + radiusVariation;
+      const finalAngle = index * angleStep - Math.PI / 2 + angleVariation;
+      
+      return {
+        ...node,
+        x: centerX + finalRadius * Math.cos(finalAngle),
+        y: centerY + finalRadius * Math.sin(finalAngle)
+      };
+    });
   };
 
   // Layout radial hierárquico (3 níveis: inner, middle, outer)
@@ -145,9 +153,9 @@ export const NetworkMatrix = () => {
     
     const result = [
       { ...centerNode, x: centerX, y: centerY, level: 'center' },
-      ...distributeInCircle(innerRing, centerX, centerY, 180).map(n => ({ ...n, level: 'inner' })),
-      ...distributeInCircle(middleRing, centerX, centerY, 320).map(n => ({ ...n, level: 'middle' })),
-      ...distributeInCircle(outerRing, centerX, centerY, 480).map(n => ({ ...n, level: 'outer' }))
+      ...distributeInCircle(innerRing, centerX, centerY, 200).map(n => ({ ...n, level: 'inner' })),
+      ...distributeInCircle(middleRing, centerX, centerY, 350).map(n => ({ ...n, level: 'middle' })),
+      ...distributeInCircle(outerRing, centerX, centerY, 520).map(n => ({ ...n, level: 'outer' }))
     ];
     
     return result;
@@ -235,6 +243,17 @@ export const NetworkMatrix = () => {
       updateState({ zoom, pan });
     }
   }, [viewMode, activeWorkflowId]);
+
+  // Auto-organizar ao carregar a página
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (allNodes.length > 0) {
+        autoOrganize();
+      }
+    }, 100);
+    
+    return () => clearTimeout(timer);
+  }, []);
 
   useKeyboardShortcuts({
     selectedNodes,
@@ -667,6 +686,40 @@ export const NetworkMatrix = () => {
             updateState({ showSidebar: false });
           }}
         />
+
+        {/* Botão flutuante de auto-organizar */}
+        <div className="fixed bottom-6 right-6 flex flex-col gap-3 z-30">
+          <button
+            onClick={autoOrganize}
+            className="p-4 bg-primary text-primary-foreground rounded-full shadow-2xl hover:scale-110 transition-all group"
+            title="Auto-organizar (A)"
+          >
+            <Shuffle size={22} className="group-hover:rotate-12 transition-transform" />
+          </button>
+          
+          <button
+            onClick={() => setShowPathFinder(true)}
+            className="p-3.5 bg-secondary text-foreground rounded-full shadow-xl hover:scale-110 transition-all group"
+            title="Encontrar Caminho (P)"
+          >
+            <Route size={20} />
+          </button>
+          
+          <button
+            onClick={() => {
+              const width = window.innerWidth;
+              const height = window.innerHeight - 100;
+              const bounds = calculateBounds(viewMode === 'single' ? nodes : allNodes);
+              const zoom = calculateOptimalZoom(bounds, width, height);
+              const pan = calculateCenterPan(bounds, zoom, width, height);
+              updateState({ zoom, pan });
+            }}
+            className="p-3.5 bg-secondary text-foreground rounded-full shadow-xl hover:scale-110 transition-all group"
+            title="Ajustar Tela (F)"
+          >
+            <Maximize2 size={20} />
+          </button>
+        </div>
 
         {state.showSidebar && state.editingNode && (
           <NodeEditor 
