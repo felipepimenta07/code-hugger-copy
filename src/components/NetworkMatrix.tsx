@@ -294,11 +294,16 @@ export const NetworkMatrix = () => {
     const width = window.innerWidth;
     const height = window.innerHeight - 100;
     
-    if (viewMode === 'single' && nodes.length > 0) {
-      const bounds = calculateBounds(nodes);
-      const zoom = calculateOptimalZoom(bounds, width, height);
-      const pan = calculateCenterPan(bounds, zoom, width, height);
-      updateState({ zoom, pan });
+    if (viewMode === 'single' && activeProjectId) {
+      const activeProject = projects.find(p => p.id === activeProjectId);
+      if (activeProject) {
+        const desiredZoom = 0.95;
+        const pan = {
+          x: width / 2 - activeProject.x * desiredZoom,
+          y: height / 2 - activeProject.y * desiredZoom
+        };
+        updateState({ zoom: desiredZoom, pan });
+      }
     } else if (viewMode === 'master' && allNodes.length > 0) {
       const bounds = calculateBounds(allNodes);
       const zoom = calculateOptimalZoom(bounds, width, height);
@@ -345,7 +350,18 @@ export const NetworkMatrix = () => {
         x: (window.innerWidth / 2 - state.pan.x) / state.zoom,
         y: (300 - state.pan.y) / state.zoom
       };
-      setNodes([...nodes, newNode]);
+      setNodes(prevNodes => [...prevNodes, newNode]);
+      
+      // Auto-conectar ao projeto ativo
+      if (activeProjectId && state.newNodeType !== 'project') {
+        setConnections(prev => [...prev, {
+          from: newNode.id,
+          to: activeProjectId,
+          type: 'strong',
+          directional: false
+        }]);
+      }
+      
       updateState({ newNodeName: '', editingNode: newNode, showSidebar: true, showAnalytics: false });
     }
   };
@@ -414,6 +430,17 @@ export const NetworkMatrix = () => {
       ...nodeData
     };
     setNodes(prevNodes => [...prevNodes, newNode]);
+    
+    // Auto-conectar ao projeto ativo no Single View
+    if (viewMode === 'single' && activeProjectId && nodeCreationType !== 'project') {
+      setConnections(prev => [...prev, {
+        from: newNode.id,
+        to: activeProjectId,
+        type: 'strong',
+        directional: false
+      }]);
+    }
+    
     setShowNodeCreationModal(false);
     updateState({ editingNode: newNode, showSidebar: true });
   };
@@ -629,31 +656,6 @@ export const NetworkMatrix = () => {
           </div>
         </div>
         
-        {viewMode === 'single' && (
-          <div className="flex gap-2 items-center">
-            <input 
-              type="text" 
-              value={state.newNodeName} 
-              onChange={(e) => updateState({ newNodeName: e.target.value })}
-              onKeyPress={(e) => e.key === 'Enter' && addNode()}
-              placeholder="Nome do novo nó"
-              className="flex-1 px-4 py-2.5 bg-secondary text-foreground border border-border rounded-lg text-sm focus:outline-none focus:border-primary"
-            />
-            <select 
-              value={state.newNodeType} 
-              onChange={(e) => updateState({ newNodeType: e.target.value })}
-              className="px-4 py-2.5 bg-secondary text-foreground border border-border rounded-lg text-sm focus:outline-none focus:border-primary">
-              <option value="project">🎯 Projeto</option>
-              <option value="person">👤 Pessoa</option>
-              <option value="brand">🏢 Marca</option>
-            </select>
-            <button 
-              onClick={addNode} 
-              className="px-4 py-2.5 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-all">
-              <Plus size={18} />
-            </button>
-          </div>
-        )}
         
         {selectedNodes.length > 0 && (
           <div className="mt-2 text-sm text-primary flex items-center gap-2">
@@ -766,12 +768,17 @@ export const NetworkMatrix = () => {
               setShowProjectManager(false);
               setTimeout(() => {
                 autoOrganizeSingle(projectId);
-                const width = window.innerWidth;
-                const height = window.innerHeight - 100;
-                const bounds = calculateBounds(nodes);
-                const zoom = calculateOptimalZoom(bounds, width, height);
-                const pan = calculateCenterPan(bounds, zoom, width, height);
-                updateState({ zoom, pan });
+                const activeProject = projects.find(p => p.id === projectId);
+                if (activeProject) {
+                  const width = window.innerWidth;
+                  const height = window.innerHeight - 100;
+                  const desiredZoom = 0.95;
+                  const pan = {
+                    x: width / 2 - activeProject.x * desiredZoom,
+                    y: height / 2 - activeProject.y * desiredZoom
+                  };
+                  updateState({ zoom: desiredZoom, pan });
+                }
               }, 100);
             }}
             onProjectCreate={(data) => {
