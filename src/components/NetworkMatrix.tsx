@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Trash2, ZoomIn, ZoomOut, X, Building2, User, FolderKanban, Undo2, Redo2, LayoutGrid, Download, Upload, Maximize2, Info, Layers, BarChart3, Route, Sparkles, Target } from 'lucide-react';
+import { Plus, Trash2, ZoomIn, ZoomOut, X, Building2, User, FolderKanban, Undo2, Redo2, LayoutGrid, Maximize2, Info, Layers, BarChart3, Route, Sparkles, Target } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -826,151 +827,239 @@ export const NetworkMatrix = () => {
           
           <div className="flex items-center gap-2">
             <div className="flex gap-2">
-              <button
-                onClick={() => setViewMode('master')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                  viewMode === 'master' 
-                    ? 'bg-purple-600 border border-purple-500 text-white shadow-lg' 
-                    : 'bg-transparent border border-purple-500/30 text-purple-400 hover:bg-purple-600/20'
-                }`}
-              >
-                <Layers size={16} className="inline mr-2" />
-                Master View
-              </button>
-              <button
-                onClick={() => {
-                  setViewMode('single');
-                  
-                  // Centralizar quando mudar para single view
-                  setTimeout(() => {
-                    if (activeProjectId) {
-                      autoOrganizeSingle(activeProjectId);
-                    }
-                  }, 50);
-                  
-                  setTimeout(() => {
-                    const width = window.innerWidth;
-                    const height = window.innerHeight - 100;
-                    const currentNodes = getNodesForSingleView(activeProjectId);
-                    
-                    if (currentNodes.length > 0 && svgRef.current) {
-                      const bounds = calculateBounds(currentNodes);
-                      const zoom = calculateOptimalZoom(bounds, width, height);
-                      const pan = calculateCenterPan(bounds, zoom, width, height);
-                      updateState({ zoom, pan });
-                    }
-                  }, 300);
-                }}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                  viewMode === 'single' 
-                    ? 'bg-blue-600 border border-blue-500 text-white shadow-lg' 
-                    : 'bg-transparent border border-blue-500/30 text-blue-400 hover:bg-blue-600/20'
-                }`}
-              >
-                <Target size={16} className="inline mr-2" />
-                Single View
-              </button>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => setViewMode('master')}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                        viewMode === 'master' 
+                          ? 'bg-purple-600 border border-purple-500 text-white shadow-lg' 
+                          : 'bg-transparent border border-purple-500/30 text-purple-400 hover:bg-purple-600/20'
+                      }`}
+                    >
+                      <Layers size={16} className="inline mr-2" />
+                      Master View
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Ver todos os projetos</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => {
+                        setViewMode('single');
+                        
+                        // Centralizar quando mudar para single view
+                        setTimeout(() => {
+                          if (activeProjectId) {
+                            autoOrganizeSingle(activeProjectId);
+                          }
+                        }, 50);
+                        
+                        setTimeout(() => {
+                          const width = window.innerWidth;
+                          const height = window.innerHeight - 100;
+                          const currentNodes = getNodesForSingleView(activeProjectId);
+                          
+                          if (currentNodes.length > 0 && svgRef.current) {
+                            const bounds = calculateBounds(currentNodes);
+                            const zoom = calculateOptimalZoom(bounds, width, height);
+                            const pan = calculateCenterPan(bounds, zoom, width, height);
+                            updateState({ zoom, pan });
+                          }
+                        }, 300);
+                      }}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                        viewMode === 'single' 
+                          ? 'bg-blue-600 border border-blue-500 text-white shadow-lg' 
+                          : 'bg-transparent border border-blue-500/30 text-blue-400 hover:bg-blue-600/20'
+                      }`}
+                    >
+                      <Target size={16} className="inline mr-2" />
+                      Single View
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Ver projeto específico</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
             
-            <Button 
-              onClick={() => setShowFlowStarterModal(true)}
-              variant="outline" 
-              size="icon" 
-              className="rounded-lg hover:bg-primary/10"
-              title="Criar novo flow"
-            >
-              <Plus size={18} />
-            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    onClick={() => setShowFlowStarterModal(true)}
+                    variant="outline" 
+                    size="icon" 
+                    className="rounded-lg hover:bg-primary/10"
+                  >
+                    <Plus size={18} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Criar novo flow</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
             
             <div className="w-px h-8 bg-border mx-1"></div>
             
-            <input type="file" id="fileImport" accept=".json" onChange={handleFileImport} className="hidden" />
-            <button onClick={() => document.getElementById('fileImport').click()} 
-              className="p-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-all">
-              <Upload size={18} />
-            </button>
-            <button onClick={exportData} 
-              className="p-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-all">
-              <Download size={18} />
-            </button>
-            
-            <button onClick={undo} disabled={historyIndex <= 0}
-              className={`p-2 rounded-lg transition-all ${historyIndex <= 0 ? 'text-muted' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'}`}>
-              <Undo2 size={18} />
-            </button>
-            <button onClick={redo} disabled={historyIndex >= history.length - 1}
-              className={`p-2 rounded-lg transition-all ${historyIndex >= history.length - 1 ? 'text-muted' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'}`}>
-              <Redo2 size={18} />
-            </button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button onClick={undo} disabled={historyIndex <= 0}
+                    className={`p-2 rounded-lg transition-all ${historyIndex <= 0 ? 'text-muted' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'}`}>
+                    <Undo2 size={18} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Desfazer (Ctrl+Z)</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button onClick={redo} disabled={historyIndex >= history.length - 1}
+                    className={`p-2 rounded-lg transition-all ${historyIndex >= history.length - 1 ? 'text-muted' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'}`}>
+                    <Redo2 size={18} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Refazer (Ctrl+Y)</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
             
             <div className="w-px h-8 bg-border mx-1"></div>
             
-            <button onClick={() => {
-              const width = window.innerWidth;
-              const height = window.innerHeight - 100;
-              const newZoom = Math.max(state.zoom / 1.2, 0.3);
-              const centerX = (width / 2 - state.pan.x) / state.zoom;
-              const centerY = (height / 2 - state.pan.y) / state.zoom;
-              updateState({ 
-                zoom: newZoom,
-                pan: {
-                  x: width / 2 - centerX * newZoom,
-                  y: height / 2 - centerY * newZoom
-                }
-              });
-            }} 
-              className="p-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-all">
-              <ZoomOut size={18} />
-            </button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button onClick={() => {
+                    const width = window.innerWidth;
+                    const height = window.innerHeight - 100;
+                    const newZoom = Math.max(state.zoom / 1.2, 0.3);
+                    const centerX = (width / 2 - state.pan.x) / state.zoom;
+                    const centerY = (height / 2 - state.pan.y) / state.zoom;
+                    updateState({ 
+                      zoom: newZoom,
+                      pan: {
+                        x: width / 2 - centerX * newZoom,
+                        y: height / 2 - centerY * newZoom
+                      }
+                    });
+                  }} 
+                    className="p-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-all">
+                    <ZoomOut size={18} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Reduzir zoom</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
             <div className="text-sm text-muted-foreground font-mono px-2 min-w-[50px] text-center">
               {Math.round(state.zoom * 100)}%
             </div>
-            <button onClick={() => {
-              const width = window.innerWidth;
-              const height = window.innerHeight - 100;
-              const newZoom = Math.min(state.zoom * 1.2, 3);
-              const centerX = (width / 2 - state.pan.x) / state.zoom;
-              const centerY = (height / 2 - state.pan.y) / state.zoom;
-              updateState({ 
-                zoom: newZoom,
-                pan: {
-                  x: width / 2 - centerX * newZoom,
-                  y: height / 2 - centerY * newZoom
-                }
-              });
-            }} 
-              className="p-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-all">
-              <ZoomIn size={18} />
-            </button>
-            <button onClick={() => {
-              const width = window.innerWidth;
-              const height = window.innerHeight - 100;
-              const bounds = calculateBounds(viewMode === 'single' ? nodes : allNodes);
-              const zoom = calculateOptimalZoom(bounds, width, height);
-              const pan = calculateCenterPan(bounds, zoom, width, height);
-              updateState({ zoom, pan });
-            }} 
-              className="p-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-all">
-              <Maximize2 size={18} />
-            </button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button onClick={() => {
+                    const width = window.innerWidth;
+                    const height = window.innerHeight - 100;
+                    const newZoom = Math.min(state.zoom * 1.2, 3);
+                    const centerX = (width / 2 - state.pan.x) / state.zoom;
+                    const centerY = (height / 2 - state.pan.y) / state.zoom;
+                    updateState({ 
+                      zoom: newZoom,
+                      pan: {
+                        x: width / 2 - centerX * newZoom,
+                        y: height / 2 - centerY * newZoom
+                      }
+                    });
+                  }} 
+                    className="p-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-all">
+                    <ZoomIn size={18} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Aumentar zoom</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button onClick={() => {
+                    const width = window.innerWidth;
+                    const height = window.innerHeight - 100;
+                    const bounds = calculateBounds(viewMode === 'single' ? nodes : allNodes);
+                    const zoom = calculateOptimalZoom(bounds, width, height);
+                    const pan = calculateCenterPan(bounds, zoom, width, height);
+                    updateState({ zoom, pan });
+                  }} 
+                    className="p-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-all">
+                    <Maximize2 size={18} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Ajustar à tela</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
             
             <div className="w-px h-8 bg-border mx-1"></div>
             
-            <button 
-              onClick={() => setShowProjectManager(!showProjectManager)}
-              className={`p-2 rounded-lg transition-all ${showProjectManager ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'}`}>
-              <FolderKanban size={18} />
-            </button>
-            <button 
-              onClick={() => updateState({ showAnalytics: !state.showAnalytics, showSidebar: false })}
-              className={`p-2 rounded-lg transition-all ${state.showAnalytics ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'}`}>
-              <BarChart3 size={18} />
-            </button>
-            <button 
-              onClick={() => setShowLegend(!showLegend)}
-              className={`p-2 rounded-lg transition-all ${showLegend ? 'bg-secondary text-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'}`}>
-              <Info size={18} />
-            </button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button 
+                    onClick={() => setShowProjectManager(!showProjectManager)}
+                    className={`p-2 rounded-lg transition-all ${showProjectManager ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'}`}>
+                    <FolderKanban size={18} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Gerenciar Projetos</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button 
+                    onClick={() => updateState({ showAnalytics: !state.showAnalytics, showSidebar: false })}
+                    className={`p-2 rounded-lg transition-all ${state.showAnalytics ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'}`}>
+                    <BarChart3 size={18} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Análises Inteligentes</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button 
+                    onClick={() => setShowLegend(!showLegend)}
+                    className={`p-2 rounded-lg transition-all ${showLegend ? 'bg-secondary text-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'}`}>
+                    <Info size={18} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Stakeholders</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         </div>
         
