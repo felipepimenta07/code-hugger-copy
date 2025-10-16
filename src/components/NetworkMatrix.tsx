@@ -441,6 +441,16 @@ export const NetworkMatrix = () => {
     return () => clearTimeout(timer);
   }, []);
 
+  // Auto-organizar quando voltar para Master View
+  useEffect(() => {
+    if (viewMode === 'master' && projects.length > 0 && allNodes.length > 0) {
+      const timer = setTimeout(() => {
+        autoOrganize();
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [viewMode]);
+
   useKeyboardShortcuts({
     selectedNodes,
     setSelectedNodes,
@@ -807,13 +817,6 @@ export const NetworkMatrix = () => {
               onClick={() => {
                 const newMode = viewMode === 'master' ? 'single' : 'master';
                 setViewMode(newMode);
-                
-                // Auto-reorganize when returning to Master View
-                if (newMode === 'master') {
-                  setTimeout(() => {
-                    autoOrganize();
-                  }, 100);
-                }
               }}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                 viewMode === 'master' 
