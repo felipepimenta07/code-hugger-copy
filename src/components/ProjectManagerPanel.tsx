@@ -78,18 +78,13 @@ export const ProjectManagerPanel: React.FC<ProjectManagerPanelProps> = ({
       category: 'M',
       status: 'ativo',
       deadline: '',
-      workflows: workflows.length > 0 ? [workflows[0].id] : []
+      workflows: []
     });
   };
 
   const handleSave = () => {
     if (!formData.name.trim()) {
       toast.error('Nome do projeto é obrigatório');
-      return;
-    }
-
-    if (formData.workflows.length === 0) {
-      toast.error('Selecione pelo menos um workflow');
       return;
     }
 

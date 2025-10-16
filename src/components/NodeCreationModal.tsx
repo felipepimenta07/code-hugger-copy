@@ -14,6 +14,8 @@ interface NodeCreationModalProps {
   onClose: () => void;
   onCreate: (nodeData: any) => void;
   editingNode?: any;
+  workflows?: any[];
+  onAddWorkflow?: (name: string, color: string) => void;
 }
 
 export const NodeCreationModal: React.FC<NodeCreationModalProps> = ({
@@ -21,10 +23,12 @@ export const NodeCreationModal: React.FC<NodeCreationModalProps> = ({
   getAllCategories,
   onClose,
   onCreate,
-  editingNode
+  editingNode,
+  workflows = [],
+  onAddWorkflow
 }) => {
   const [name, setName] = useState(editingNode?.name || '');
-  const [category, setCategory] = useState(editingNode?.category || '');
+  const [category, setCategory] = useState(editingNode?.category || (type === 'project' ? 'M' : ''));
   const [email, setEmail] = useState(editingNode?.email || '');
   const [company, setCompany] = useState(editingNode?.company || '');
   const [role, setRole] = useState(editingNode?.role || '');
@@ -33,6 +37,9 @@ export const NodeCreationModal: React.FC<NodeCreationModalProps> = ({
   const [website, setWebsite] = useState(editingNode?.website || '');
   const [location, setLocation] = useState(editingNode?.location || '');
   const [notes, setNotes] = useState(editingNode?.notes || '');
+  const [selectedWorkflows, setSelectedWorkflows] = useState<number[]>(editingNode?.workflows || []);
+  const [newWorkflowName, setNewWorkflowName] = useState('');
+  const [newWorkflowColor, setNewWorkflowColor] = useState('#8b5cf6');
   
   const nameInputRef = useRef<HTMLInputElement>(null);
 
@@ -57,6 +64,8 @@ export const NodeCreationModal: React.FC<NodeCreationModalProps> = ({
     } else if (type === 'project') {
       if (status) nodeData.projectStatus = status;
       if (startDate) nodeData.startDate = startDate;
+      nodeData.workflows = selectedWorkflows;
+      nodeData.category = category || 'M';
     } else if (type === 'brand') {
       if (website) nodeData.website = website;
       if (location) nodeData.location = location;
@@ -184,7 +193,7 @@ export const NodeCreationModal: React.FC<NodeCreationModalProps> = ({
                 <Label htmlFor="status" className="text-sm font-medium text-foreground mb-1.5 block">
                   Status
                 </Label>
-                <Select value={status} onValueChange={setStatus}>
+                <Select value={status || 'ativo'} onValueChange={setStatus}>
                   <SelectTrigger className="bg-secondary border-border rounded-xl">
                     <SelectValue placeholder="Selecione o status" />
                   </SelectTrigger>
@@ -199,7 +208,7 @@ export const NodeCreationModal: React.FC<NodeCreationModalProps> = ({
 
               <div>
                 <Label htmlFor="startDate" className="text-sm font-medium text-foreground mb-1.5 block">
-                  Data de Início
+                  Deadline (opcional)
                 </Label>
                 <Input
                   id="startDate"
@@ -209,6 +218,70 @@ export const NodeCreationModal: React.FC<NodeCreationModalProps> = ({
                   className="bg-secondary border-border rounded-xl"
                 />
               </div>
+
+              <div>
+                <Label className="text-sm font-medium text-foreground mb-2 block">
+                  Workflows (opcional)
+                </Label>
+                <div className="space-y-2 max-h-[150px] overflow-y-auto bg-secondary/50 rounded-xl p-3">
+                  {workflows.map((w: any) => (
+                    <label key={w.id} className="flex items-center gap-2 cursor-pointer hover:bg-secondary/80 p-1 rounded">
+                      <input
+                        type="checkbox"
+                        checked={selectedWorkflows.includes(w.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedWorkflows([...selectedWorkflows, w.id]);
+                          } else {
+                            setSelectedWorkflows(selectedWorkflows.filter(id => id !== w.id));
+                          }
+                        }}
+                        className="w-4 h-4 rounded"
+                      />
+                      <span 
+                        className="w-3 h-3 rounded-full" 
+                        style={{ backgroundColor: w.color }}
+                      />
+                      <span className="text-sm">{w.name}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {onAddWorkflow && (
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-foreground">
+                    Adicionar novo workflow
+                  </Label>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Nome do workflow"
+                      value={newWorkflowName}
+                      onChange={(e) => setNewWorkflowName(e.target.value)}
+                      className="bg-secondary border-border rounded-xl flex-1"
+                    />
+                    <input
+                      type="color"
+                      value={newWorkflowColor}
+                      onChange={(e) => setNewWorkflowColor(e.target.value)}
+                      className="w-12 h-10 rounded-xl border border-border cursor-pointer"
+                    />
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => {
+                        if (newWorkflowName.trim()) {
+                          onAddWorkflow(newWorkflowName.trim(), newWorkflowColor);
+                          setNewWorkflowName('');
+                          setNewWorkflowColor('#8b5cf6');
+                        }
+                      }}
+                    >
+                      +
+                    </Button>
+                  </div>
+                </div>
+              )}
             </>
           )}
 

@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Trash2, ZoomIn, ZoomOut, X, Building2, User, FolderKanban, Undo2, Redo2, Shuffle, Download, Upload, Maximize2, Info, Layers, BarChart3, Route, Sparkles } from 'lucide-react';
+import { Plus, Trash2, ZoomIn, ZoomOut, X, Building2, User, FolderKanban, Undo2, Redo2, Shuffle, Download, Upload, Maximize2, Info, Layers, BarChart3, Route, Sparkles, Target } from 'lucide-react';
 import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { NodeEditor } from './NodeEditor';
 import { AnalyticsPanel } from './AnalyticsPanel';
 import { ContextMenu } from './ContextMenu';
@@ -184,14 +186,9 @@ export const NetworkMatrix = () => {
   const applyRadialLayout = (nodesToLayout: any[], centerX: number, centerY: number) => {
     if (nodesToLayout.length === 0) return [];
     
-    // Ordenar por importância (número de conexões)
-    const sorted = [...nodesToLayout].sort((a, b) => 
-      getConnectionCount(b) - getConnectionCount(a)
-    );
-    
-    // Nó central (mais conectado)
-    const centerNode = sorted[0];
-    const otherNodes = sorted.slice(1);
+    // FIXED: Use the first node as center (active project), don't reorder
+    const centerNode = nodesToLayout[0];
+    const otherNodes = nodesToLayout.slice(1);
     
     // Dividir em 3 anéis
     const innerRing = otherNodes.slice(0, Math.min(6, otherNodes.length));
@@ -375,6 +372,31 @@ export const NetworkMatrix = () => {
 
   const deleteConnection = (connectionIndex: number) => {
     saveToHistory();
+    
+    // Before deleting, check if we need to set homeProjectId to keep nodes visible in Single View
+    if (viewMode === 'single' && activeProjectId) {
+      const conn = allConnections[connectionIndex];
+      if (conn) {
+        const fromNode = allNodesWithAnchors.find(n => n.id === conn.from);
+        const toNode = allNodesWithAnchors.find(n => n.id === conn.to);
+        
+        // If connection is between active project and a person/brand without homeProjectId
+        [fromNode, toNode].forEach(node => {
+          if (node && (node.type === 'person' || node.type === 'brand') && !(node as any).homeProjectId) {
+            const otherNodeId = node.id === conn.from ? conn.to : conn.from;
+            if (otherNodeId === activeProjectId) {
+              // Set homeProjectId to keep it visible after connection deletion
+              if (node.type === 'person') {
+                setPeople(prev => prev.map(p => p.id === node.id ? { ...p, homeProjectId: activeProjectId } : p));
+              } else if (node.type === 'brand') {
+                setBrands(prev => prev.map(b => b.id === node.id ? { ...b, homeProjectId: activeProjectId } : b));
+              }
+            }
+          }
+        });
+      }
+    }
+    
     setConnections(prev => prev.filter((_, idx) => idx !== connectionIndex));
     setSelectedConnection(null);
   };
@@ -450,14 +472,50 @@ export const NetworkMatrix = () => {
 
     // Set default fields for projects
     if (nodeCreationType === 'project') {
-      newNode.workflows = nodeData.workflows || (workflows.length > 0 ? [workflows[0].id] : []);
+      newNode.workflows = nodeData.workflows || [];
       newNode.status = nodeData.projectStatus || nodeData.status || 'ativo';
       newNode.deadline = nodeData.startDate || nodeData.deadline || '';
+      newNode.category = nodeData.category || 'M';
     }
 
     setNodes(prevNodes => [...prevNodes, newNode]);
     setShowNodeCreationModal(false);
-    updateState({ editingNode: newNode, showSidebar: true });
+    
+    // If creating a project, switch to Single View and center on it
+    if (nodeCreationType === 'project') {
+      setActiveProjectId(newNode.id);
+      setViewMode('single');
+      toast.success(`Projeto "${newNode.name}" criado!`);
+      
+      // Auto-organize after a short delay
+      setTimeout(() => {
+        autoOrganizeSingle(newNode.id);
+        
+        // Center view on new project
+        const width = window.innerWidth;
+        const height = window.innerHeight - 100;
+        updateState({
+          zoom: 1,
+          pan: { 
+            x: width / 2 - newNode.x, 
+            y: height / 2 - newNode.y 
+          }
+        });
+      }, 100);
+    } else {
+      updateState({ editingNode: newNode, showSidebar: true });
+    }
+  };
+
+  const handleAddWorkflow = (name: string, color: string) => {
+    const newWorkflow = {
+      id: Date.now(),
+      name,
+      color,
+      description: ''
+    };
+    setWorkflows([...workflows, newWorkflow]);
+    toast.success(`Workflow "${name}" criado!`);
   };
 
   const handleNodeUpdate = (updatedData: any) => {
@@ -579,6 +637,8 @@ export const NetworkMatrix = () => {
           }}
           onCreate={editingNodeInModal ? handleNodeUpdate : handleNodeCreation}
           editingNode={editingNodeInModal}
+          workflows={workflows}
+          onAddWorkflow={handleAddWorkflow}
         />
       )}
 
@@ -590,7 +650,6 @@ export const NetworkMatrix = () => {
               <h1 className="text-2xl font-bold text-foreground tracking-tight">Network Matrix</h1>
               <div className="text-xs text-muted-foreground mt-0.5 font-medium">VISION ECOSYSTEM</div>
             </div>
-            
           </div>
           
           <div className="flex items-center gap-2">
@@ -604,6 +663,61 @@ export const NetworkMatrix = () => {
               <Layers size={16} className="inline mr-2" />
               {viewMode === 'master' ? 'Master View' : 'Single View'}
             </button>
+            
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="icon" className="rounded-lg">
+                  <Plus size={18} />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem 
+                  onClick={() => {
+                    setNodeCreationType('project');
+                    const width = window.innerWidth;
+                    const height = window.innerHeight - 100;
+                    setNodeCreationPosition({
+                      x: (width / 2 - state.pan.x) / state.zoom,
+                      y: (height / 2 - state.pan.y) / state.zoom
+                    });
+                    setShowNodeCreationModal(true);
+                  }}
+                >
+                  <Target className="mr-2 h-4 w-4" />
+                  Criar Projeto
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={() => {
+                    setNodeCreationType('person');
+                    const width = window.innerWidth;
+                    const height = window.innerHeight - 100;
+                    setNodeCreationPosition({
+                      x: (width / 2 - state.pan.x) / state.zoom,
+                      y: (height / 2 - state.pan.y) / state.zoom
+                    });
+                    setShowNodeCreationModal(true);
+                  }}
+                >
+                  <User className="mr-2 h-4 w-4" />
+                  Criar Pessoa
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={() => {
+                    setNodeCreationType('brand');
+                    const width = window.innerWidth;
+                    const height = window.innerHeight - 100;
+                    setNodeCreationPosition({
+                      x: (width / 2 - state.pan.x) / state.zoom,
+                      y: (height / 2 - state.pan.y) / state.zoom
+                    });
+                    setShowNodeCreationModal(true);
+                  }}
+                >
+                  <Building2 className="mr-2 h-4 w-4" />
+                  Criar Marca
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             
             <div className="w-px h-8 bg-border mx-1"></div>
             

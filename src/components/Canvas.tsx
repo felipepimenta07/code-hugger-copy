@@ -52,6 +52,37 @@ export const Canvas: React.FC<CanvasProps> = ({
   projects = [],
   allConnections = []
 }) => {
+  // BFS to calculate depth from center node (for connection styling by distance)
+  const calculateNodeDepths = () => {
+    if (viewMode !== 'single' || nodes.length === 0) return new Map<number, number>();
+    
+    const centerNode = nodes[0]; // Active project is always first in single view
+    const depths = new Map<number, number>();
+    const queue: Array<{ id: number; depth: number }> = [{ id: centerNode.id, depth: 0 }];
+    const visited = new Set<number>();
+    
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      if (visited.has(current.id)) continue;
+      
+      visited.add(current.id);
+      depths.set(current.id, current.depth);
+      
+      // Find all connected nodes
+      allConnections
+        .filter(c => c.from === current.id || c.to === current.id)
+        .forEach(c => {
+          const neighborId = c.from === current.id ? c.to : c.from;
+          if (!visited.has(neighborId) && nodes.some(n => n.id === neighborId)) {
+            queue.push({ id: neighborId, depth: current.depth + 1 });
+          }
+        });
+    }
+    
+    return depths;
+  };
+  
+  const nodeDepths = calculateNodeDepths();
   const handleNodeMouseDown = (e: React.MouseEvent, nodeId: number) => {
     e.stopPropagation();
     if (e.button === 0 && !(e.ctrlKey || e.metaKey)) {
@@ -218,12 +249,8 @@ export const Canvas: React.FC<CanvasProps> = ({
         
         {/* Anéis Decorativos Radiais (Single View) */}
         {viewMode === 'single' && nodes.length > 0 && (() => {
-          const sorted = [...nodes].sort((a, b) => {
-            const countA = connections.filter(c => c.from === a.id || c.to === a.id).length;
-            const countB = connections.filter(c => c.from === b.id || c.to === b.id).length;
-            return countB - countA;
-          });
-          const centerNode = sorted[0];
+          // FIXED: Always use nodes[0] as center (active project)
+          const centerNode = nodes[0];
           if (!centerNode) return null;
           
           return (
@@ -399,16 +426,10 @@ export const Canvas: React.FC<CanvasProps> = ({
           );
           const isSelected = selectedConnection === globalIdx;
           
-          // Detectar conexão indireta (2+ saltos)
-          const isIndirectConnection = (() => {
-            // Conexões diretas de "from"
-            const directFromIds = allConnections
-              .filter(c => c.from === from.id || c.to === from.id)
-              .map(c => c.from === from.id ? c.to : c.from);
-            
-            // Se "to" não está nas conexões diretas de "from", é indireto
-            return !directFromIds.includes(to.id);
-          })();
+          // Calculate connection depth level based on node depths (distance from center)
+          const fromDepth = nodeDepths.get(from.id) ?? 0;
+          const toDepth = nodeDepths.get(to.id) ?? 0;
+          const connectionLevel = Math.max(fromDepth, toDepth);
           
           // Detectar cross-projeto: pessoa/marca conectando para projeto diferente do anchor
           const getAssignment = (node: any) => {
@@ -429,14 +450,43 @@ export const Canvas: React.FC<CanvasProps> = ({
                (highlightedPath[i] === to.id && highlightedPath[i + 1] === from.id))
             );
           
+          // Styling based on priority: path > selected > cross-project > depth-based
           let strokeColor;
-          if (isInPath) strokeColor = '#10b981';
-          else if (isSelected) strokeColor = '#f59e0b';
-          else if (isCrossProject) strokeColor = 'hsl(var(--connection-cross))';
-          else if (conn.type === 'strong') strokeColor = '#a855f7';
-          else strokeColor = '#6366f1';
+          let strokeWidth;
+          let strokeDasharray = '0';
+          let opacity = 1;
           
-          const strokeWidth = isInPath ? 5 : (isCrossProject ? 4 : (conn.type === 'strong' ? 3 : 2));
+          if (isInPath) {
+            strokeColor = '#10b981';
+            strokeWidth = 5;
+          } else if (isSelected) {
+            strokeColor = '#f59e0b';
+            strokeWidth = isCrossProject ? 4 : (conn.type === 'strong' ? 3 : 2);
+          } else if (isCrossProject) {
+            strokeColor = 'hsl(var(--connection-cross))';
+            strokeWidth = 4;
+          } else {
+            // Normal connection - apply depth-based styling
+            strokeColor = conn.type === 'strong' ? '#a855f7' : '#6366f1';
+            const baseWidth = conn.type === 'strong' ? 3 : 2;
+            
+            if (viewMode === 'single' && connectionLevel > 0) {
+              if (connectionLevel === 1) {
+                // Level 1: thinner by 1 point
+                strokeWidth = baseWidth - 1;
+              } else if (connectionLevel === 2) {
+                // Level 2: dotted
+                strokeWidth = baseWidth;
+                strokeDasharray = '8,6';
+              } else {
+                // Level 3+: reduced opacity progressively
+                strokeWidth = baseWidth;
+                opacity = connectionLevel === 3 ? 0.7 : connectionLevel === 4 ? 0.55 : 0.4;
+              }
+            } else {
+              strokeWidth = baseWidth;
+            }
+          }
           
           const controlX = (from.x + to.x) / 2;
           const controlY = (from.y + to.y) / 2 - 80;
@@ -461,7 +511,8 @@ export const Canvas: React.FC<CanvasProps> = ({
                 stroke={strokeColor}
                 strokeWidth={strokeWidth}
                 fill="none"
-                strokeDasharray={isIndirectConnection && !isCrossProject && !isInPath ? '8,4' : '0'}
+                strokeDasharray={strokeDasharray}
+                opacity={opacity}
                 markerEnd={conn.directional ? 'url(#arrowhead)' : ''}
                 className="pointer-events-none"
               />
