@@ -11,6 +11,7 @@ import { ContextMenu } from './ContextMenu';
 import { PathFinderModal } from './PathFinderModal';
 import { Legend } from './Legend';
 import { QuickActionsMenu } from './QuickActionsMenu';
+import { LinkedInImportModal } from './LinkedInImportModal';
 import { Canvas } from './Canvas';
 import { NodeCreationModal } from './NodeCreationModal';
 import { ProjectManagerPanel } from './ProjectManagerPanel';
@@ -20,6 +21,7 @@ import { useNetworkState } from '@/hooks/useNetworkState';
 import { useNetworkHistory } from '@/hooks/useNetworkHistory';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { SAMPLE_WORKFLOWS, SAMPLE_PROJECTS, SAMPLE_PEOPLE, SAMPLE_BRANDS, SAMPLE_CONNECTIONS } from '@/data/sampleNetworkData';
+import { ParsedLinkedInData, LinkedInImportOptions } from '@/types/linkedin';
 
 const CATEGORIES = {
   person: ['Pessoal', 'Profissional', 'Cliente', 'Fornecedor', 'Parceiro'],
@@ -56,6 +58,7 @@ export const NetworkMatrix = () => {
   const [showProjectManager, setShowProjectManager] = useState(false);
   const [showAIInsights, setShowAIInsights] = useState(false);
   const [showFlowStarterModal, setShowFlowStarterModal] = useState(false);
+  const [showLinkedInImport, setShowLinkedInImport] = useState(false);
 
   const { state, updateState } = useNetworkState();
   const svgRef = useRef(null);
@@ -120,6 +123,98 @@ export const NetworkMatrix = () => {
         description: 'Não foi possível salvar o design atual.'
       });
     }
+  };
+
+  // Função para importar dados do LinkedIn
+  const handleLinkedInImport = (data: ParsedLinkedInData, options: LinkedInImportOptions) => {
+    saveToHistory();
+    
+    const newPeople: any[] = [];
+    const newBrands: any[] = [];
+    const newConnections: any[] = [];
+    
+    // Create brands from unique companies if option is enabled
+    const brandMap = new Map<string, number>();
+    if (options.createBrands) {
+      data.uniqueCompanies.forEach((company, index) => {
+        const brandId = Date.now() + index + 10000;
+        const brand = {
+          id: brandId,
+          type: 'brand',
+          name: company,
+          x: Math.random() * 400 + 100,
+          y: Math.random() * 400 + 100,
+          category: 'A',
+          workflowId: workflows[0]?.id
+        };
+        newBrands.push(brand);
+        brandMap.set(company, brandId);
+      });
+    }
+    
+    // Create person nodes from contacts
+    data.contacts.forEach((contact, index) => {
+      const personId = Date.now() + index + 20000;
+      const fullName = `${contact.firstName} ${contact.lastName}`.trim();
+      
+      const person = {
+        id: personId,
+        type: 'person',
+        name: fullName || `Contato LinkedIn ${index + 1}`,
+        x: Math.random() * 400 + 100,
+        y: Math.random() * 400 + 100,
+        category: options.defaultCategory,
+        workflowId: workflows[0]?.id,
+        company: contact.company,
+        role: contact.position,
+        email: contact.email,
+        notes: contact.profileUrl ? `LinkedIn: ${contact.profileUrl}` : undefined,
+        homeProjectId: options.connectToProject ? options.projectId : undefined
+      };
+      newPeople.push(person);
+      
+      // Create connection to brand if company exists and brands were created
+      if (contact.company && options.createBrands && brandMap.has(contact.company)) {
+        newConnections.push({
+          from: personId,
+          to: brandMap.get(contact.company)!,
+          type: 'works-at'
+        });
+      }
+      
+      // Create connection to project if option is enabled
+      if (options.connectToProject && options.projectId) {
+        newConnections.push({
+          from: personId,
+          to: options.projectId,
+          type: 'related'
+        });
+      }
+    });
+    
+    // Update state
+    setPeople(prev => [...prev, ...newPeople]);
+    setBrands(prev => [...prev, ...newBrands]);
+    setAllConnections(prev => [...prev, ...newConnections]);
+    
+    // Show success message
+    toast.success(
+      `Importação concluída! ${newPeople.length} pessoas` +
+      (newBrands.length > 0 ? `, ${newBrands.length} marcas` : '') +
+      (newConnections.length > 0 ? `, ${newConnections.length} conexões` : '')
+    );
+    
+    // Auto-organize and center view on new nodes
+    setTimeout(() => {
+      const allNewNodes = [...newPeople, ...newBrands];
+      if (allNewNodes.length > 0) {
+        const avgX = allNewNodes.reduce((sum, n) => sum + n.x, 0) / allNewNodes.length;
+        const avgY = allNewNodes.reduce((sum, n) => sum + n.y, 0) / allNewNodes.length;
+        updateState({
+          pan: { x: window.innerWidth / 2 - avgX * state.zoom, y: window.innerHeight / 2 - avgY * state.zoom }
+        });
+      }
+    }, 100);
   };
 
   // Calcular anchorProjectId por nó com busca de 2º grau (useMemo)
@@ -983,6 +1078,24 @@ export const NetworkMatrix = () => {
               </Tooltip>
             </TooltipProvider>
             
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    onClick={() => setShowLinkedInImport(true)}
+                    variant="outline" 
+                    size="icon" 
+                    className="rounded-lg bg-[#0A66C2]/10 border-[#0A66C2]/30 text-[#0A66C2] hover:bg-[#0A66C2]/20"
+                  >
+                    <Building2 size={18} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Importar LinkedIn</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            
             <div className="w-px h-8 bg-border mx-1"></div>
             
             <TooltipProvider>
@@ -1380,6 +1493,15 @@ export const NetworkMatrix = () => {
               const project = projects.find(p => p.id === id);
               if (project) handleDeleteProject(id, project.name);
             }}
+          />
+        )}
+
+        {showLinkedInImport && (
+          <LinkedInImportModal
+            open={showLinkedInImport}
+            onOpenChange={setShowLinkedInImport}
+            onImport={handleLinkedInImport}
+            projects={projects}
           />
         )}
       </div>
