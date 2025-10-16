@@ -109,14 +109,48 @@ export const NetworkMatrix = () => {
     setAllConnections(typeof updater === 'function' ? updater(allConnections) : updater);
   };
 
-  // Auto-organização circular
-  const applyCircularLayout = (nodesToLayout: any[], centerX: number, centerY: number, radius: number) => {
+  // Helper: Contar conexões
+  const getConnectionCount = (node: any) => {
+    return allConnections.filter(c => c.from === node.id || c.to === node.id).length;
+  };
+
+  // Helper: Distribuir nós em círculo
+  const distributeInCircle = (nodesToLayout: any[], centerX: number, centerY: number, radius: number) => {
+    if (nodesToLayout.length === 0) return [];
     const angleStep = (2 * Math.PI) / nodesToLayout.length;
     return nodesToLayout.map((node, index) => ({
       ...node,
-      x: centerX + radius * Math.cos(index * angleStep),
-      y: centerY + radius * Math.sin(index * angleStep)
+      x: centerX + radius * Math.cos(index * angleStep - Math.PI / 2),
+      y: centerY + radius * Math.sin(index * angleStep - Math.PI / 2)
     }));
+  };
+
+  // Layout radial hierárquico (3 níveis: inner, middle, outer)
+  const applyRadialLayout = (nodesToLayout: any[], centerX: number, centerY: number) => {
+    if (nodesToLayout.length === 0) return [];
+    
+    // Ordenar por importância (número de conexões)
+    const sorted = [...nodesToLayout].sort((a, b) => 
+      getConnectionCount(b) - getConnectionCount(a)
+    );
+    
+    // Nó central (mais conectado)
+    const centerNode = sorted[0];
+    const otherNodes = sorted.slice(1);
+    
+    // Dividir em 3 anéis
+    const innerRing = otherNodes.slice(0, Math.min(6, otherNodes.length));
+    const middleRing = otherNodes.slice(6, Math.min(18, otherNodes.length));
+    const outerRing = otherNodes.slice(18);
+    
+    const result = [
+      { ...centerNode, x: centerX, y: centerY, level: 'center' },
+      ...distributeInCircle(innerRing, centerX, centerY, 180).map(n => ({ ...n, level: 'inner' })),
+      ...distributeInCircle(middleRing, centerX, centerY, 320).map(n => ({ ...n, level: 'middle' })),
+      ...distributeInCircle(outerRing, centerX, centerY, 480).map(n => ({ ...n, level: 'outer' }))
+    ];
+    
+    return result;
   };
 
   const updateAllNodePositions = (layoutedNodes: any[]) => {
@@ -137,15 +171,19 @@ export const NetworkMatrix = () => {
 
   const autoOrganize = () => {
     if (viewMode === 'single') {
-      const layouted = applyCircularLayout(nodes, 500, 400, 280);
+      const layouted = applyRadialLayout(nodes, 500, 400);
       updateAllNodePositions(layouted);
     } else {
+      // Master View: grid de clusters radiais
+      const cols = Math.ceil(Math.sqrt(workflows.length));
       workflows.forEach((workflow, wIndex) => {
         const workflowNodes = allNodes.filter(n => n.workflows?.includes(workflow.id));
         if (workflowNodes.length > 0) {
-          const clusterX = wIndex * 900 + 500;
-          const clusterY = 400;
-          const layouted = applyCircularLayout(workflowNodes, clusterX, clusterY, 280);
+          const col = wIndex % cols;
+          const row = Math.floor(wIndex / cols);
+          const clusterX = col * 1000 + 500;
+          const clusterY = row * 900 + 450;
+          const layouted = applyRadialLayout(workflowNodes, clusterX, clusterY);
           updateAllNodePositions(layouted);
         }
       });
