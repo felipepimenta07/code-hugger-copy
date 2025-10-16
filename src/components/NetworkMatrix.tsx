@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Plus, Trash2, ZoomIn, ZoomOut, X, Building2, User, Target, Undo2, Redo2, Shuffle, Download, Upload, Maximize2, Info, Layers, BarChart3, Route, Sparkles } from 'lucide-react';
+import { toast } from 'sonner';
 import { NodeEditor } from './NodeEditor';
 import { AnalyticsPanel } from './AnalyticsPanel';
 import { ContextMenu } from './ContextMenu';
@@ -424,8 +425,9 @@ export const NetworkMatrix = () => {
       name: `Projeto ${projects.length + 1}`,
       type: 'project' as const,
       workflows: workflows.length > 0 ? [workflows[0].id] : [],
-      category: 'P',
-      status: 'Ativo',
+      category: 'P' as const,
+      status: 'Ativo' as const,
+      deadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       x: 500,
       y: 400
     };
@@ -538,71 +540,6 @@ export const NetworkMatrix = () => {
               <div className="text-xs text-muted-foreground mt-0.5 font-medium">VISION ECOSYSTEM</div>
             </div>
             
-            <div className="flex gap-2">
-              {projects.map(p => (
-                <div key={p.id} className="relative group">
-                  {editingProjectId === p.id ? (
-                    <input
-                      type="text"
-                      value={editingProjectName}
-                      onChange={(e) => setEditingProjectName(e.target.value)}
-                      onBlur={() => handleProjectNameChange(p.id, editingProjectName)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleProjectNameChange(p.id, editingProjectName);
-                        if (e.key === 'Escape') {
-                          setEditingProjectId(null);
-                          setEditingProjectName('');
-                        }
-                      }}
-                      autoFocus
-                      className="px-3 py-1.5 rounded-lg bg-secondary border border-primary text-xs font-medium outline-none min-w-[100px]"
-                      style={{ borderLeft: `3px solid #8b5cf6` }}
-                    />
-                  ) : (
-                    <button
-                      onClick={() => {
-                        setActiveProjectId(p.id);
-                        setViewMode('single');
-                        setTimeout(() => autoOrganizeSingle(p.id), 100);
-                      }}
-                      onDoubleClick={() => {
-                        setEditingProjectId(p.id);
-                        setEditingProjectName(p.name);
-                      }}
-                      className="relative px-3 py-1.5 rounded-lg transition-all hover:bg-secondary"
-                      style={{ 
-                        borderLeft: `3px solid #8b5cf6`,
-                        opacity: viewMode === 'master' || activeProjectId === p.id ? 1 : 0.5 
-                      }}
-                    >
-                      <div className="text-xs text-muted-foreground group-hover:text-foreground font-medium">
-                        {p.name}
-                      </div>
-                    </button>
-                  )}
-                  
-                  {projects.length > 1 && !editingProjectId && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteProject(p.id, p.name);
-                      }}
-                      className="absolute -top-1 -right-1 opacity-0 group-hover:opacity-100 p-1 bg-destructive text-destructive-foreground rounded-full transition-all hover:scale-110"
-                    >
-                      <X size={10} />
-                    </button>
-                  )}
-                </div>
-              ))}
-              
-              <button
-                onClick={handleCreateNewProject}
-                className="group px-3 py-1.5 rounded-lg transition-all hover:bg-secondary border border-dashed border-border hover:border-primary"
-              >
-                <Plus size={14} className="inline text-muted-foreground group-hover:text-foreground" />
-                <span className="text-xs text-muted-foreground group-hover:text-foreground ml-1">Novo Projeto</span>
-              </button>
-            </div>
           </div>
           
           <div className="flex items-center gap-2">
@@ -665,6 +602,11 @@ export const NetworkMatrix = () => {
             
             <div className="w-px h-8 bg-border mx-1"></div>
             
+            <button 
+              onClick={() => setShowProjectManager(!showProjectManager)}
+              className={`p-2 rounded-lg transition-all ${showProjectManager ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'}`}>
+              <Target size={18} />
+            </button>
             <button 
               onClick={() => updateState({ showAnalytics: !state.showAnalytics, showSidebar: false })}
               className={`p-2 rounded-lg transition-all ${state.showAnalytics ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'}`}>
@@ -798,6 +740,52 @@ export const NetworkMatrix = () => {
             nodes={nodes} 
             connections={connections}
             onClose={() => updateState({ showAnalytics: false })} 
+          />
+        )}
+
+        {showProjectManager && (
+          <ProjectManagerPanel
+            projects={projects}
+            workflows={workflows}
+            people={people}
+            brands={brands}
+            connections={allConnections}
+            onClose={() => setShowProjectManager(false)}
+            onFocusProject={(projectId) => {
+              setActiveProjectId(projectId);
+              setViewMode('single');
+              setShowProjectManager(false);
+              setTimeout(() => {
+                autoOrganizeSingle(projectId);
+                const width = window.innerWidth;
+                const height = window.innerHeight - 100;
+                const bounds = calculateBounds(nodes);
+                const zoom = calculateOptimalZoom(bounds, width, height);
+                const pan = calculateCenterPan(bounds, zoom, width, height);
+                updateState({ zoom, pan });
+              }, 100);
+            }}
+            onProjectCreate={(data) => {
+              const newProject = {
+                id: Date.now(),
+                type: 'project' as const,
+                x: 500,
+                y: 400,
+                ...data,
+              };
+              setProjects([...projects, newProject as any]);
+              setActiveProjectId(newProject.id);
+              setViewMode('single');
+              setTimeout(() => autoOrganizeSingle(newProject.id), 100);
+              toast.success('Projeto criado com sucesso!');
+            }}
+            onProjectUpdate={(id, updates) => {
+              setProjects(prev => prev.map(p => p.id === id ? { ...p, ...updates as any } : p));
+            }}
+            onProjectDelete={(id) => {
+              const project = projects.find(p => p.id === id);
+              if (project) handleDeleteProject(id, project.name);
+            }}
           />
         )}
       </div>

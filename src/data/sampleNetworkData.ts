@@ -10,31 +10,31 @@ export const SAMPLE_WORKFLOWS = [
 
 export const SAMPLE_PROJECTS = [
   // Workflow 1: Comunidade Tech - Layout Radial (center: 500, 400)
-  { id: 1, name: 'Hackathon 2025', type: 'project', workflows: [1], category: 'G', status: 'ativo', deadline: '2025-12-15', x: 500, y: 400 }, // Centro
-  { id: 2, name: 'Meetup Mensal', type: 'project', workflows: [1], category: 'P', status: 'ativo', x: 680, y: 400 }, // Anel inner
-  { id: 3, name: 'Mentoria Tech', type: 'project', workflows: [1, 3], category: 'M', status: 'ativo', x: 590, y: 555 },
-  { id: 15, name: 'Podcast Semanal', type: 'project', workflows: [1, 3], category: 'P', status: 'ativo', x: 410, y: 555 },
+  { id: 1, name: 'Hackathon 2025', type: 'project' as const, workflows: [1], category: 'G' as const, status: 'Ativo' as const, deadline: '2025-12-15', x: 500, y: 400 }, // Centro
+  { id: 2, name: 'Meetup Mensal', type: 'project' as const, workflows: [1], category: 'P' as const, status: 'Ativo' as const, deadline: '2025-12-31', x: 680, y: 400 }, // Anel inner
+  { id: 3, name: 'Mentoria Tech', type: 'project' as const, workflows: [1, 3], category: 'M' as const, status: 'Ativo' as const, deadline: '2025-12-31', x: 590, y: 555 },
+  { id: 15, name: 'Podcast Semanal', type: 'project' as const, workflows: [1, 3], category: 'P' as const, status: 'Ativo' as const, deadline: '2025-12-31', x: 410, y: 555 },
   
   // Workflow 2: Eventos Corporativos - Layout Radial (center: 1500, 400)
-  { id: 4, name: 'Campari Art Week', type: 'project', workflows: [2], category: 'G', status: 'ativo', deadline: '2025-11-20', x: 1500, y: 400 }, // Centro
-  { id: 5, name: 'Lançamento Shopping', type: 'project', workflows: [2, 3], category: 'G', status: 'ativo', deadline: '2025-10-30', x: 1680, y: 400 },
-  { id: 6, name: 'Festa Premium', type: 'project', workflows: [2], category: 'M', status: 'ativo', x: 1590, y: 555 },
+  { id: 4, name: 'Campari Art Week', type: 'project' as const, workflows: [2], category: 'G' as const, status: 'Ativo' as const, deadline: '2025-11-20', x: 1500, y: 400 }, // Centro
+  { id: 5, name: 'Lançamento Shopping', type: 'project' as const, workflows: [2, 3], category: 'G' as const, status: 'Ativo' as const, deadline: '2025-10-30', x: 1680, y: 400 },
+  { id: 6, name: 'Festa Premium', type: 'project' as const, workflows: [2], category: 'M' as const, status: 'Ativo' as const, deadline: '2025-12-31', x: 1590, y: 555 },
   
   // Workflow 3: Parcerias - Layout Radial (center: 2500, 400)
-  { id: 7, name: 'Acordo Tech Corp', type: 'project', workflows: [3], category: 'M', status: 'ativo', x: 2500, y: 400 }, // Centro
-  { id: 8, name: 'Joint Venture X', type: 'project', workflows: [3, 5], category: 'G', status: 'pausado', x: 2680, y: 400 },
+  { id: 7, name: 'Acordo Tech Corp', type: 'project' as const, workflows: [3], category: 'M' as const, status: 'Ativo' as const, deadline: '2025-12-31', x: 2500, y: 400 }, // Centro
+  { id: 8, name: 'Joint Venture X', type: 'project' as const, workflows: [3, 5], category: 'G' as const, status: 'Pausado' as const, deadline: '2025-12-31', x: 2680, y: 400 },
   
   // Workflow 4: Família - Layout Radial (center: 500, 1300)
-  { id: 9, name: 'Reunião Familiar', type: 'project', workflows: [4], category: 'P', status: 'ativo', deadline: '2025-12-25', x: 500, y: 1300 }, // Centro
-  { id: 10, name: 'Viagem Fim de Ano', type: 'project', workflows: [4], category: 'M', status: 'ativo', x: 680, y: 1300 },
+  { id: 9, name: 'Reunião Familiar', type: 'project' as const, workflows: [4], category: 'P' as const, status: 'Ativo' as const, deadline: '2025-12-25', x: 500, y: 1300 }, // Centro
+  { id: 10, name: 'Viagem Fim de Ano', type: 'project' as const, workflows: [4], category: 'M' as const, status: 'Ativo' as const, deadline: '2025-12-31', x: 680, y: 1300 },
   
   // Workflow 5: Investimentos - Layout Radial (center: 1500, 1300)
-  { id: 11, name: 'Startup Alpha', type: 'project', workflows: [5], category: 'G', status: 'ativo', x: 1500, y: 1300 }, // Centro
-  { id: 12, name: 'Fundo Imobiliário', type: 'project', workflows: [5], category: 'M', status: 'ativo', x: 1680, y: 1300 },
-  { id: 13, name: 'Ações Tech', type: 'project', workflows: [5], category: 'P', status: 'ativo', x: 1590, y: 1455 },
+  { id: 11, name: 'Startup Alpha', type: 'project' as const, workflows: [5], category: 'G' as const, status: 'Ativo' as const, deadline: '2025-12-31', x: 1500, y: 1300 }, // Centro
+  { id: 12, name: 'Fundo Imobiliário', type: 'project' as const, workflows: [5], category: 'M' as const, status: 'Ativo' as const, deadline: '2025-12-31', x: 1680, y: 1300 },
+  { id: 13, name: 'Ações Tech', type: 'project' as const, workflows: [5], category: 'P' as const, status: 'Ativo' as const, deadline: '2025-12-31', x: 1590, y: 1455 },
   
   // Multi-workflow
-  { id: 14, name: 'Conferência Anual', type: 'project', workflows: [1, 2, 3], category: 'G', status: 'ativo', deadline: '2025-09-15', x: 650, y: 320 }
+  { id: 14, name: 'Conferência Anual', type: 'project' as const, workflows: [1, 2, 3], category: 'G' as const, status: 'Ativo' as const, deadline: '2025-09-15', x: 650, y: 320 }
 ];
 
 export const SAMPLE_PEOPLE = [
