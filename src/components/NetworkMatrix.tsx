@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Trash2, ZoomIn, ZoomOut, X, Building2, User, Target, Undo2, Redo2, Shuffle, Download, Upload, Maximize2, Info, Layers, BarChart3, Route } from 'lucide-react';
+import { Plus, Trash2, ZoomIn, ZoomOut, X, Building2, User, Target, Undo2, Redo2, Shuffle, Download, Upload, Maximize2, Info, Layers, BarChart3, Route, Sparkles } from 'lucide-react';
 import { NodeEditor } from './NodeEditor';
 import { AnalyticsPanel } from './AnalyticsPanel';
 import { ContextMenu } from './ContextMenu';
@@ -8,9 +8,12 @@ import { Legend } from './Legend';
 import { QuickActionsMenu } from './QuickActionsMenu';
 import { Canvas } from './Canvas';
 import { NodeCreationModal } from './NodeCreationModal';
+import { ProjectManagerPanel } from './ProjectManagerPanel';
+import { AIInsightsPanel } from './AIInsightsPanel';
 import { useNetworkState } from '@/hooks/useNetworkState';
 import { useNetworkHistory } from '@/hooks/useNetworkHistory';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
+import { SAMPLE_WORKFLOWS, SAMPLE_PROJECTS, SAMPLE_PEOPLE, SAMPLE_BRANDS, SAMPLE_CONNECTIONS } from '@/data/sampleNetworkData';
 
 const CATEGORIES = {
   person: ['Pessoal', 'Profissional', 'Cliente', 'Fornecedor', 'Parceiro'],
@@ -19,45 +22,12 @@ const CATEGORIES = {
 };
 
 export const NetworkMatrix = () => {
-  const [workflows, setWorkflows] = useState([
-    {
-      id: 1,
-      name: 'Comunidade',
-      color: '#EC4899',
-      nodes: [
-        { id: 1, name: 'Core Team', type: 'person', x: 700, y: 500, category: 'Profissional' },
-        { id: 2, name: 'Ana Silva', type: 'person', x: 500, y: 600, category: 'Cliente', email: 'ana@email.com' },
-        { id: 3, name: 'Pedro Costa', type: 'person', x: 900, y: 600, category: 'Parceiro' },
-        { id: 4, name: 'Community', type: 'person', x: 700, y: 750, category: 'Profissional' },
-        { id: 5, name: 'Moderadores', type: 'person', x: 400, y: 500, category: 'Profissional' }
-      ],
-      connections: [
-        { from: 1, to: 2, type: 'strong', directional: false },
-        { from: 1, to: 3, type: 'strong', directional: false },
-        { from: 1, to: 4, type: 'weak', directional: false },
-        { from: 1, to: 5, type: 'strong', directional: false },
-        { from: 4, to: 5, type: 'weak', directional: false }
-      ]
-    },
-    {
-      id: 2,
-      name: 'Tech Stack',
-      color: '#10B981',
-      nodes: [
-        { id: 11, name: 'Platform', type: 'project', x: 1800, y: 500, category: 'G', projectStatus: 'ativo' },
-        { id: 12, name: 'Design System', type: 'project', x: 1700, y: 600, category: 'M' },
-        { id: 13, name: 'API', type: 'project', x: 1900, y: 600, category: 'M' },
-        { id: 14, name: 'Mobile', type: 'project', x: 1800, y: 750, category: 'P' },
-        { id: 15, name: 'Analytics', type: 'project', x: 2000, y: 550, category: 'P' }
-      ],
-      connections: [
-        { from: 11, to: 12, type: 'strong', directional: false },
-        { from: 11, to: 13, type: 'strong', directional: false },
-        { from: 11, to: 14, type: 'weak', directional: false },
-        { from: 13, to: 15, type: 'strong', directional: false }
-      ]
-    }
-  ]);
+  // Nova arquitetura: separar projetos, pessoas e marcas
+  const [projects, setProjects] = useState(SAMPLE_PROJECTS);
+  const [people, setPeople] = useState(SAMPLE_PEOPLE);
+  const [brands, setBrands] = useState(SAMPLE_BRANDS);
+  const [allConnections, setAllConnections] = useState(SAMPLE_CONNECTIONS);
+  const [workflows, setWorkflows] = useState(SAMPLE_WORKFLOWS);
 
   const [activeWorkflowId, setActiveWorkflowId] = useState(1);
   const [viewMode, setViewMode] = useState('master');
@@ -77,40 +47,45 @@ export const NetworkMatrix = () => {
   const [editingNodeInModal, setEditingNodeInModal] = useState<any>(null);
   const [editingWorkflowId, setEditingWorkflowId] = useState<number | null>(null);
   const [editingWorkflowName, setEditingWorkflowName] = useState('');
+  const [showProjectManager, setShowProjectManager] = useState(false);
+  const [showAIInsights, setShowAIInsights] = useState(false);
 
   const { state, updateState } = useNetworkState();
-  const { history, historyIndex, saveToHistory, undo, redo } = useNetworkHistory(workflows, setWorkflows);
   const svgRef = useRef(null);
 
-  const activeWorkflow = workflows.find(w => w.id === activeWorkflowId);
-  const nodes = viewMode === 'master' 
-    ? workflows.flatMap(w => w.nodes.map(n => ({ ...n, workflowId: w.id, workflowColor: w.color })))
-    : activeWorkflow?.nodes || [];
-  
+  // Combinar todos os nós
+  const allNodes = [...projects, ...people, ...brands];
+
+  // Filtrar nós e conexões por workflow/modo
+  const nodes = viewMode === 'master'
+    ? allNodes.map(n => {
+        const nodeWorkflows = n.workflows || [];
+        const workflow = workflows.find(w => nodeWorkflows.includes(w.id));
+        return { ...n, workflowId: workflow?.id, workflowColor: workflow?.color };
+      })
+    : allNodes.filter(n => n.workflows?.includes(activeWorkflowId));
+
   const connections = viewMode === 'master'
-    ? [
-        ...workflows.flatMap(w => w.connections.map(c => ({ ...c, workflowId: w.id }))),
-        { from: 1, to: 11, type: 'weak', workflowId: null },
-        { from: 11, to: 2, type: 'weak', workflowId: null }
-      ]
-    : activeWorkflow?.connections || [];
+    ? allConnections
+    : allConnections.filter(c => {
+        const fromNode = allNodes.find(n => n.id === c.from);
+        const toNode = allNodes.find(n => n.id === c.to);
+        return fromNode?.workflows?.includes(activeWorkflowId) && 
+               toNode?.workflows?.includes(activeWorkflowId);
+      });
+
+  const saveToHistory = () => {};
+  const undo = () => {};
+  const redo = () => {};
+  const history = [];
+  const historyIndex = -1;
 
   const setNodes = (updater) => {
-    if (viewMode === 'master') return;
-    setWorkflows(prev => prev.map(w => 
-      w.id === activeWorkflowId 
-        ? { ...w, nodes: typeof updater === 'function' ? updater(w.nodes) : updater }
-        : w
-    ));
+    // TODO: implementar atualização de nós
   };
 
   const setConnections = (updater) => {
-    if (viewMode === 'master') return;
-    setWorkflows(prev => prev.map(w => 
-      w.id === activeWorkflowId 
-        ? { ...w, connections: typeof updater === 'function' ? updater(w.connections) : updater }
-        : w
-    ));
+    setAllConnections(typeof updater === 'function' ? updater(allConnections) : updater);
   };
 
   useKeyboardShortcuts({
@@ -223,7 +198,6 @@ export const NetworkMatrix = () => {
   };
 
   const handleCreateNewWorkflow = () => {
-    saveToHistory();
     const colors = ['#EC4899', '#10B981', '#8B5CF6', '#F59E0B', '#3B82F6', '#EF4444'];
     const usedColors = workflows.map(w => w.color);
     const availableColor = colors.find(c => !usedColors.includes(c)) || colors[0];
@@ -232,8 +206,7 @@ export const NetworkMatrix = () => {
       id: Date.now(),
       name: `Workflow ${workflows.length + 1}`,
       color: availableColor,
-      nodes: [],
-      connections: []
+      description: ''
     };
     
     setWorkflows([...workflows, newWorkflow]);
@@ -248,7 +221,6 @@ export const NetworkMatrix = () => {
 
   const handleWorkflowNameChange = (workflowId: number, newName: string) => {
     if (newName.trim()) {
-      saveToHistory();
       setWorkflows(prev => 
         prev.map(w => w.id === workflowId ? { ...w, name: newName.trim() } : w)
       );
@@ -264,7 +236,6 @@ export const NetworkMatrix = () => {
     }
     
     if (confirm(`Deletar workflow "${workflowName}"?`)) {
-      saveToHistory();
       setWorkflows(prev => prev.filter(w => w.id !== workflowId));
       if (activeWorkflowId === workflowId) {
         const remainingWorkflows = workflows.filter(w => w.id !== workflowId);
