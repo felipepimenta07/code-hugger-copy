@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Target, X, Search, Plus, Edit, Trash2, MapPin, Filter } from 'lucide-react';
+import { Target, X, Search, Plus, Edit, Trash2, MapPin, Filter, ArrowUpDown, Calendar } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { ScrollArea } from './ui/scroll-area';
@@ -49,6 +49,7 @@ export const ProjectManagerPanel: React.FC<ProjectManagerPanelProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
   const [filterCategory, setFilterCategory] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'name'>('newest');
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [isCreating, setIsCreating] = useState(false);
 
@@ -135,12 +136,24 @@ export const ProjectManagerPanel: React.FC<ProjectManagerPanelProps> = ({
     return { connectedPeople, connectedBrands };
   };
 
-  const filteredProjects = projects.filter(project => {
-    const matchesSearch = project.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = !filterStatus || project.status === filterStatus;
-    const matchesCategory = !filterCategory || project.category === filterCategory;
-    return matchesSearch && matchesStatus && matchesCategory;
-  });
+  const filteredProjects = projects
+    .filter(project => {
+      const matchesSearch = project.name.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesStatus = !filterStatus || project.status === filterStatus;
+      const matchesCategory = !filterCategory || project.category === filterCategory;
+      return matchesSearch && matchesStatus && matchesCategory;
+    })
+    .sort((a, b) => {
+      if (sortBy === 'name') {
+        return a.name.localeCompare(b.name);
+      }
+      // Sort by ID as proxy for creation date (lower ID = older)
+      if (sortBy === 'oldest') {
+        return a.id - b.id;
+      }
+      // newest first
+      return b.id - a.id;
+    });
 
   const getCategoryBadgeVariant = (category: string) => {
     switch (category) {
@@ -187,7 +200,7 @@ export const ProjectManagerPanel: React.FC<ProjectManagerPanelProps> = ({
             />
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <Button 
               variant={filterCategory === null ? 'default' : 'outline'} 
               size="sm"
@@ -215,6 +228,27 @@ export const ProjectManagerPanel: React.FC<ProjectManagerPanelProps> = ({
               onClick={() => setFilterCategory(filterCategory === 'G' ? null : 'G')}
             >
               G
+            </Button>
+          </div>
+
+          <div className="flex gap-2">
+            <Button 
+              variant={sortBy === 'newest' ? 'default' : 'outline'} 
+              size="sm"
+              onClick={() => setSortBy('newest')}
+              className="flex-1"
+            >
+              <Calendar className="mr-1 h-3 w-3" />
+              Mais Novos
+            </Button>
+            <Button 
+              variant={sortBy === 'oldest' ? 'default' : 'outline'} 
+              size="sm"
+              onClick={() => setSortBy('oldest')}
+              className="flex-1"
+            >
+              <Calendar className="mr-1 h-3 w-3" />
+              Mais Antigos
             </Button>
           </div>
 
@@ -284,7 +318,7 @@ export const ProjectManagerPanel: React.FC<ProjectManagerPanelProps> = ({
                         className="flex-1"
                       >
                         <MapPin className="mr-1 h-3 w-3" />
-                        Ver no Mapa
+                        Ver Projeto
                       </Button>
                       <Button 
                         variant="ghost" 

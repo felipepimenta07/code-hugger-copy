@@ -1101,18 +1101,19 @@ export const NetworkMatrix = () => {
               
               // Second timeout: center view after layout is done
               setTimeout(() => {
-                const activeProject = projects.find(p => p.id === projectId);
-                if (activeProject) {
-                  const width = window.innerWidth;
-                  const height = window.innerHeight - 100;
-                  const desiredZoom = 0.95;
-                  const pan = {
-                    x: width / 2 - activeProject.x * desiredZoom,
-                    y: height / 2 - activeProject.y * desiredZoom
-                  };
-                  updateState({ zoom: desiredZoom, pan });
+                const width = window.innerWidth;
+                const height = window.innerHeight - 100;
+                
+                // Get the actual nodes after layout (recalculated by React)
+                const currentNodes = getNodesForSingleView(projectId);
+                
+                if (currentNodes.length > 0) {
+                  const bounds = calculateBounds(currentNodes);
+                  const zoom = calculateOptimalZoom(bounds, width, height);
+                  const pan = calculateCenterPan(bounds, zoom, width, height);
+                  updateState({ zoom, pan });
                 }
-              }, 250);
+              }, 300);
             }}
             onProjectCreate={(data) => {
               const newProject = {
