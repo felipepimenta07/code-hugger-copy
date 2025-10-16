@@ -74,6 +74,9 @@ export const NetworkMatrix = () => {
   const [showNodeCreationModal, setShowNodeCreationModal] = useState(false);
   const [nodeCreationType, setNodeCreationType] = useState<'person' | 'project' | 'brand'>('person');
   const [nodeCreationPosition, setNodeCreationPosition] = useState({ x: 0, y: 0 });
+  const [editingNodeInModal, setEditingNodeInModal] = useState<any>(null);
+  const [editingWorkflowId, setEditingWorkflowId] = useState<number | null>(null);
+  const [editingWorkflowName, setEditingWorkflowName] = useState('');
 
   const { state, updateState } = useNetworkState();
   const { history, historyIndex, saveToHistory, undo, redo } = useNetworkHistory(workflows, setWorkflows);
@@ -209,6 +212,67 @@ export const NetworkMatrix = () => {
     updateState({ editingNode: newNode, showSidebar: true });
   };
 
+  const handleNodeUpdate = (updatedData: any) => {
+    if (editingNodeInModal) {
+      saveToHistory();
+      setNodes(nodes.map(n => n.id === editingNodeInModal.id ? { ...n, ...updatedData } : n));
+      setShowNodeCreationModal(false);
+      setEditingNodeInModal(null);
+      updateState({ showSidebar: false });
+    }
+  };
+
+  const handleCreateNewWorkflow = () => {
+    saveToHistory();
+    const colors = ['#EC4899', '#10B981', '#8B5CF6', '#F59E0B', '#3B82F6', '#EF4444'];
+    const usedColors = workflows.map(w => w.color);
+    const availableColor = colors.find(c => !usedColors.includes(c)) || colors[0];
+    
+    const newWorkflow = {
+      id: Date.now(),
+      name: `Workflow ${workflows.length + 1}`,
+      color: availableColor,
+      nodes: [],
+      connections: []
+    };
+    
+    setWorkflows([...workflows, newWorkflow]);
+    setActiveWorkflowId(newWorkflow.id);
+    setViewMode('single');
+    
+    setTimeout(() => {
+      setEditingWorkflowId(newWorkflow.id);
+      setEditingWorkflowName(newWorkflow.name);
+    }, 100);
+  };
+
+  const handleWorkflowNameChange = (workflowId: number, newName: string) => {
+    if (newName.trim()) {
+      saveToHistory();
+      setWorkflows(prev => 
+        prev.map(w => w.id === workflowId ? { ...w, name: newName.trim() } : w)
+      );
+    }
+    setEditingWorkflowId(null);
+    setEditingWorkflowName('');
+  };
+
+  const handleDeleteWorkflow = (workflowId: number, workflowName: string) => {
+    if (workflows.length <= 1) {
+      alert('Você precisa ter pelo menos um workflow!');
+      return;
+    }
+    
+    if (confirm(`Deletar workflow "${workflowName}"?`)) {
+      saveToHistory();
+      setWorkflows(prev => prev.filter(w => w.id !== workflowId));
+      if (activeWorkflowId === workflowId) {
+        const remainingWorkflows = workflows.filter(w => w.id !== workflowId);
+        setActiveWorkflowId(remainingWorkflows[0].id);
+      }
+    }
+  };
+
   return (
     <div className="min-h-screen h-screen bg-background flex flex-col overflow-hidden">
       {state.contextMenu && (
@@ -254,10 +318,14 @@ export const NetworkMatrix = () => {
 
       {showNodeCreationModal && (
         <NodeCreationModal
-          type={nodeCreationType}
+          type={editingNodeInModal?.type || nodeCreationType}
           getAllCategories={getAllCategories}
-          onClose={() => setShowNodeCreationModal(false)}
-          onCreate={handleNodeCreation}
+          onClose={() => {
+            setShowNodeCreationModal(false);
+            setEditingNodeInModal(null);
+          }}
+          onCreate={editingNodeInModal ? handleNodeUpdate : handleNodeCreation}
+          editingNode={editingNodeInModal}
         />
       )}
 
@@ -272,23 +340,67 @@ export const NetworkMatrix = () => {
             
             <div className="flex gap-2">
               {workflows.map(w => (
-                <button
-                  key={w.id}
-                  onClick={() => {
-                    setActiveWorkflowId(w.id);
-                    setViewMode('single');
-                  }}
-                  className="group relative px-3 py-1.5 rounded-lg transition-all hover:bg-secondary"
-                  style={{ 
-                    borderLeft: `3px solid ${w.color}`,
-                    opacity: viewMode === 'master' || activeWorkflowId === w.id ? 1 : 0.5 
-                  }}
-                >
-                  <div className="text-xs text-muted-foreground group-hover:text-foreground font-medium">
-                    {w.name}
-                  </div>
-                </button>
+                <div key={w.id} className="relative group">
+                  {editingWorkflowId === w.id ? (
+                    <input
+                      type="text"
+                      value={editingWorkflowName}
+                      onChange={(e) => setEditingWorkflowName(e.target.value)}
+                      onBlur={() => handleWorkflowNameChange(w.id, editingWorkflowName)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleWorkflowNameChange(w.id, editingWorkflowName);
+                        if (e.key === 'Escape') {
+                          setEditingWorkflowId(null);
+                          setEditingWorkflowName('');
+                        }
+                      }}
+                      autoFocus
+                      className="px-3 py-1.5 rounded-lg bg-secondary border border-primary text-xs font-medium outline-none min-w-[100px]"
+                      style={{ borderLeft: `3px solid ${w.color}` }}
+                    />
+                  ) : (
+                    <button
+                      onClick={() => {
+                        setActiveWorkflowId(w.id);
+                        setViewMode('single');
+                      }}
+                      onDoubleClick={() => {
+                        setEditingWorkflowId(w.id);
+                        setEditingWorkflowName(w.name);
+                      }}
+                      className="relative px-3 py-1.5 rounded-lg transition-all hover:bg-secondary"
+                      style={{ 
+                        borderLeft: `3px solid ${w.color}`,
+                        opacity: viewMode === 'master' || activeWorkflowId === w.id ? 1 : 0.5 
+                      }}
+                    >
+                      <div className="text-xs text-muted-foreground group-hover:text-foreground font-medium">
+                        {w.name}
+                      </div>
+                    </button>
+                  )}
+                  
+                  {workflows.length > 1 && !editingWorkflowId && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteWorkflow(w.id, w.name);
+                      }}
+                      className="absolute -top-1 -right-1 opacity-0 group-hover:opacity-100 p-1 bg-destructive text-destructive-foreground rounded-full transition-all hover:scale-110"
+                    >
+                      <X size={10} />
+                    </button>
+                  )}
+                </div>
               ))}
+              
+              <button
+                onClick={handleCreateNewWorkflow}
+                className="group px-3 py-1.5 rounded-lg transition-all hover:bg-secondary border border-dashed border-border hover:border-primary"
+              >
+                <Plus size={14} className="inline text-muted-foreground group-hover:text-foreground" />
+                <span className="text-xs text-muted-foreground group-hover:text-foreground ml-1">Nova Aba</span>
+              </button>
             </div>
           </div>
           
@@ -415,6 +527,12 @@ export const NetworkMatrix = () => {
           setNodes={setNodes}
           setConnections={setConnections}
           saveToHistory={saveToHistory}
+          onOpenEditModal={(node) => {
+            setEditingNodeInModal(node);
+            setNodeCreationType(node.type);
+            setShowNodeCreationModal(true);
+            updateState({ showSidebar: false });
+          }}
         />
 
         {state.showSidebar && state.editingNode && (

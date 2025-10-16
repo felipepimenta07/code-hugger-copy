@@ -13,24 +13,26 @@ interface NodeCreationModalProps {
   getAllCategories: (type: string) => string[];
   onClose: () => void;
   onCreate: (nodeData: any) => void;
+  editingNode?: any;
 }
 
 export const NodeCreationModal: React.FC<NodeCreationModalProps> = ({
   type,
   getAllCategories,
   onClose,
-  onCreate
+  onCreate,
+  editingNode
 }) => {
-  const [name, setName] = useState('');
-  const [category, setCategory] = useState('');
-  const [email, setEmail] = useState('');
-  const [company, setCompany] = useState('');
-  const [role, setRole] = useState('');
-  const [status, setStatus] = useState('');
-  const [startDate, setStartDate] = useState('');
-  const [website, setWebsite] = useState('');
-  const [location, setLocation] = useState('');
-  const [notes, setNotes] = useState('');
+  const [name, setName] = useState(editingNode?.name || '');
+  const [category, setCategory] = useState(editingNode?.category || '');
+  const [email, setEmail] = useState(editingNode?.email || '');
+  const [company, setCompany] = useState(editingNode?.company || '');
+  const [role, setRole] = useState(editingNode?.role || '');
+  const [status, setStatus] = useState(editingNode?.projectStatus || '');
+  const [startDate, setStartDate] = useState(editingNode?.startDate || '');
+  const [website, setWebsite] = useState(editingNode?.website || '');
+  const [location, setLocation] = useState(editingNode?.location || '');
+  const [notes, setNotes] = useState(editingNode?.notes || '');
   
   const nameInputRef = useRef<HTMLInputElement>(null);
 
@@ -91,7 +93,7 @@ export const NodeCreationModal: React.FC<NodeCreationModalProps> = ({
             <div className="flex items-center gap-3">
               <Badge className={`${config.color} border px-3 py-1`}>
                 <span className="mr-1.5">{config.emoji}</span>
-                Criar {config.label}
+                {editingNode ? 'Editar' : 'Criar'} {config.label}
               </Badge>
             </div>
           </div>
@@ -267,7 +269,7 @@ export const NodeCreationModal: React.FC<NodeCreationModalProps> = ({
             onClick={handleCreate}
             className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90"
           >
-            Criar Nó
+            {editingNode ? 'Salvar Alterações' : 'Criar Nó'}
           </Button>
         </div>
       </DialogContent>

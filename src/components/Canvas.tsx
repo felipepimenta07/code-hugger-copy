@@ -19,6 +19,7 @@ interface CanvasProps {
   setNodes: (updater: any) => void;
   setConnections: (updater: any) => void;
   saveToHistory: () => void;
+  onOpenEditModal?: (node: any) => void;
 }
 
 const nodeColors = {
@@ -44,7 +45,8 @@ export const Canvas: React.FC<CanvasProps> = ({
   setHoveredNode,
   setNodes,
   setConnections,
-  saveToHistory
+  saveToHistory,
+  onOpenEditModal
 }) => {
   const handleNodeMouseDown = (e: React.MouseEvent, nodeId: number) => {
     e.stopPropagation();
@@ -73,6 +75,16 @@ export const Canvas: React.FC<CanvasProps> = ({
     e.stopPropagation();
     if (!e.shiftKey && !state.isDraggingConnection && viewMode === 'single') {
       updateState({ editingNode: nodes.find(n => n.id === nodeId), showSidebar: true, showAnalytics: false });
+    }
+  };
+
+  const handleNodeDoubleClick = (e: React.MouseEvent, nodeId: number) => {
+    e.stopPropagation();
+    if (viewMode === 'single' && onOpenEditModal) {
+      const node = nodes.find(n => n.id === nodeId);
+      if (node) {
+        onOpenEditModal(node);
+      }
     }
   };
 
@@ -322,6 +334,7 @@ export const Canvas: React.FC<CanvasProps> = ({
               transform={`translate(${node.x}, ${node.y})`}
               onMouseDown={(e) => handleNodeMouseDown(e, node.id)}
               onClick={(e) => handleNodeClick(e, node.id)}
+              onDoubleClick={(e) => handleNodeDoubleClick(e, node.id)}
               onMouseEnter={() => setHoveredNode(node.id)}
               onMouseLeave={() => setHoveredNode(null)}
               className="cursor-pointer"
