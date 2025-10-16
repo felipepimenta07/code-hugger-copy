@@ -7,6 +7,7 @@ import { PathFinderModal } from './PathFinderModal';
 import { Legend } from './Legend';
 import { QuickActionsMenu } from './QuickActionsMenu';
 import { Canvas } from './Canvas';
+import { NodeCreationModal } from './NodeCreationModal';
 import { useNetworkState } from '@/hooks/useNetworkState';
 import { useNetworkHistory } from '@/hooks/useNetworkHistory';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
@@ -70,6 +71,9 @@ export const NetworkMatrix = () => {
   const [highlightedPath, setHighlightedPath] = useState([]);
   const [showQuickActions, setShowQuickActions] = useState(false);
   const [hoveredNode, setHoveredNode] = useState(null);
+  const [showNodeCreationModal, setShowNodeCreationModal] = useState(false);
+  const [nodeCreationType, setNodeCreationType] = useState<'person' | 'project' | 'brand'>('person');
+  const [nodeCreationPosition, setNodeCreationPosition] = useState({ x: 0, y: 0 });
 
   const { state, updateState } = useNetworkState();
   const { history, historyIndex, saveToHistory, undo, redo } = useNetworkHistory(workflows, setWorkflows);
@@ -191,6 +195,20 @@ export const NetworkMatrix = () => {
     return false;
   };
 
+  const handleNodeCreation = (nodeData: any) => {
+    saveToHistory();
+    const newNode = {
+      id: Date.now(),
+      type: nodeCreationType,
+      x: nodeCreationPosition.x,
+      y: nodeCreationPosition.y,
+      ...nodeData
+    };
+    setNodes([...nodes, newNode]);
+    setShowNodeCreationModal(false);
+    updateState({ editingNode: newNode, showSidebar: true });
+  };
+
   return (
     <div className="min-h-screen h-screen bg-background flex flex-col overflow-hidden">
       {state.contextMenu && (
@@ -199,16 +217,13 @@ export const NetworkMatrix = () => {
           updateState={updateState}
           onCreateNode={(type) => {
             if (state.contextMenu) {
-              saveToHistory();
-              const newNode = {
-                id: Date.now(),
-                name: 'Novo Nó',
-                type: type,
+              setNodeCreationType(type as 'person' | 'project' | 'brand');
+              setNodeCreationPosition({
                 x: state.contextMenu.canvasX,
                 y: state.contextMenu.canvasY
-              };
-              setNodes([...nodes, newNode]);
-              updateState({ editingNode: newNode, showSidebar: true, contextMenu: null });
+              });
+              setShowNodeCreationModal(true);
+              updateState({ contextMenu: null });
             }
           }}
         />
@@ -234,6 +249,15 @@ export const NetworkMatrix = () => {
           onShowPathFinder={() => setShowPathFinder(true)}
           onFitToScreen={() => {}}
           onExport={exportData}
+        />
+      )}
+
+      {showNodeCreationModal && (
+        <NodeCreationModal
+          type={nodeCreationType}
+          getAllCategories={getAllCategories}
+          onClose={() => setShowNodeCreationModal(false)}
+          onCreate={handleNodeCreation}
         />
       )}
 
