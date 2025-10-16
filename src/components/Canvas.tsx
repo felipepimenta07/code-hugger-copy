@@ -20,6 +20,7 @@ interface CanvasProps {
   setConnections: (updater: any) => void;
   saveToHistory: () => void;
   onOpenEditModal?: (node: any) => void;
+  projects?: any[];
 }
 
 const nodeColors = {
@@ -46,7 +47,8 @@ export const Canvas: React.FC<CanvasProps> = ({
   updateNodePosition,
   setConnections,
   saveToHistory,
-  onOpenEditModal
+  onOpenEditModal,
+  projects = []
 }) => {
   const handleNodeMouseDown = (e: React.MouseEvent, nodeId: number) => {
     e.stopPropagation();
@@ -317,20 +319,23 @@ export const Canvas: React.FC<CanvasProps> = ({
           );
         })()}
         
-        {/* Clusters no Master View */}
-        {viewMode === 'master' && workflows.map(workflow => {
-          const workflowNodes = nodes.filter(n => n.workflowId === workflow.id);
-          if (workflowNodes.length === 0) return null;
+        {/* Clusters no Master View (por projeto) */}
+        {viewMode === 'master' && projects.map(project => {
+          const clusterNodes = nodes.filter(n => n.projectId === project.id);
+          if (clusterNodes.length === 0 && !nodes.some(n => n.id === project.id)) return null;
           
-          const avgX = workflowNodes.reduce((sum, n) => sum + n.x, 0) / workflowNodes.length;
-          const avgY = workflowNodes.reduce((sum, n) => sum + n.y, 0) / workflowNodes.length;
-          const maxDist = Math.max(...workflowNodes.map(n => 
+          const projectNode = nodes.find(n => n.id === project.id);
+          const allClusterNodes = projectNode ? [projectNode, ...clusterNodes] : clusterNodes;
+          
+          const avgX = allClusterNodes.reduce((sum, n) => sum + n.x, 0) / allClusterNodes.length;
+          const avgY = allClusterNodes.reduce((sum, n) => sum + n.y, 0) / allClusterNodes.length;
+          const maxDist = Math.max(...allClusterNodes.map(n => 
             Math.sqrt((n.x - avgX) ** 2 + (n.y - avgY) ** 2)
           ), 200);
           const radius = maxDist + 100;
 
           return (
-            <g key={workflow.id}>
+            <g key={project.id}>
               {/* Anel rosa/roxo decorativo */}
               <circle
                 cx={avgX}
@@ -347,7 +352,7 @@ export const Canvas: React.FC<CanvasProps> = ({
                 cx={avgX}
                 cy={avgY}
                 r={radius + 40}
-                fill={`${workflow.color}15`}
+                fill="#8b5cf615"
                 opacity="0.3"
               />
               
@@ -357,23 +362,23 @@ export const Canvas: React.FC<CanvasProps> = ({
                 cy={avgY}
                 r={radius}
                 fill="none"
-                stroke={workflow.color}
+                stroke="#8b5cf6"
                 strokeWidth="2"
                 strokeDasharray="10,5"
                 opacity="0.5"
               />
               
-              {/* Label do workflow */}
+              {/* Label do projeto */}
               <text
                 x={avgX}
                 y={avgY - radius - 30}
                 textAnchor="middle"
-                fill={workflow.color}
+                fill="#8b5cf6"
                 fontSize="18"
                 fontWeight="bold"
                 letterSpacing="3"
               >
-                {workflow.name.toUpperCase()}
+                {project.name.toUpperCase()}
               </text>
             </g>
           );
@@ -386,7 +391,19 @@ export const Canvas: React.FC<CanvasProps> = ({
           if (!from || !to) return null;
           
           const isSelected = selectedConnection === idx;
-          const isCrossWorkflow = viewMode === 'master' && from.workflowId !== to.workflowId;
+          
+          // Detectar cross-projeto: pessoa/marca conectando para projeto diferente do anchor
+          const getAssignment = (node: any) => {
+            if (node.type === 'project') return node.id;
+            return node.anchorProjectId ?? null;
+          };
+          const fromProj = getAssignment(from);
+          const toProj = getAssignment(to);
+          const isCrossProject = viewMode === 'master' && (
+            ((from.type === 'person' || from.type === 'brand') && to.type === 'project' && fromProj && fromProj !== toProj) ||
+            ((to.type === 'person' || to.type === 'brand') && from.type === 'project' && toProj && fromProj !== toProj)
+          );
+          
           const isInPath = highlightedPath.length > 0 && 
             highlightedPath.some((id, i) => 
               i < highlightedPath.length - 1 && 
@@ -397,11 +414,11 @@ export const Canvas: React.FC<CanvasProps> = ({
           let strokeColor;
           if (isInPath) strokeColor = '#10b981';
           else if (isSelected) strokeColor = '#f59e0b';
-          else if (isCrossWorkflow) strokeColor = 'hsl(var(--connection-cross))';
+          else if (isCrossProject) strokeColor = 'hsl(var(--connection-cross))';
           else if (conn.type === 'strong') strokeColor = '#a855f7';
           else strokeColor = '#6366f1';
           
-          const strokeWidth = isInPath ? 5 : (isCrossWorkflow ? 4 : (conn.type === 'strong' ? 3 : 2));
+          const strokeWidth = isInPath ? 5 : (isCrossProject ? 4 : (conn.type === 'strong' ? 3 : 2));
           
           return (
             <g key={idx}>
@@ -426,7 +443,7 @@ export const Canvas: React.FC<CanvasProps> = ({
                 y2={to.y}
                 stroke={strokeColor}
                 strokeWidth={strokeWidth}
-                strokeDasharray={conn.type === 'weak' && !isCrossWorkflow && !isInPath ? '8,4' : '0'}
+                strokeDasharray={conn.type === 'weak' && !isCrossProject && !isInPath ? '8,4' : '0'}
                 markerEnd={conn.directional ? 'url(#arrowhead)' : ''}
                 className="pointer-events-none"
               />

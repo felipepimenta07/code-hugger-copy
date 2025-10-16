@@ -29,7 +29,7 @@ export const NetworkMatrix = () => {
   const [allConnections, setAllConnections] = useState(SAMPLE_CONNECTIONS);
   const [workflows, setWorkflows] = useState(SAMPLE_WORKFLOWS);
 
-  const [activeWorkflowId, setActiveWorkflowId] = useState(1);
+  const [activeProjectId, setActiveProjectId] = useState<number | null>(SAMPLE_PROJECTS[0]?.id ?? null);
   const [viewMode, setViewMode] = useState('master');
   const [showLegend, setShowLegend] = useState(true);
   const [selectedNodes, setSelectedNodes] = useState([]);
@@ -45,8 +45,8 @@ export const NetworkMatrix = () => {
   const [nodeCreationType, setNodeCreationType] = useState<'person' | 'project' | 'brand'>('person');
   const [nodeCreationPosition, setNodeCreationPosition] = useState({ x: 0, y: 0 });
   const [editingNodeInModal, setEditingNodeInModal] = useState<any>(null);
-  const [editingWorkflowId, setEditingWorkflowId] = useState<number | null>(null);
-  const [editingWorkflowName, setEditingWorkflowName] = useState('');
+  const [editingProjectId, setEditingProjectId] = useState<number | null>(null);
+  const [editingProjectName, setEditingProjectName] = useState('');
   const [showProjectManager, setShowProjectManager] = useState(false);
   const [showAIInsights, setShowAIInsights] = useState(false);
 
@@ -56,22 +56,58 @@ export const NetworkMatrix = () => {
   // Combinar todos os nós
   const allNodes = [...projects, ...people, ...brands];
 
-  // Filtrar nós e conexões por workflow/modo
+  // Calcular anchorProjectId por nó (useMemo)
+  const anchors = React.useMemo(() => {
+    const map = new Map<number, number | null>();
+    const byId = new Map(allNodes.map(n => [n.id, n]));
+    for (const n of allNodes) {
+      if (n.type === 'project') { 
+        map.set(n.id, n.id); 
+        continue; 
+      }
+      const connectedProjects = allConnections
+        .filter(c => c.from === n.id || c.to === n.id)
+        .map(c => {
+          const other = c.from === n.id ? c.to : c.from;
+          const otherNode = byId.get(other);
+          return otherNode?.type === 'project' ? other : null;
+        })
+        .filter(Boolean) as number[];
+      map.set(n.id, connectedProjects[0] ?? null);
+    }
+    return map;
+  }, [allNodes, allConnections]);
+
+  // Adicionar anchorProjectId aos nós
+  const allNodesWithAnchors = React.useMemo(() => 
+    allNodes.map(n => ({ ...n, anchorProjectId: anchors.get(n.id) ?? null })),
+    [allNodes, anchors]
+  );
+
+  // Filtrar nós e conexões por projeto/modo
   const nodes = viewMode === 'master'
-    ? allNodes.map(n => {
-        const nodeWorkflows = n.workflows || [];
-        const workflow = workflows.find(w => nodeWorkflows.includes(w.id));
-        return { ...n, workflowId: workflow?.id, workflowColor: workflow?.color };
+    ? allNodesWithAnchors.map(n => {
+        const project = projects.find(p => p.id === n.anchorProjectId);
+        return { ...n, projectId: project?.id, projectColor: project ? '#8b5cf6' : '#6366f1' };
       })
-    : allNodes.filter(n => n.workflows?.includes(activeWorkflowId));
+    : (() => {
+        const activeProject = projects.find(p => p.id === activeProjectId);
+        if (!activeProject) return [];
+        const neighbors = allNodesWithAnchors.filter(n => 
+          allConnections.some(c => 
+            (c.from === n.id && c.to === activeProject.id) || 
+            (c.to === n.id && c.from === activeProject.id)
+          )
+        );
+        return [{ ...activeProject, anchorProjectId: activeProject.id }, ...neighbors];
+      })();
 
   const connections = viewMode === 'master'
     ? allConnections
     : allConnections.filter(c => {
-        const fromNode = allNodes.find(n => n.id === c.from);
-        const toNode = allNodes.find(n => n.id === c.to);
-        return fromNode?.workflows?.includes(activeWorkflowId) && 
-               toNode?.workflows?.includes(activeWorkflowId);
+        const fromInNodes = nodes.some(n => n.id === c.from);
+        const toInNodes = nodes.some(n => n.id === c.to);
+        return fromInNodes && toInNodes;
       });
 
   const saveToHistory = () => {};
@@ -177,21 +213,39 @@ export const NetworkMatrix = () => {
     });
   };
 
+  const autoOrganizeSingle = (projectId: number | null) => {
+    if (!projectId) return;
+    const activeProject = projects.find(p => p.id === projectId);
+    if (!activeProject) return;
+    
+    const neighbors = allNodesWithAnchors.filter(n => 
+      allConnections.some(c => 
+        (c.from === n.id && c.to === projectId) || 
+        (c.to === n.id && c.from === projectId)
+      )
+    );
+    
+    const nodesToLayout = [activeProject, ...neighbors];
+    const layouted = applyRadialLayout(nodesToLayout, 500, 400);
+    updateAllNodePositions(layouted);
+  };
+
   const autoOrganize = () => {
     if (viewMode === 'single') {
-      const layouted = applyRadialLayout(nodes, 500, 400);
-      updateAllNodePositions(layouted);
+      autoOrganizeSingle(activeProjectId);
     } else {
-      // Master View: grid de clusters radiais
-      const cols = Math.ceil(Math.sqrt(workflows.length));
-      workflows.forEach((workflow, wIndex) => {
-        const workflowNodes = allNodes.filter(n => n.workflows?.includes(workflow.id));
-        if (workflowNodes.length > 0) {
-          const col = wIndex % cols;
-          const row = Math.floor(wIndex / cols);
+      // Master View: grid de clusters por projeto
+      const cols = Math.ceil(Math.sqrt(projects.length));
+      projects.forEach((project, pIndex) => {
+        const clusterNodes = allNodesWithAnchors.filter(n => 
+          n.anchorProjectId === project.id && n.id !== project.id
+        );
+        if (clusterNodes.length > 0 || true) {
+          const col = pIndex % cols;
+          const row = Math.floor(pIndex / cols);
           const clusterX = col * 1000 + 500;
           const clusterY = row * 900 + 450;
-          const layouted = applyRadialLayout(workflowNodes, clusterX, clusterY);
+          const layouted = applyRadialLayout([project, ...clusterNodes], clusterX, clusterY);
           updateAllNodePositions(layouted);
         }
       });
@@ -226,7 +280,7 @@ export const NetworkMatrix = () => {
     };
   };
 
-  // Ajustar zoom/pan quando mudar de view ou workflow
+  // Ajustar zoom/pan quando mudar de view ou projeto
   useEffect(() => {
     const width = window.innerWidth;
     const height = window.innerHeight - 100;
@@ -242,7 +296,7 @@ export const NetworkMatrix = () => {
       const pan = calculateCenterPan(bounds, zoom, width, height);
       updateState({ zoom, pan });
     }
-  }, [viewMode, activeWorkflowId]);
+  }, [viewMode, activeProjectId]);
 
   // Auto-organizar ao carregar a página
   useEffect(() => {
@@ -364,49 +418,50 @@ export const NetworkMatrix = () => {
     }
   };
 
-  const handleCreateNewWorkflow = () => {
-    const colors = ['#EC4899', '#10B981', '#8B5CF6', '#F59E0B', '#3B82F6', '#EF4444'];
-    const usedColors = workflows.map(w => w.color);
-    const availableColor = colors.find(c => !usedColors.includes(c)) || colors[0];
-    
-    const newWorkflow = {
+  const handleCreateNewProject = () => {
+    const newProject = {
       id: Date.now(),
-      name: `Workflow ${workflows.length + 1}`,
-      color: availableColor,
-      description: ''
+      name: `Projeto ${projects.length + 1}`,
+      type: 'project' as const,
+      workflows: workflows.length > 0 ? [workflows[0].id] : [],
+      category: 'P',
+      status: 'Ativo',
+      x: 500,
+      y: 400
     };
     
-    setWorkflows([...workflows, newWorkflow]);
-    setActiveWorkflowId(newWorkflow.id);
+    setProjects([...projects, newProject]);
+    setActiveProjectId(newProject.id);
     setViewMode('single');
     
     setTimeout(() => {
-      setEditingWorkflowId(newWorkflow.id);
-      setEditingWorkflowName(newWorkflow.name);
+      setEditingProjectId(newProject.id);
+      setEditingProjectName(newProject.name);
+      autoOrganizeSingle(newProject.id);
     }, 100);
   };
 
-  const handleWorkflowNameChange = (workflowId: number, newName: string) => {
+  const handleProjectNameChange = (projectId: number, newName: string) => {
     if (newName.trim()) {
-      setWorkflows(prev => 
-        prev.map(w => w.id === workflowId ? { ...w, name: newName.trim() } : w)
+      setProjects(prev => 
+        prev.map(p => p.id === projectId ? { ...p, name: newName.trim() } : p)
       );
     }
-    setEditingWorkflowId(null);
-    setEditingWorkflowName('');
+    setEditingProjectId(null);
+    setEditingProjectName('');
   };
 
-  const handleDeleteWorkflow = (workflowId: number, workflowName: string) => {
-    if (workflows.length <= 1) {
-      alert('Você precisa ter pelo menos um workflow!');
+  const handleDeleteProject = (projectId: number, projectName: string) => {
+    if (projects.length <= 1) {
+      alert('Você precisa ter pelo menos um projeto!');
       return;
     }
     
-    if (confirm(`Deletar workflow "${workflowName}"?`)) {
-      setWorkflows(prev => prev.filter(w => w.id !== workflowId));
-      if (activeWorkflowId === workflowId) {
-        const remainingWorkflows = workflows.filter(w => w.id !== workflowId);
-        setActiveWorkflowId(remainingWorkflows[0].id);
+    if (confirm(`Deletar projeto "${projectName}"?`)) {
+      setProjects(prev => prev.filter(p => p.id !== projectId));
+      if (activeProjectId === projectId) {
+        const remainingProjects = projects.filter(p => p.id !== projectId);
+        setActiveProjectId(remainingProjects[0].id);
       }
     }
   };
@@ -484,52 +539,53 @@ export const NetworkMatrix = () => {
             </div>
             
             <div className="flex gap-2">
-              {workflows.map(w => (
-                <div key={w.id} className="relative group">
-                  {editingWorkflowId === w.id ? (
+              {projects.map(p => (
+                <div key={p.id} className="relative group">
+                  {editingProjectId === p.id ? (
                     <input
                       type="text"
-                      value={editingWorkflowName}
-                      onChange={(e) => setEditingWorkflowName(e.target.value)}
-                      onBlur={() => handleWorkflowNameChange(w.id, editingWorkflowName)}
+                      value={editingProjectName}
+                      onChange={(e) => setEditingProjectName(e.target.value)}
+                      onBlur={() => handleProjectNameChange(p.id, editingProjectName)}
                       onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleWorkflowNameChange(w.id, editingWorkflowName);
+                        if (e.key === 'Enter') handleProjectNameChange(p.id, editingProjectName);
                         if (e.key === 'Escape') {
-                          setEditingWorkflowId(null);
-                          setEditingWorkflowName('');
+                          setEditingProjectId(null);
+                          setEditingProjectName('');
                         }
                       }}
                       autoFocus
                       className="px-3 py-1.5 rounded-lg bg-secondary border border-primary text-xs font-medium outline-none min-w-[100px]"
-                      style={{ borderLeft: `3px solid ${w.color}` }}
+                      style={{ borderLeft: `3px solid #8b5cf6` }}
                     />
                   ) : (
                     <button
                       onClick={() => {
-                        setActiveWorkflowId(w.id);
+                        setActiveProjectId(p.id);
                         setViewMode('single');
+                        setTimeout(() => autoOrganizeSingle(p.id), 100);
                       }}
                       onDoubleClick={() => {
-                        setEditingWorkflowId(w.id);
-                        setEditingWorkflowName(w.name);
+                        setEditingProjectId(p.id);
+                        setEditingProjectName(p.name);
                       }}
                       className="relative px-3 py-1.5 rounded-lg transition-all hover:bg-secondary"
                       style={{ 
-                        borderLeft: `3px solid ${w.color}`,
-                        opacity: viewMode === 'master' || activeWorkflowId === w.id ? 1 : 0.5 
+                        borderLeft: `3px solid #8b5cf6`,
+                        opacity: viewMode === 'master' || activeProjectId === p.id ? 1 : 0.5 
                       }}
                     >
                       <div className="text-xs text-muted-foreground group-hover:text-foreground font-medium">
-                        {w.name}
+                        {p.name}
                       </div>
                     </button>
                   )}
                   
-                  {workflows.length > 1 && !editingWorkflowId && (
+                  {projects.length > 1 && !editingProjectId && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleDeleteWorkflow(w.id, w.name);
+                        handleDeleteProject(p.id, p.name);
                       }}
                       className="absolute -top-1 -right-1 opacity-0 group-hover:opacity-100 p-1 bg-destructive text-destructive-foreground rounded-full transition-all hover:scale-110"
                     >
@@ -540,11 +596,11 @@ export const NetworkMatrix = () => {
               ))}
               
               <button
-                onClick={handleCreateNewWorkflow}
+                onClick={handleCreateNewProject}
                 className="group px-3 py-1.5 rounded-lg transition-all hover:bg-secondary border border-dashed border-border hover:border-primary"
               >
                 <Plus size={14} className="inline text-muted-foreground group-hover:text-foreground" />
-                <span className="text-xs text-muted-foreground group-hover:text-foreground ml-1">Nova Aba</span>
+                <span className="text-xs text-muted-foreground group-hover:text-foreground ml-1">Novo Projeto</span>
               </button>
             </div>
           </div>
@@ -679,6 +735,7 @@ export const NetworkMatrix = () => {
           updateNodePosition={updateNodePosition}
           setConnections={setConnections}
           saveToHistory={saveToHistory}
+          projects={projects}
           onOpenEditModal={(node) => {
             setEditingNodeInModal(node);
             setNodeCreationType(node.type);
