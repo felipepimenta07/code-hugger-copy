@@ -469,7 +469,7 @@ export const Canvas: React.FC<CanvasProps> = ({
             strokeColor = '#f59e0b';
             strokeWidth = isCrossFlow ? 4 : (conn.type === 'strong' ? 3 : 2);
           } else if (isCrossFlow) {
-            strokeColor = '#fb923c'; // Laranja para cross-flow
+            strokeColor = 'hsl(var(--connection-cross))';
             strokeWidth = 4;
             strokeDasharray = '8,4';
           } else {
@@ -540,15 +540,11 @@ export const Canvas: React.FC<CanvasProps> = ({
                     stroke="transparent"
                     strokeWidth="20"
                     fill="none"
-                    className="cursor-help"
+                    className="cursor-pointer"
                     onClick={(e) => { 
                       e.stopPropagation(); 
                       setSelectedConnection(selectedConnection === globalIdx ? null : globalIdx);
                       setSelectedNodes([]);
-                      if (onGoToProject && viewMode === 'master') {
-                        const targetProjectId = to.type === 'project' ? to.id : (from.type === 'project' ? from.id : toProj);
-                        if (targetProjectId) onGoToProject(targetProjectId);
-                      }
                     }}
                   >
                     <title>{tooltipText}</title>
