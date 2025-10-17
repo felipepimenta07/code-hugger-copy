@@ -648,6 +648,29 @@ export const NetworkMatrix = () => {
     }
   }, [viewMode]);
 
+  // Auto-centralizar quando entrar em Single View
+  useEffect(() => {
+    if (viewMode === 'single' && activeProjectId && allNodes.length > 0) {
+      const timer = setTimeout(() => {
+        // First organize single view
+        autoOrganizeSingle(activeProjectId);
+        
+        // Then center after organization completes
+        setTimeout(() => {
+          const nodesToCenter = getNodesForSingleView(activeProjectId);
+          if (nodesToCenter.length > 0 && svgRef.current) {
+            const rect = svgRef.current.getBoundingClientRect();
+            const bounds = calculateBounds(nodesToCenter);
+            const optimalZoom = calculateOptimalZoom(bounds, rect.width, rect.height);
+            const centerPan = calculateCenterPan(bounds, optimalZoom, rect.width, rect.height);
+            updateState({ zoom: optimalZoom, pan: centerPan });
+          }
+        }, 150);
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [viewMode, activeProjectId]);
+
   useKeyboardShortcuts({
     selectedNodes,
     setSelectedNodes,
@@ -819,34 +842,39 @@ export const NetworkMatrix = () => {
       setActiveProjectId(newNode.id);
       setViewMode('single');
       toast.success(`Projeto "${newNode.name}" criado!`);
-      
-      // Single timeout: organize THEN center
-      setTimeout(() => {
-        autoOrganizeSingle(newNode.id);
-        
-        // After organization, center the view on the organized nodes
-        setTimeout(() => {
-          const nodesToCenter = getNodesForSingleView(newNode.id);
-          if (nodesToCenter.length > 0 && svgRef.current) {
-            const width = window.innerWidth;
-            const height = window.innerHeight - 100;
-            const bounds = calculateBounds(nodesToCenter);
-            const zoom = calculateOptimalZoom(bounds, width, height);
-            const pan = calculateCenterPan(bounds, zoom, width, height);
-            updateState({ zoom, pan });
-          }
-        }, 100);
-      }, 100);
+      // useEffect will handle organization and centering automatically
     } else if (nodeCreationType === 'person') {
       // Add to people array
       setPeople(prev => [...prev, newNode]);
       setShowNodeCreationModal(false);
       toast.success(`${newNode.name} criado!`);
+      
+      // Center view on the new node
+      setTimeout(() => {
+        const zoom = state.zoom;
+        updateState({
+          pan: {
+            x: window.innerWidth / 2 - newNode.x * zoom,
+            y: window.innerHeight / 2 - newNode.y * zoom
+          }
+        });
+      }, 50);
     } else if (nodeCreationType === 'brand') {
       // Add to brands array
       setBrands(prev => [...prev, newNode]);
       setShowNodeCreationModal(false);
       toast.success(`${newNode.name} criado!`);
+      
+      // Center view on the new node
+      setTimeout(() => {
+        const zoom = state.zoom;
+        updateState({
+          pan: {
+            x: window.innerWidth / 2 - newNode.x * zoom,
+            y: window.innerHeight / 2 - newNode.y * zoom
+          }
+        });
+      }, 50);
     }
   };
 
@@ -1323,24 +1351,7 @@ export const NetworkMatrix = () => {
           onGoToProject={(id) => {
             setActiveProjectId(id);
             setViewMode('single');
-            
-            // Single sequential flow: organize THEN center on calculated bounds
-            setTimeout(() => {
-              autoOrganizeSingle(id);
-              
-              // After organization, center on ALL nodes in single view
-              setTimeout(() => {
-                const nodesToCenter = getNodesForSingleView(id);
-                if (nodesToCenter.length > 0 && svgRef.current) {
-                  const width = window.innerWidth;
-                  const height = window.innerHeight - 100;
-                  const bounds = calculateBounds(nodesToCenter);
-                  const zoom = calculateOptimalZoom(bounds, width, height);
-                  const pan = calculateCenterPan(bounds, zoom, width, height);
-                  updateState({ zoom, pan });
-                }
-              }, 100);
-            }, 100);
+            // useEffect will handle centering automatically
           }}
         />
 
