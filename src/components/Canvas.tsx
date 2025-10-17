@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { User, Target, Building2 } from 'lucide-react';
+import { ConnectionTooltip } from './ConnectionTooltip';
 
 interface CanvasProps {
   svgRef: React.RefObject<SVGSVGElement>;
@@ -54,6 +55,11 @@ export const Canvas: React.FC<CanvasProps> = ({
   allConnections = [],
   onGoToProject
 }) => {
+  const [hoveredConnection, setHoveredConnection] = useState<{
+    index: number;
+    position: { x: number; y: number };
+  } | null>(null);
+
   // BFS to calculate depth from center node (for connection styling by distance)
   const calculateNodeDepths = () => {
     if (viewMode !== 'single' || nodes.length === 0) return new Map<number, number>();
@@ -85,6 +91,7 @@ export const Canvas: React.FC<CanvasProps> = ({
   };
   
   const nodeDepths = calculateNodeDepths();
+  
   const handleNodeMouseDown = (e: React.MouseEvent, nodeId: number) => {
     e.stopPropagation();
     if (e.button === 0 && !(e.ctrlKey || e.metaKey)) {
@@ -204,6 +211,7 @@ export const Canvas: React.FC<CanvasProps> = ({
   };
 
   return (
+    <>
     <svg
       ref={svgRef}
       className="w-full h-full cursor-move"
@@ -574,9 +582,14 @@ export const Canvas: React.FC<CanvasProps> = ({
                       setSelectedConnection(selectedConnection === globalIdx ? null : globalIdx);
                       setSelectedNodes([]);
                     }}
-                  >
-                    <title>{tooltipText}</title>
-                  </path>
+                    onMouseEnter={(e) => {
+                      const rect = svgRef.current!.getBoundingClientRect();
+                      const midX = ((from.x + to.x) / 2) * state.zoom + state.pan.x + rect.left;
+                      const midY = ((from.y + to.y) / 2 - 80) * state.zoom + state.pan.y + rect.top;
+                      setHoveredConnection({ index: idx, position: { x: midX, y: midY } });
+                    }}
+                    onMouseLeave={() => setHoveredConnection(null)}
+                  />
                   <path
                     d={pathData}
                     stroke={strokeColor}
@@ -602,9 +615,14 @@ export const Canvas: React.FC<CanvasProps> = ({
                       setSelectedConnection(selectedConnection === globalIdx ? null : globalIdx);
                       setSelectedNodes([]);
                     }}
-                  >
-                    {tooltipText && <title>{tooltipText}</title>}
-                  </path>
+                    onMouseEnter={(e) => {
+                      const rect = svgRef.current!.getBoundingClientRect();
+                      const midX = ((from.x + to.x) / 2) * state.zoom + state.pan.x + rect.left;
+                      const midY = ((from.y + to.y) / 2 - 80) * state.zoom + state.pan.y + rect.top;
+                      setHoveredConnection({ index: idx, position: { x: midX, y: midY } });
+                    }}
+                    onMouseLeave={() => setHoveredConnection(null)}
+                  />
                   <path
                     d={pathData}
                     stroke={strokeColor}
@@ -981,5 +999,25 @@ export const Canvas: React.FC<CanvasProps> = ({
         })}
       </g>
     </svg>
+    
+    {/* Tooltip de conexão */}
+    {hoveredConnection && (() => {
+      const conn = connections[hoveredConnection.index];
+      const from = nodes.find(n => n.id === conn?.from);
+      const to = nodes.find(n => n.id === conn?.to);
+      
+      if (!conn || !from || !to) return null;
+      
+      return (
+        <ConnectionTooltip
+          connection={conn}
+          fromNode={from}
+          toNode={to}
+          position={hoveredConnection.position}
+          connectionType={conn.type}
+        />
+      );
+    })()}
+    </>
   );
 };
