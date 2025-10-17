@@ -574,7 +574,8 @@ export const NetworkMatrix = () => {
         const width = window.innerWidth;
         const height = window.innerHeight - 100;
         const bounds = calculateBounds(allNodes);
-        const zoom = calculateOptimalZoom(bounds, width, height);
+        const computed = calculateOptimalZoom(bounds, width, height);
+        const zoom = Math.min(computed, 0.5);
         const pan = calculateCenterPan(bounds, zoom, width, height);
         updateState({ zoom, pan });
       }, 100);
@@ -646,10 +647,11 @@ export const NetworkMatrix = () => {
           const projectNodes = allNodesWithAnchors.filter(n => n.type === 'project');
           if (projectNodes.length > 0 && svgRef.current) {
             const rect = svgRef.current.getBoundingClientRect();
-            const bounds = calculateBounds(projectNodes);
-            const optimalZoom = calculateOptimalZoom(bounds, rect.width, rect.height);
-            const centerPan = calculateCenterPan(bounds, optimalZoom, rect.width, rect.height);
-            updateState({ zoom: optimalZoom, pan: centerPan });
+            const bounds = calculateBounds(allNodes);
+            const computed = calculateOptimalZoom(bounds, rect.width, rect.height);
+            const zoom = Math.min(computed, 0.5);
+            const centerPan = calculateCenterPan(bounds, zoom, rect.width, rect.height);
+            updateState({ zoom, pan: centerPan });
             toast.success('Nós organizados e centralizados!');
           }
         }, 150);
@@ -1524,7 +1526,7 @@ export const NetworkMatrix = () => {
                 
                 if (currentNodes.length > 0) {
                   const bounds = calculateBounds(currentNodes);
-                  const zoom = calculateOptimalZoom(bounds, width, height);
+                  const zoom = 0.9;
                   const pan = calculateCenterPan(bounds, zoom, width, height);
                   updateState({ zoom, pan });
                 }
