@@ -1366,7 +1366,6 @@ export const NetworkMatrix = () => {
             setEditingNodeInModal(node);
             setNodeCreationType(node.type);
             setShowNodeCreationModal(true);
-            updateState({ showSidebar: false });
           }}
           onGoToProject={(id) => {
             setActiveProjectId(id);

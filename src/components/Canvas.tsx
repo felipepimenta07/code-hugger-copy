@@ -122,11 +122,9 @@ export const Canvas: React.FC<CanvasProps> = ({
 
   const handleNodeDoubleClick = (e: React.MouseEvent, nodeId: number) => {
     e.stopPropagation();
-    if (viewMode === 'single') {
-      const node = nodes.find(n => n.id === nodeId);
-      if (node) {
-        updateState({ editingNode: node, showSidebar: true, showAnalytics: false });
-      }
+    const node = nodes.find(n => n.id === nodeId);
+    if (node && onOpenEditModal) {
+      onOpenEditModal(node);
     }
   };
 
@@ -965,35 +963,6 @@ export const Canvas: React.FC<CanvasProps> = ({
                 </>
               )}
               
-              {/* Eye icon for project nodes to navigate */}
-              {node.type === 'project' && onGoToProject && (
-                <g 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onGoToProject(node.id);
-                  }} 
-                  className="cursor-pointer"
-                  opacity={isHovered ? 1 : 0.7}
-                >
-                  <circle 
-                    cx={nodeSize + 12} 
-                    cy={-nodeSize + 12} 
-                    r="10" 
-                    fill="rgba(0,0,0,.7)" 
-                    stroke="white" 
-                    strokeWidth="2" 
-                  />
-                  <text 
-                    x={nodeSize + 12} 
-                    y={-nodeSize + 16} 
-                    textAnchor="middle" 
-                    fill="white" 
-                    fontSize="12"
-                  >
-                    👁
-                  </text>
-                </g>
-              )}
             </g>
           );
         })}
