@@ -742,18 +742,27 @@ export const NetworkMatrix = () => {
         const fromNode = allNodesWithAnchors.find(n => n.id === conn.from);
         const toNode = allNodesWithAnchors.find(n => n.id === conn.to);
         
-        // If connection involves the active project, set homeProjectId on the other node
+        // If connection involves the active project, set homeProjectId on the other node BEFORE deleting connection
         [fromNode, toNode].forEach(node => {
           if (node && (node.type === 'person' || node.type === 'brand' || node.type === 'project')) {
             const otherNodeId = node.id === conn.from ? conn.to : conn.from;
-            if (otherNodeId === activeProjectId && !(node as any).homeProjectId) {
-              // Set homeProjectId to keep it visible after connection deletion
-              if (node.type === 'person') {
-                setPeople(prev => prev.map(p => p.id === node.id ? { ...p, homeProjectId: activeProjectId } : p));
-              } else if (node.type === 'brand') {
-                setBrands(prev => prev.map(b => b.id === node.id ? { ...b, homeProjectId: activeProjectId } : b));
-              } else if (node.type === 'project') {
-                setProjects(prev => prev.map(p => p.id === node.id ? { ...p, homeProjectId: activeProjectId } : p));
+            // Check if this node is connected to the active project and will become orphaned
+            if (otherNodeId === activeProjectId) {
+              // Check if node will have any other connections to the project after this deletion
+              const otherConnectionsToProject = allConnections.filter(
+                (c, idx) => idx !== connectionIndex && 
+                ((c.from === node.id && c.to === activeProjectId) || (c.to === node.id && c.from === activeProjectId))
+              );
+              
+              // Only set homeProjectId if this is the last connection to the project
+              if (otherConnectionsToProject.length === 0 && !(node as any).homeProjectId) {
+                if (node.type === 'person') {
+                  setPeople(prev => prev.map(p => p.id === node.id ? { ...p, homeProjectId: activeProjectId } : p));
+                } else if (node.type === 'brand') {
+                  setBrands(prev => prev.map(b => b.id === node.id ? { ...b, homeProjectId: activeProjectId } : b));
+                } else if (node.type === 'project') {
+                  setProjects(prev => prev.map(p => p.id === node.id ? { ...p, homeProjectId: activeProjectId } : p));
+                }
               }
             }
           }
@@ -761,6 +770,7 @@ export const NetworkMatrix = () => {
       }
     }
     
+    // Delete connection after homeProjectId is set
     setConnections(prev => prev.filter((_, idx) => idx !== connectionIndex));
     setSelectedConnection(null);
   };
