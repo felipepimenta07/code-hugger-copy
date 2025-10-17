@@ -15,7 +15,7 @@ export const FlowStarterModal: React.FC<FlowStarterModalProps> = ({
 }) => {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[600px] bg-card/95 backdrop-blur-xl border-2 border-border">
+      <DialogContent className="sm:max-w-[600px] bg-card/95 backdrop-blur-xl border-2 border-border" aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold text-center mb-2">
             Começar meu flow com:

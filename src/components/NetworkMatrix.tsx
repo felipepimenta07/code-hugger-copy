@@ -71,33 +71,48 @@ export const NetworkMatrix = () => {
     const savedDesign = localStorage.getItem('networkDesign');
     if (savedDesign) {
       try {
-        const { projects: savedProjects, people: savedPeople, brands: savedBrands } = JSON.parse(savedDesign);
+        const parsed = JSON.parse(savedDesign);
         
-        // Mesclar posições salvas com dados atuais
-        if (savedProjects) {
+        // Validar estrutura
+        if (!parsed.projects || !parsed.people || !parsed.brands || !parsed.savedAt) {
+          console.warn('Design salvo tem estrutura inválida, ignorando...');
+          return;
+        }
+        
+        const { projects: savedProjects, people: savedPeople, brands: savedBrands } = parsed;
+        
+        // Mesclar posições salvas com dados atuais (validar que x e y existem)
+        if (Array.isArray(savedProjects)) {
           setProjects(prev => prev.map(p => {
             const saved = savedProjects.find((sp: any) => sp.id === p.id);
-            return saved ? { ...p, x: saved.x, y: saved.y } : p;
+            return saved && typeof saved.x === 'number' && typeof saved.y === 'number' 
+              ? { ...p, x: saved.x, y: saved.y } 
+              : p;
           }));
         }
         
-        if (savedPeople) {
+        if (Array.isArray(savedPeople)) {
           setPeople(prev => prev.map(p => {
             const saved = savedPeople.find((sp: any) => sp.id === p.id);
-            return saved ? { ...p, x: saved.x, y: saved.y } : p;
+            return saved && typeof saved.x === 'number' && typeof saved.y === 'number'
+              ? { ...p, x: saved.x, y: saved.y } 
+              : p;
           }));
         }
         
-        if (savedBrands) {
+        if (Array.isArray(savedBrands)) {
           setBrands(prev => prev.map(b => {
             const saved = savedBrands.find((sb: any) => sb.id === b.id);
-            return saved ? { ...b, x: saved.x, y: saved.y } : b;
+            return saved && typeof saved.x === 'number' && typeof saved.y === 'number'
+              ? { ...b, x: saved.x, y: saved.y } 
+              : b;
           }));
         }
         
-        console.log('Design carregado do localStorage');
+        toast.success('Design carregado com sucesso!');
       } catch (error) {
         console.error('Erro ao carregar design salvo:', error);
+        toast.error('Erro ao carregar design salvo');
       }
     }
   }, []);
@@ -601,9 +616,22 @@ export const NetworkMatrix = () => {
   useEffect(() => {
     if (viewMode === 'master' && projects.length > 0 && allNodes.length > 0) {
       const timer = setTimeout(() => {
-        autoOrganize();
+        // First organize master view
+        const cols = Math.max(2, Math.ceil(Math.sqrt(projects.length)));
         
-        // Após organizar, centralizar todos os projetos na tela
+        projects.forEach((project, pIndex) => {
+          const clusterNodes = allNodesWithAnchors.filter(n => 
+            n.anchorProjectId === project.id && n.id !== project.id
+          );
+          const col = pIndex % cols;
+          const row = Math.floor(pIndex / cols);
+          const clusterX = col * 1400 + 700;
+          const clusterY = row * 1200 + 600;
+          const layouted = applyRadialLayout([project, ...clusterNodes], clusterX, clusterY);
+          updateAllNodePositions(layouted);
+        });
+        
+        // Then center - single flow after organization completes
         setTimeout(() => {
           const projectNodes = allNodesWithAnchors.filter(n => n.type === 'project');
           if (projectNodes.length > 0 && svgRef.current) {
@@ -612,9 +640,10 @@ export const NetworkMatrix = () => {
             const optimalZoom = calculateOptimalZoom(bounds, rect.width, rect.height);
             const centerPan = calculateCenterPan(bounds, optimalZoom, rect.width, rect.height);
             updateState({ zoom: optimalZoom, pan: centerPan });
+            toast.success('Nós organizados e centralizados!');
           }
-        }, 100);
-      }, 150);
+        }, 150);
+      }, 100);
       return () => clearTimeout(timer);
     }
   }, [viewMode]);
@@ -791,23 +820,23 @@ export const NetworkMatrix = () => {
       setViewMode('single');
       toast.success(`Projeto "${newNode.name}" criado!`);
       
-      // First timeout: let React recalculate nodes
+      // Single timeout: organize THEN center
       setTimeout(() => {
         autoOrganizeSingle(newNode.id);
-      }, 50);
-      
-      // Second timeout: center view after layout is done
-      setTimeout(() => {
-        const width = window.innerWidth;
-        const height = window.innerHeight - 100;
-        updateState({
-          zoom: 1,
-          pan: { 
-            x: width / 2 - newNode.x, 
-            y: height / 2 - newNode.y 
+        
+        // After organization, center the view on the organized nodes
+        setTimeout(() => {
+          const nodesToCenter = getNodesForSingleView(newNode.id);
+          if (nodesToCenter.length > 0 && svgRef.current) {
+            const width = window.innerWidth;
+            const height = window.innerHeight - 100;
+            const bounds = calculateBounds(nodesToCenter);
+            const zoom = calculateOptimalZoom(bounds, width, height);
+            const pan = calculateCenterPan(bounds, zoom, width, height);
+            updateState({ zoom, pan });
           }
-        });
-      }, 250);
+        }, 100);
+      }, 100);
     } else if (nodeCreationType === 'person') {
       // Add to people array
       setPeople(prev => [...prev, newNode]);
@@ -1295,26 +1324,23 @@ export const NetworkMatrix = () => {
             setActiveProjectId(id);
             setViewMode('single');
             
-            // First timeout: let React recalculate nodes
+            // Single sequential flow: organize THEN center on calculated bounds
             setTimeout(() => {
               autoOrganizeSingle(id);
-            }, 50);
-            
-            // Second timeout: center view after layout is done
-            setTimeout(() => {
-              const project = projects.find(p => p.id === id);
-              if (project) {
-                const width = window.innerWidth;
-                const height = window.innerHeight - 100;
-                updateState({
-                  zoom: 0.95,
-                  pan: { 
-                    x: width / 2 - project.x * 0.95, 
-                    y: height / 2 - project.y * 0.95 
-                  }
-                });
-              }
-            }, 250);
+              
+              // After organization, center on ALL nodes in single view
+              setTimeout(() => {
+                const nodesToCenter = getNodesForSingleView(id);
+                if (nodesToCenter.length > 0 && svgRef.current) {
+                  const width = window.innerWidth;
+                  const height = window.innerHeight - 100;
+                  const bounds = calculateBounds(nodesToCenter);
+                  const zoom = calculateOptimalZoom(bounds, width, height);
+                  const pan = calculateCenterPan(bounds, zoom, width, height);
+                  updateState({ zoom, pan });
+                }
+              }, 100);
+            }, 100);
           }}
         />
 
@@ -1322,7 +1348,10 @@ export const NetworkMatrix = () => {
         <div className="fixed bottom-6 right-6 flex flex-col gap-3 z-30">
           {/* Reorganizar Nós */}
           <button
-            onClick={autoOrganize}
+            onClick={() => {
+              toast.info('Organizando nós...');
+              autoOrganize();
+            }}
             className="p-4 bg-primary text-primary-foreground rounded-full shadow-2xl hover:scale-110 transition-all group relative"
             title="Reorganizar Nós (A)"
           >

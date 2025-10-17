@@ -96,6 +96,7 @@ export const NodeCreationModal: React.FC<NodeCreationModalProps> = ({
       <DialogContent 
         className="sm:max-w-[440px] max-h-[85vh] overflow-y-auto bg-card/95 backdrop-blur-xl border-border"
         onKeyDown={handleKeyDown}
+        aria-describedby={undefined}
       >
         <DialogHeader>
           <DialogTitle>

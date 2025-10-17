@@ -63,7 +63,7 @@ export const LinkedInImportModal = ({ open, onOpenChange, onImport, projects }: 
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto" aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Building2 className="text-[#0A66C2]" />
