@@ -17,6 +17,7 @@ import { NodeCreationModal } from './NodeCreationModal';
 import { ProjectManagerPanel } from './ProjectManagerPanel';
 import { AIInsightsPanel } from './AIInsightsPanel';
 import { FlowStarterModal } from './FlowStarterModal';
+import { PathIndicator } from './PathIndicator';
 import { useNetworkState } from '@/hooks/useNetworkState';
 import { useNetworkHistory } from '@/hooks/useNetworkHistory';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
@@ -368,6 +369,15 @@ export const NetworkMatrix = () => {
           return { ...n, projectId: project?.id, projectColor: project ? '#8b5cf6' : '#6366f1' };
         })
     : (activeProjectId ? getNodesForSingleView(activeProjectId) : []);
+
+  // Para o PathIndicator
+  const selectedNode = selectedNodes.length === 1 
+    ? allNodes.find(n => n.id === selectedNodes[0]) 
+    : null;
+
+  const centerNode = viewMode === 'single' && activeProjectId
+    ? projects.find(p => p.id === activeProjectId)
+    : null;
 
   const connections = viewMode === 'master'
     ? allConnections
@@ -1542,6 +1552,15 @@ export const NetworkMatrix = () => {
             onOpenChange={setShowLinkedInImport}
             onImport={handleLinkedInImport}
             projects={projects}
+          />
+        )}
+
+        {viewMode === 'single' && (
+          <PathIndicator
+            selectedNode={selectedNode}
+            centerNode={centerNode}
+            allNodes={allNodes}
+            connections={allConnections}
           />
         )}
       </div>

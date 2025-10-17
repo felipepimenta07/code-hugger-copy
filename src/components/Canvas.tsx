@@ -228,6 +228,13 @@ export const Canvas: React.FC<CanvasProps> = ({
             <feMergeNode in="SourceGraphic"/>
           </feMerge>
         </filter>
+        <filter id="connectionGlow" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+          <feMerge>
+            <feMergeNode in="coloredBlur"/>
+            <feMergeNode in="SourceGraphic"/>
+          </feMerge>
+        </filter>
         <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
           <polygon points="0 0, 10 3, 0 6" fill="hsl(var(--connection-strong))" />
         </marker>
@@ -457,8 +464,9 @@ export const Canvas: React.FC<CanvasProps> = ({
           // Styling based on priority: path > selected > cross-project > depth-based
           let strokeColor;
           let strokeWidth;
-          let strokeDasharray = '0';
+          let strokeDasharray = undefined;
           let opacity = 1;
+          let useGlow = false;
           
           if (isInPath) {
             strokeColor = '#10b981';
@@ -471,26 +479,48 @@ export const Canvas: React.FC<CanvasProps> = ({
             strokeWidth = 4;
             strokeDasharray = '8,4';
           } else {
-            // Normal connection - apply depth-based styling
+            // Sistema de gradiente visual baseado em nível
             strokeColor = conn.type === 'strong' ? '#a855f7' : '#6366f1';
-            const baseWidth = conn.type === 'strong' ? 3 : 2;
             
-            if (viewMode === 'single' && connectionLevel > 0) {
-              if (connectionLevel === 1) {
-                // Level 1: thinner by 1 point
-                strokeWidth = baseWidth - 1;
-              } else if (connectionLevel === 2) {
-                // Level 2: dotted
-                strokeWidth = baseWidth;
-                strokeDasharray = '8,6';
-              } else {
-                // Level 3+: reduced opacity progressively
-                strokeWidth = baseWidth;
-                opacity = connectionLevel === 3 ? 0.7 : connectionLevel === 4 ? 0.55 : 0.4;
+            if (viewMode === 'single' && connectionLevel >= 0) {
+              // Gradiente progressivo de força
+              switch (connectionLevel) {
+                case 0: // Conexão direta ao centro
+                  strokeWidth = conn.type === 'strong' ? 4 : 3;
+                  opacity = 1;
+                  useGlow = true;
+                  break;
+                case 1: // 1 grau de separação
+                  strokeWidth = conn.type === 'strong' ? 3 : 2;
+                  opacity = 0.9;
+                  break;
+                case 2: // 2 graus de separação
+                  strokeWidth = conn.type === 'strong' ? 2.5 : 2;
+                  opacity = 0.75;
+                  strokeDasharray = '6,4';
+                  break;
+                case 3: // 3 graus de separação
+                  strokeWidth = 2;
+                  opacity = 0.6;
+                  strokeDasharray = '4,6';
+                  strokeColor = conn.type === 'strong' ? '#9333ea' : '#4f46e5';
+                  break;
+                default: // 4+ graus de separação
+                  strokeWidth = 1.5;
+                  opacity = 0.4;
+                  strokeDasharray = '3,8';
+                  strokeColor = conn.type === 'strong' ? '#7c3aed' : '#4338ca';
+                  break;
               }
             } else {
-              strokeWidth = baseWidth;
+              // Master view
+              strokeWidth = conn.type === 'strong' ? 3 : 2;
+              opacity = 0.4;
             }
+          }
+          
+          if (isSelected) {
+            opacity = 1;
           }
           
           const controlX = (from.x + to.x) / 2;
@@ -555,6 +585,7 @@ export const Canvas: React.FC<CanvasProps> = ({
                     strokeDasharray={strokeDasharray}
                     opacity={opacity}
                     markerEnd={conn.directional ? 'url(#arrowhead)' : ''}
+                    filter={useGlow ? "url(#connectionGlow)" : undefined}
                     className="pointer-events-none"
                   />
                 </>
@@ -582,6 +613,7 @@ export const Canvas: React.FC<CanvasProps> = ({
                     strokeDasharray={strokeDasharray}
                     opacity={opacity}
                     markerEnd={conn.directional ? 'url(#arrowhead)' : ''}
+                    filter={useGlow ? "url(#connectionGlow)" : undefined}
                     className="pointer-events-none"
                   />
                 </>
