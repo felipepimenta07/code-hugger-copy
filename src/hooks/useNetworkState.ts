@@ -25,7 +25,7 @@ export const useNetworkState = () => {
     editingNode: null,
     dragging: null,
     offset: { x: 0, y: 0 },
-    zoom: 0.7,
+    zoom: 0.5,
     pan: { x: 150, y: 100 },
     isPanning: false,
     panStart: { x: 0, y: 0 },
