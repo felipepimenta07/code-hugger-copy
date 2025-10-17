@@ -208,8 +208,8 @@ export const NodeEditor: React.FC<NodeEditorProps> = ({
             <div>
               <label className="block text-sm font-semibold text-foreground mb-2">Status</label>
               <select 
-                value={getCurrentValue('projectStatus') || 'planejamento'} 
-                onChange={(e) => handleLocalUpdate('projectStatus', e.target.value)}
+                value={getCurrentValue('status') || 'ativo'} 
+                onChange={(e) => handleLocalUpdate('status', e.target.value)}
                 className="w-full px-4 py-2.5 bg-secondary border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
                 <option value="planejamento">Planejamento</option>
                 <option value="ativo">Ativo</option>
@@ -218,11 +218,11 @@ export const NodeEditor: React.FC<NodeEditorProps> = ({
               </select>
             </div>
             <div>
-              <label className="block text-sm font-semibold text-foreground mb-2">Data de Início</label>
+              <label className="block text-sm font-semibold text-foreground mb-2">Prazo</label>
               <input 
                 type="date" 
-                value={getCurrentValue('startDate') || ''} 
-                onChange={(e) => handleLocalUpdate('startDate', e.target.value)}
+                value={getCurrentValue('deadline') || ''} 
+                onChange={(e) => handleLocalUpdate('deadline', e.target.value)}
                 className="w-full px-4 py-2.5 bg-secondary border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
