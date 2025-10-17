@@ -671,9 +671,8 @@ export const NetworkMatrix = () => {
           if (nodesToCenter.length > 0 && svgRef.current) {
             const rect = svgRef.current.getBoundingClientRect();
             const bounds = calculateBounds(nodesToCenter);
-            const optimalZoom = calculateOptimalZoom(bounds, rect.width, rect.height);
-            const centerPan = calculateCenterPan(bounds, optimalZoom, rect.width, rect.height);
-            updateState({ zoom: optimalZoom, pan: centerPan });
+            const centerPan = calculateCenterPan(bounds, 0.9, rect.width, rect.height);
+            updateState({ zoom: 0.9, pan: centerPan });
           }
         }, 150);
       }, 100);
