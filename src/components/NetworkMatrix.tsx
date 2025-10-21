@@ -1,6 +1,12 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Trash2, ZoomIn, ZoomOut, X, Building2, User, FolderKanban, Undo2, Redo2, LayoutGrid, Maximize2, Info, Layers, BarChart3, Route, Sparkles, Target, Save, LogOut } from 'lucide-react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { Plus, Trash2, ZoomIn, ZoomOut, X, Building2, User, FolderKanban, LayoutGrid, Maximize2, Info, Layers, BarChart3, Route, Sparkles, Target, Save, LogOut } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { useProjects } from '@/hooks/useProjects';
+import { usePeople } from '@/hooks/usePeople';
+import { useBrands } from '@/hooks/useBrands';
+import { useConnections } from '@/hooks/useConnections';
+import { useWorkflows } from '@/hooks/useWorkflows';
+import { useOnboarding } from '@/hooks/useOnboarding';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -12,18 +18,15 @@ import { ContextMenu } from './ContextMenu';
 import { PathFinderModal } from './PathFinderModal';
 import { Legend } from './Legend';
 import { QuickActionsMenu } from './QuickActionsMenu';
-import { LinkedInImportModal } from './LinkedInImportModal';
 import { Canvas } from './Canvas';
 import { NodeCreationModal } from './NodeCreationModal';
 import { ProjectManagerPanel } from './ProjectManagerPanel';
 import { AIInsightsPanel } from './AIInsightsPanel';
 import { FlowStarterModal } from './FlowStarterModal';
 import { PathIndicator } from './PathIndicator';
+import { OnboardingTour } from './OnboardingTour';
 import { useNetworkState } from '@/hooks/useNetworkState';
-import { useNetworkHistory } from '@/hooks/useNetworkHistory';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
-import { SAMPLE_WORKFLOWS, SAMPLE_PROJECTS, SAMPLE_PEOPLE, SAMPLE_BRANDS, SAMPLE_CONNECTIONS } from '@/data/sampleNetworkData';
-import { ParsedLinkedInData, LinkedInImportOptions } from '@/types/linkedin';
 
 const CATEGORIES = {
   person: ['Pessoal', 'Profissional', 'Cliente', 'Fornecedor', 'Parceiro'],
@@ -34,14 +37,15 @@ const CATEGORIES = {
 export const NetworkMatrix = () => {
   const { signOut } = useAuth();
   
-  // Nova arquitetura: separar projetos, pessoas e marcas
-  const [projects, setProjects] = useState<any[]>(SAMPLE_PROJECTS);
-  const [people, setPeople] = useState<any[]>(SAMPLE_PEOPLE);
-  const [brands, setBrands] = useState<any[]>(SAMPLE_BRANDS);
-  const [allConnections, setAllConnections] = useState(SAMPLE_CONNECTIONS);
-  const [workflows, setWorkflows] = useState(SAMPLE_WORKFLOWS);
+  // Hooks Supabase
+  const { projects = [], isLoading: loadingProjects, createProject, updateProject, deleteProject } = useProjects();
+  const { people = [], isLoading: loadingPeople, createPerson, updatePerson, deletePerson } = usePeople();
+  const { brands = [], isLoading: loadingBrands, createBrand, updateBrand, deleteBrand } = useBrands();
+  const { connections: allConnections = [], isLoading: loadingConnections, createConnection, deleteConnection: removeConnection } = useConnections();
+  const { workflows = [], isLoading: loadingWorkflows, createWorkflow, updateWorkflow, deleteWorkflow } = useWorkflows();
+  const { showTour, completeTour, reopenTour } = useOnboarding();
 
-  const [activeProjectId, setActiveProjectId] = useState<number | null>(SAMPLE_PROJECTS[0]?.id ?? null);
+  const [activeProjectId, setActiveProjectId] = useState<number | null>(null);
   const [viewMode, setViewMode] = useState('master');
   const [showLegend, setShowLegend] = useState(false);
   const [selectedNodes, setSelectedNodes] = useState([]);
@@ -62,193 +66,63 @@ export const NetworkMatrix = () => {
   const [showProjectManager, setShowProjectManager] = useState(false);
   const [showAIInsights, setShowAIInsights] = useState(false);
   const [showFlowStarterModal, setShowFlowStarterModal] = useState(false);
-  const [showLinkedInImport, setShowLinkedInImport] = useState(false);
+  const [showAnalytics, setShowAnalytics] = useState(false);
 
   const { state, updateState } = useNetworkState();
   const svgRef = useRef(null);
 
-  // Combinar todos os nós
   const allNodes = [...projects, ...people, ...brands];
   
-  // Carregar design salvo ao iniciar
-  React.useEffect(() => {
-    const savedDesign = localStorage.getItem('networkDesign');
-    if (savedDesign) {
-      try {
-        const parsed = JSON.parse(savedDesign);
-        
-        // Validar estrutura
-        if (!parsed.projects || !parsed.people || !parsed.brands || !parsed.savedAt) {
-          console.warn('Design salvo tem estrutura inválida, ignorando...');
-          return;
-        }
-        
-        const { projects: savedProjects, people: savedPeople, brands: savedBrands } = parsed;
-        
-        // Mesclar posições salvas com dados atuais (validar que x e y existem)
-        if (Array.isArray(savedProjects)) {
-          setProjects(prev => prev.map(p => {
-            const saved = savedProjects.find((sp: any) => sp.id === p.id);
-            return saved && typeof saved.x === 'number' && typeof saved.y === 'number' 
-              ? { ...p, x: saved.x, y: saved.y } 
-              : p;
-          }));
-        }
-        
-        if (Array.isArray(savedPeople)) {
-          setPeople(prev => prev.map(p => {
-            const saved = savedPeople.find((sp: any) => sp.id === p.id);
-            return saved && typeof saved.x === 'number' && typeof saved.y === 'number'
-              ? { ...p, x: saved.x, y: saved.y } 
-              : p;
-          }));
-        }
-        
-        if (Array.isArray(savedBrands)) {
-          setBrands(prev => prev.map(b => {
-            const saved = savedBrands.find((sb: any) => sb.id === b.id);
-            return saved && typeof saved.x === 'number' && typeof saved.y === 'number'
-              ? { ...b, x: saved.x, y: saved.y } 
-              : b;
-          }));
-        }
-        
-        toast.success('Design carregado com sucesso!');
-      } catch (error) {
-        console.error('Erro ao carregar design salvo:', error);
-        toast.error('Erro ao carregar design salvo');
-      }
-    }
-  }, []);
-  
-  // Função para salvar design atual
-  const saveCurrentDesign = () => {
-    try {
-      const designData = {
-        projects: projects.map(p => ({ id: p.id, x: p.x, y: p.y })),
-        people: people.map(p => ({ id: p.id, x: p.x, y: p.y })),
-        brands: brands.map(b => ({ id: b.id, x: b.x, y: b.y })),
-        savedAt: new Date().toISOString()
+  // Auto-save debounced for node positions
+  const debouncedUpdatePosition = useCallback(
+    (() => {
+      let timeoutId: NodeJS.Timeout;
+      return (id: number, type: string, x: number, y: number) => {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+          if (type === 'project') {
+            updateProject.mutate({ id, x, y });
+          } else if (type === 'person') {
+            updatePerson.mutate({ id, x, y });
+          } else if (type === 'brand') {
+            updateBrand.mutate({ id, x, y });
+          }
+        }, 1000);
       };
-      
-      localStorage.setItem('networkDesign', JSON.stringify(designData));
-      toast.success('Design salvo com sucesso!', {
-        description: 'As posições dos nós foram salvas.'
-      });
-      console.log('Design salvo:', designData);
-    } catch (error) {
-      console.error('Erro ao salvar design:', error);
-      toast.error('Erro ao salvar design', {
-        description: 'Não foi possível salvar o design atual.'
-      });
-    }
-  };
+    })(),
+    [updateProject, updatePerson, updateBrand]
+  );
 
-  // Função para importar dados do LinkedIn
-  const handleLinkedInImport = (data: ParsedLinkedInData, options: LinkedInImportOptions) => {
-    saveToHistory();
-    
-    const newPeople: any[] = [];
-    const newBrands: any[] = [];
-    const newConnections: any[] = [];
-    
-    // Create brands from unique companies if option is enabled
-    const brandMap = new Map<string, number>();
-    if (options.createBrands) {
-      data.uniqueCompanies.forEach((company, index) => {
-        const brandId = Date.now() + index + 10000;
-        const brand = {
-          id: brandId,
-          type: 'brand',
-          name: company,
-          x: Math.random() * 400 + 100,
-          y: Math.random() * 400 + 100,
-          category: 'A',
-          workflowId: workflows[0]?.id
-        };
-        newBrands.push(brand);
-        brandMap.set(company, brandId);
-      });
+  // Set first project as active when data loads
+  useEffect(() => {
+    if (!activeProjectId && projects.length > 0) {
+      setActiveProjectId(projects[0].id);
     }
-    
-    // Create person nodes from contacts
-    data.contacts.forEach((contact, index) => {
-      const personId = Date.now() + index + 20000;
-      const fullName = `${contact.firstName} ${contact.lastName}`.trim();
-      
-      const person = {
-        id: personId,
-        type: 'person',
-        name: fullName || `Contato LinkedIn ${index + 1}`,
-        x: Math.random() * 400 + 100,
-        y: Math.random() * 400 + 100,
-        category: options.defaultCategory,
-        workflowId: workflows[0]?.id,
-        company: contact.company,
-        role: contact.position,
-        email: contact.email,
-        notes: contact.profileUrl ? `LinkedIn: ${contact.profileUrl}` : undefined,
-        homeProjectId: options.connectToProject ? options.projectId : undefined
-      };
-      newPeople.push(person);
-      
-      // Create connection to brand if company exists and brands were created
-      if (contact.company && options.createBrands && brandMap.has(contact.company)) {
-        newConnections.push({
-          from: personId,
-          to: brandMap.get(contact.company)!,
-          type: 'works-at'
-        });
-      }
-      
-      // Create connection to project if option is enabled
-      if (options.connectToProject && options.projectId) {
-        newConnections.push({
-          from: personId,
-          to: options.projectId,
-          type: 'related'
-        });
-      }
-    });
-    
-    // Update state
-    setPeople(prev => [...prev, ...newPeople]);
-    setBrands(prev => [...prev, ...newBrands]);
-    setAllConnections(prev => [...prev, ...newConnections]);
-    
-    // Show success message
-    toast.success(
-      `Importação concluída! ${newPeople.length} pessoas` +
-      (newBrands.length > 0 ? `, ${newBrands.length} marcas` : '') +
-      (newConnections.length > 0 ? `, ${newConnections.length} conexões` : '')
+  }, [projects, activeProjectId]);
+
+  // Loading state
+  if (loadingProjects || loadingPeople || loadingBrands || loadingConnections || loadingWorkflows) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center space-y-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto" />
+          <p className="text-muted-foreground">Carregando seu workspace...</p>
+        </div>
+      </div>
     );
-    
-    // Auto-organize and center view on new nodes
-    setTimeout(() => {
-      const allNewNodes = [...newPeople, ...newBrands];
-      if (allNewNodes.length > 0) {
-        const avgX = allNewNodes.reduce((sum, n) => sum + n.x, 0) / allNewNodes.length;
-        const avgY = allNewNodes.reduce((sum, n) => sum + n.y, 0) / allNewNodes.length;
-        updateState({
-          pan: { x: window.innerWidth / 2 - avgX * state.zoom, y: window.innerHeight / 2 - avgY * state.zoom }
-        });
-      }
-    }, 100);
-  };
+  }
 
-  // Calcular anchorProjectId por nó com busca de 2º grau (useMemo)
+  // Calculate anchors
   const anchors = React.useMemo(() => {
     const map = new Map<number, number | null>();
     const byId = new Map(allNodes.map(n => [n.id, n]));
     
     for (const n of allNodes) {
-      // Projetos se ancoram neles mesmos
       if (n.type === 'project') { 
         map.set(n.id, n.id); 
         continue; 
       }
       
-      // 1º grau: buscar projeto conectado diretamente
       const directProjects = allConnections
         .filter(c => c.from === n.id || c.to === n.id)
         .map(c => {
@@ -263,57 +137,23 @@ export const NetworkMatrix = () => {
         continue;
       }
       
-      // 2º grau: buscar via vizinhos (pessoas/marcas conectadas a projetos)
-      const neighbors = allConnections
-        .filter(c => c.from === n.id || c.to === n.id)
-        .map(c => c.from === n.id ? c.to : c.from);
-      
-      let foundProject: number | null = null;
-      for (const neighborId of neighbors) {
-        const neighborProjects = allConnections
-          .filter(c => c.from === neighborId || c.to === neighborId)
-          .map(c => {
-            const otherId = c.from === neighborId ? c.to : c.from;
-            const otherNode = byId.get(otherId);
-            return otherNode?.type === 'project' ? otherId : null;
-          })
-          .filter(Boolean) as number[];
-        
-        if (neighborProjects.length > 0) {
-          foundProject = neighborProjects[0];
-          break;
-        }
-      }
-      
-      map.set(n.id, foundProject);
+      map.set(n.id, null);
     }
     return map;
   }, [allNodes, allConnections]);
 
-  // Adicionar anchorProjectId aos nós
   const allNodesWithAnchors = React.useMemo(() => 
     allNodes.map(n => ({ ...n, anchorProjectId: anchors.get(n.id) ?? null })),
     [allNodes, anchors]
   );
 
-  // Helper: determine if a non-project node belongs to a project (strict isolation)
-  const belongsToProject = (n: any, pid: number) =>
-    n?.type !== 'project' && (
-      (n as any).homeProjectId === pid ||
-      (n as any).anchorProjectId === pid ||
-      allConnections.some(c => (c.from === n.id && c.to === pid) || (c.to === n.id && c.from === pid))
-    );
-
-  // Helper to get nodes for Single View (isolated per project, no cross-project traversal)
   const getNodesForSingleView = (projectId: number) => {
     const byId = new Map(allNodesWithAnchors.map(n => [n.id, n]));
     const projectNode = byId.get(projectId);
     if (!projectNode) return [];
     
-    // Start with the active project
     const included = new Set<number>([projectId]);
     
-    // 1. Add people/brands directly connected to the project
     allConnections.forEach(c => {
       if (c.from === projectId) {
         const node = byId.get(c.to);
@@ -325,55 +165,13 @@ export const NetworkMatrix = () => {
       }
     });
     
-    // 2. Add connections between people/brands already included (within project only)
-    let changed = true;
-    let iterations = 0;
-    const maxIterations = 3; // limit depth for performance
-    
-    while (changed && iterations < maxIterations) {
-      changed = false;
-      iterations++;
-      
-      allConnections.forEach(c => {
-        const fromNode = byId.get(c.from);
-        const toNode = byId.get(c.to);
-        
-        // Connection between two non-projects where at least one is already included
-        if (fromNode?.type !== 'project' && toNode?.type !== 'project') {
-          if (included.has(c.from) && !included.has(c.to) && toNode && belongsToProject(toNode, projectId)) {
-            included.add(c.to);
-            changed = true;
-          }
-          if (included.has(c.to) && !included.has(c.from) && fromNode && belongsToProject(fromNode, projectId)) {
-            included.add(c.from);
-            changed = true;
-          }
-        }
-      });
-    }
-    
-    // 3. Include "orphan" nodes with homeProjectId (nodes created in project without connection)
-    allNodesWithAnchors.forEach(n => {
-      if ((n as any).homeProjectId === projectId && n.type !== 'project') {
-        included.add(n.id);
-      }
-    });
-    
-    // Return nodes: project first, then others
     return [projectNode, ...Array.from(included).filter(id => id !== projectId).map(id => byId.get(id)!).filter(Boolean)];
   };
 
-  // Filtrar nós e conexões por projeto/modo
   const nodes = viewMode === 'master'
-    ? allNodesWithAnchors
-        .filter(n => n.type === 'project' || n.anchorProjectId !== null) // Ocultar nós órfãos
-        .map(n => {
-          const project = projects.find(p => p.id === n.anchorProjectId);
-          return { ...n, projectId: project?.id, projectColor: project ? '#8b5cf6' : '#6366f1' };
-        })
+    ? allNodesWithAnchors.filter(n => n.type === 'project' || n.anchorProjectId !== null)
     : (activeProjectId ? getNodesForSingleView(activeProjectId) : []);
 
-  // Para o PathIndicator
   const selectedNode = selectedNodes.length === 1 
     ? allNodes.find(n => n.id === selectedNodes[0]) 
     : null;
@@ -387,543 +185,45 @@ export const NetworkMatrix = () => {
     : allConnections.filter(c => {
         const fromNode = nodes.find(n => n.id === c.from);
         const toNode = nodes.find(n => n.id === c.to);
-        
-        // Both nodes must be in the filtered list
-        if (!fromNode || !toNode) return false;
-        
-        // If connection involves another project (not the active one), exclude it
-        if (fromNode.type === 'project' && fromNode.id !== activeProjectId) return false;
-        if (toNode.type === 'project' && toNode.id !== activeProjectId) return false;
-        
-        return true;
+        return fromNode && toNode;
       });
-
-  // Real history implementation
-  const [history, setHistory] = useState<any[]>([]);
-  const [historyIndex, setHistoryIndex] = useState(-1);
-
-  const saveToHistory = () => {
-    const snapshot = {
-      projects: [...projects],
-      people: [...people],
-      brands: [...brands],
-      allConnections: [...allConnections],
-      viewMode,
-      activeProjectId
-    };
-    const newHistory = history.slice(0, historyIndex + 1);
-    newHistory.push(snapshot);
-    if (newHistory.length > 50) newHistory.shift();
-    setHistory(newHistory);
-    setHistoryIndex(newHistory.length - 1);
-  };
-
-  const undo = () => {
-    if (historyIndex > 0) {
-      const snapshot = history[historyIndex - 1];
-      setProjects(snapshot.projects);
-      setPeople(snapshot.people);
-      setBrands(snapshot.brands);
-      setAllConnections(snapshot.allConnections);
-      setViewMode(snapshot.viewMode);
-      setActiveProjectId(snapshot.activeProjectId);
-      setHistoryIndex(historyIndex - 1);
-    }
-  };
-
-  const redo = () => {
-    if (historyIndex < history.length - 1) {
-      const snapshot = history[historyIndex + 1];
-      setProjects(snapshot.projects);
-      setPeople(snapshot.people);
-      setBrands(snapshot.brands);
-      setAllConnections(snapshot.allConnections);
-      setViewMode(snapshot.viewMode);
-      setActiveProjectId(snapshot.activeProjectId);
-      setHistoryIndex(historyIndex + 1);
-    }
-  };
-
-  // Função para atualizar posição de nós (corrige dragging) and clear highlight
-  const updateNodePosition = (nodeId: number, deltaX: number, deltaY: number) => {
-    const isProject = projects.find(p => p.id === nodeId);
-    const isPerson = people.find(p => p.id === nodeId);
-    const isBrand = brands.find(b => b.id === nodeId);
-    
-    if (isProject) {
-      setProjects(prev => prev.map(p => 
-        p.id === nodeId ? { ...p, x: p.x + deltaX, y: p.y + deltaY, isNewHighlight: false } : p
-      ));
-    } else if (isPerson) {
-      setPeople(prev => prev.map(p => 
-        p.id === nodeId ? { ...p, x: p.x + deltaX, y: p.y + deltaY, isNewHighlight: false } : p
-      ));
-    } else if (isBrand) {
-      setBrands(prev => prev.map(b => 
-        b.id === nodeId ? { ...b, x: b.x + deltaX, y: b.y + deltaY, isNewHighlight: false } : b
-      ));
-    }
-  };
-
-  const setNodes = (updater) => {
-    const newNodes = typeof updater === 'function' ? updater(allNodesWithAnchors) : updater;
-    
-    const newProjects = newNodes.filter(n => n.type === 'project');
-    const newPeople = newNodes.filter(n => n.type === 'person');
-    const newBrands = newNodes.filter(n => n.type === 'brand');
-    
-    setProjects(newProjects);
-    setPeople(newPeople);
-    setBrands(newBrands);
-  };
-
-  const setConnections = (updater) => {
-    setAllConnections(typeof updater === 'function' ? updater(allConnections) : updater);
-  };
-
-  // Helper: Contar conexões
-  const getConnectionCount = (node: any) => {
-    return allConnections.filter(c => c.from === node.id || c.to === node.id).length;
-  };
-
-  // Helper: Distribuir nós em círculo
-  const distributeInCircle = (nodesToLayout: any[], centerX: number, centerY: number, radius: number) => {
-    if (nodesToLayout.length === 0) return [];
-    const angleStep = (2 * Math.PI) / nodesToLayout.length;
-    return nodesToLayout.map((node, index) => {
-      // Adicionar variação orgânica (jitter)
-      const radiusVariation = (Math.random() - 0.5) * 30;
-      const angleVariation = (Math.random() - 0.5) * 0.2;
-      const finalRadius = radius + radiusVariation;
-      const finalAngle = index * angleStep - Math.PI / 2 + angleVariation;
-      
-      return {
-        ...node,
-        x: centerX + finalRadius * Math.cos(finalAngle),
-        y: centerY + finalRadius * Math.sin(finalAngle)
-      };
-    });
-  };
-
-  // Layout radial hierárquico (3 níveis: inner, middle, outer)
-  const applyRadialLayout = (nodesToLayout: any[], centerX: number, centerY: number) => {
-    if (nodesToLayout.length === 0) return [];
-    
-    // FIXED: Use the first node as center (active project), don't reorder
-    const centerNode = nodesToLayout[0];
-    const otherNodes = nodesToLayout.slice(1);
-    
-    // Dividir em 3 anéis
-    const innerRing = otherNodes.slice(0, Math.min(6, otherNodes.length));
-    const middleRing = otherNodes.slice(6, Math.min(18, otherNodes.length));
-    const outerRing = otherNodes.slice(18);
-    
-    const result = [
-      { ...centerNode, x: centerX, y: centerY, level: 'center' },
-      ...distributeInCircle(innerRing, centerX, centerY, 200).map(n => ({ ...n, level: 'inner' })),
-      ...distributeInCircle(middleRing, centerX, centerY, 350).map(n => ({ ...n, level: 'middle' })),
-      ...distributeInCircle(outerRing, centerX, centerY, 520).map(n => ({ ...n, level: 'outer' }))
-    ];
-    
-    return result;
-  };
-
-  const updateAllNodePositions = (layoutedNodes: any[]) => {
-    layoutedNodes.forEach(node => {
-      const isProject = projects.find(p => p.id === node.id);
-      const isPerson = people.find(p => p.id === node.id);
-      const isBrand = brands.find(b => b.id === node.id);
-      
-      if (isProject) {
-        setProjects(prev => prev.map(p => p.id === node.id ? { ...p, x: node.x, y: node.y } : p));
-      } else if (isPerson) {
-        setPeople(prev => prev.map(p => p.id === node.id ? { ...p, x: node.x, y: node.y } : p));
-      } else if (isBrand) {
-        setBrands(prev => prev.map(b => b.id === node.id ? { ...b, x: node.x, y: node.y } : b));
-      }
-    });
-  };
-
-  const autoOrganizeSingle = (projectId: number | null) => {
-    if (!projectId) return;
-    const nodesToLayout = getNodesForSingleView(projectId);
-    if (nodesToLayout.length === 0) return;
-
-    const layouted = applyRadialLayout(nodesToLayout, 500, 400);
-    updateAllNodePositions(layouted);
-  };
-
-  const autoOrganize = () => {
-    if (viewMode === 'single') {
-      autoOrganizeSingle(activeProjectId);
-    } else {
-      // Master View: grid de clusters por projeto com centralização automática
-      const cols = Math.max(2, Math.ceil(Math.sqrt(projects.length)));
-      
-      projects.forEach((project, pIndex) => {
-        const clusterNodes = allNodesWithAnchors.filter(n => 
-          n.anchorProjectId === project.id && n.id !== project.id
-        );
-        const col = pIndex % cols;
-        const row = Math.floor(pIndex / cols);
-        const clusterX = col * 1400 + 700;
-        const clusterY = row * 1200 + 600;
-        const layouted = applyRadialLayout([project, ...clusterNodes], clusterX, clusterY);
-        updateAllNodePositions(layouted);
-      });
-      
-      // Centralizar view após organizar
-      setTimeout(() => {
-        const width = window.innerWidth;
-        const height = window.innerHeight - 100;
-        const bounds = calculateBounds(allNodes);
-        const computed = calculateOptimalZoom(bounds, width, height);
-        const zoom = Math.min(computed, 0.5);
-        const pan = calculateCenterPan(bounds, zoom, width, height);
-        updateState({ zoom, pan });
-      }, 100);
-    }
-  };
-
-  // Funções auxiliares para zoom/pan automático
-  const calculateBounds = (nodesList: any[]) => {
-    if (nodesList.length === 0) return { minX: 0, maxX: 1000, minY: 0, maxY: 800 };
-    const xs = nodesList.map(n => n.x);
-    const ys = nodesList.map(n => n.y);
-    return {
-      minX: Math.min(...xs) - 150,
-      maxX: Math.max(...xs) + 150,
-      minY: Math.min(...ys) - 150,
-      maxY: Math.max(...ys) + 150
-    };
-  };
-
-  const calculateOptimalZoom = (bounds: any, width: number, height: number) => {
-    const scaleX = (width * 0.85) / (bounds.maxX - bounds.minX);
-    const scaleY = (height * 0.85) / (bounds.maxY - bounds.minY);
-    return Math.min(scaleX, scaleY, 1.2);
-  };
-
-  const calculateCenterPan = (bounds: any, zoom: number, width: number, height: number) => {
-    const centerX = (bounds.minX + bounds.maxX) / 2;
-    const centerY = (bounds.minY + bounds.maxY) / 2;
-    return {
-      x: width / 2 - centerX * zoom,
-      y: height / 2 - centerY * zoom
-    };
-  };
-
-  // Removed problematic useEffect that caused race conditions with view switching
-
-  // Auto-organizar ao carregar a página
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (allNodes.length > 0) {
-        autoOrganize();
-      }
-    }, 100);
-    
-    return () => clearTimeout(timer);
-  }, []);
-
-  // Auto-centralizar quando voltar para Master View
-  useEffect(() => {
-    if (viewMode === 'master' && projects.length > 0 && allNodes.length > 0) {
-      const timer = setTimeout(() => {
-        // First organize master view
-        const cols = Math.max(2, Math.ceil(Math.sqrt(projects.length)));
-        
-        projects.forEach((project, pIndex) => {
-          const clusterNodes = allNodesWithAnchors.filter(n => 
-            n.anchorProjectId === project.id && n.id !== project.id
-          );
-          const col = pIndex % cols;
-          const row = Math.floor(pIndex / cols);
-          const clusterX = col * 1400 + 700;
-          const clusterY = row * 1200 + 600;
-          const layouted = applyRadialLayout([project, ...clusterNodes], clusterX, clusterY);
-          updateAllNodePositions(layouted);
-        });
-        
-        // Then center - single flow after organization completes
-        setTimeout(() => {
-          const projectNodes = allNodesWithAnchors.filter(n => n.type === 'project');
-          if (projectNodes.length > 0 && svgRef.current) {
-            const rect = svgRef.current.getBoundingClientRect();
-            const bounds = calculateBounds(allNodes);
-            const computed = calculateOptimalZoom(bounds, rect.width, rect.height);
-            const zoom = Math.min(computed, 0.5);
-            const centerPan = calculateCenterPan(bounds, zoom, rect.width, rect.height);
-            updateState({ zoom, pan: centerPan });
-            toast.success('Nós organizados e centralizados!');
-          }
-        }, 150);
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [viewMode]);
-
-  // Auto-centralizar quando entrar em Single View
-  useEffect(() => {
-    if (viewMode === 'single' && activeProjectId && allNodes.length > 0) {
-      const timer = setTimeout(() => {
-        // First organize single view
-        autoOrganizeSingle(activeProjectId);
-        
-        // Then center after organization completes
-        setTimeout(() => {
-          const nodesToCenter = getNodesForSingleView(activeProjectId);
-          if (nodesToCenter.length > 0 && svgRef.current) {
-            const rect = svgRef.current.getBoundingClientRect();
-            const bounds = calculateBounds(nodesToCenter);
-            const centerPan = calculateCenterPan(bounds, 0.9, rect.width, rect.height);
-            updateState({ zoom: 0.9, pan: centerPan });
-          }
-        }, 150);
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [viewMode, activeProjectId]);
-
-  useKeyboardShortcuts({
-    selectedNodes,
-    setSelectedNodes,
-    setNodes,
-    setConnections,
-    updateState,
-    undo,
-    redo,
-    historyIndex,
-    history,
-    saveToHistory,
-    selectedConnection,
-    setSelectedConnection,
-    setShowPathFinder,
-    setHighlightedPath,
-    nodes,
-    allNodes,
-    viewMode,
-    zoom: state.zoom
-  });
-
-  const addNode = () => {
-    if (state.newNodeName.trim() && viewMode === 'single') {
-      saveToHistory();
-      const newNode: any = {
-        id: Date.now(),
-        name: state.newNodeName,
-        type: state.newNodeType,
-        x: (window.innerWidth / 2 - state.pan.x) / state.zoom,
-        y: (300 - state.pan.y) / state.zoom,
-        isNewHighlight: true
-      };
-
-      // Set homeProjectId for person/brand nodes created in single view
-      if (activeProjectId && (state.newNodeType === 'person' || state.newNodeType === 'brand')) {
-        newNode.homeProjectId = activeProjectId;
-      }
-
-      // Set default fields for projects
-      if (state.newNodeType === 'project') {
-        newNode.workflows = workflows.length > 0 ? [workflows[0].id] : [];
-        newNode.status = 'ativo';
-        newNode.deadline = '';
-      }
-
-      setNodes(prevNodes => [...prevNodes, newNode]);
-      updateState({ newNodeName: '', editingNode: newNode, showSidebar: true, showAnalytics: false });
-      toast.success(`${newNode.name} criado!`);
-    }
-  };
-
-  const deleteConnection = (connectionIndex: number) => {
-    saveToHistory();
-    
-    // Before deleting, check if we need to set homeProjectId to keep nodes visible in Single View
-    if (viewMode === 'single' && activeProjectId) {
-      const conn = allConnections[connectionIndex];
-      if (conn) {
-        const fromNode = allNodesWithAnchors.find(n => n.id === conn.from);
-        const toNode = allNodesWithAnchors.find(n => n.id === conn.to);
-        
-        // If connection involves the active project, set homeProjectId on the other node BEFORE deleting connection
-        [fromNode, toNode].forEach(node => {
-          if (node && (node.type === 'person' || node.type === 'brand' || node.type === 'project')) {
-            const otherNodeId = node.id === conn.from ? conn.to : conn.from;
-            // Check if this node is connected to the active project and will become orphaned
-            if (otherNodeId === activeProjectId) {
-              // Check if node will have any other connections to the project after this deletion
-              const otherConnectionsToProject = allConnections.filter(
-                (c, idx) => idx !== connectionIndex && 
-                ((c.from === node.id && c.to === activeProjectId) || (c.to === node.id && c.from === activeProjectId))
-              );
-              
-              // Only set homeProjectId if this is the last connection to the project
-              if (otherConnectionsToProject.length === 0 && !(node as any).homeProjectId) {
-                if (node.type === 'person') {
-                  setPeople(prev => prev.map(p => p.id === node.id ? { ...p, homeProjectId: activeProjectId } : p));
-                } else if (node.type === 'brand') {
-                  setBrands(prev => prev.map(b => b.id === node.id ? { ...b, homeProjectId: activeProjectId } : b));
-                } else if (node.type === 'project') {
-                  setProjects(prev => prev.map(p => p.id === node.id ? { ...p, homeProjectId: activeProjectId } : p));
-                }
-              }
-            }
-          }
-        });
-      }
-    }
-    
-    // Delete connection after homeProjectId is set
-    setConnections(prev => prev.filter((_, idx) => idx !== connectionIndex));
-    setSelectedConnection(null);
-  };
-
-  const deleteNode = (nodeId) => {
-    saveToHistory();
-    setNodes(prev => prev.filter(n => n.id !== nodeId));
-    setConnections(prev => prev.filter(c => c.from !== nodeId && c.to !== nodeId));
-    updateState({ selectedNode: null, showSidebar: false, editingNode: null });
-    setSelectedNodes(prev => prev.filter(id => id !== nodeId));
-  };
-
-  const exportData = () => {
-    try {
-      const dataStr = JSON.stringify(workflows, null, 2);
-      const dataBlob = new Blob([dataStr], { type: 'application/json' });
-      const url = URL.createObjectURL(dataBlob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `network-matrix-${new Date().toISOString().split('T')[0]}.json`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('Erro ao exportar:', error);
-    }
-  };
-
-  const handleFileImport = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const result = event.target?.result;
-        if (typeof result === 'string') {
-          const imported = JSON.parse(result);
-          setWorkflows(imported);
-          alert('Dados importados com sucesso!');
-        }
-      } catch (err) {
-        alert('Erro ao importar arquivo.');
-      }
-    };
-    reader.readAsText(file);
-  };
-
-  const getAllCategories = (type) => [...CATEGORIES[type], ...(customCategories[type] || [])];
-
-  const addCustomCategory = (type, category) => {
-    if (category && !getAllCategories(type).includes(category)) {
-      setCustomCategories(prev => ({ ...prev, [type]: [...(prev[type] || []), category] }));
-      return true;
-    }
-    return false;
-  };
 
   const handleNodeCreation = (nodeData: any) => {
-    saveToHistory();
     const newNode: any = {
       id: Date.now(),
-      type: nodeCreationType,
       x: nodeCreationPosition.x,
       y: nodeCreationPosition.y,
-      isNewHighlight: true,
-      ...nodeData
+      name: nodeData.name || nodeData.nodeName || 'Novo Nó',
+      category: nodeData.category || 'A',
     };
 
-    // Set homeProjectId for nodes created in single view
-    if (viewMode === 'single' && activeProjectId) {
-      if (nodeCreationType === 'person' || nodeCreationType === 'brand' || nodeCreationType === 'project') {
-        newNode.homeProjectId = activeProjectId;
-      }
-    }
-
-    // Set default fields for projects
     if (nodeCreationType === 'project') {
-      newNode.workflows = nodeData.workflows || [];
-      newNode.status = nodeData.projectStatus || nodeData.status || 'ativo';
-      newNode.deadline = nodeData.startDate || nodeData.deadline || '';
-      newNode.category = nodeData.category || 'M';
-      
-      // Add to projects array
-      setProjects(prev => [...prev, newNode]);
-      setShowNodeCreationModal(false);
-      
-      // Switch to Single View and center on the new project
+      newNode.status = nodeData.status || 'ativo';
+      newNode.deadline = nodeData.deadline || '';
+      createProject.mutate(newNode);
       setActiveProjectId(newNode.id);
       setViewMode('single');
-      toast.success(`Projeto "${newNode.name}" criado!`);
-      // useEffect will handle organization and centering automatically
     } else if (nodeCreationType === 'person') {
-      // Add to people array
-      setPeople(prev => [...prev, newNode]);
-      setShowNodeCreationModal(false);
-      toast.success(`${newNode.name} criado!`);
-      
-      // Center view on the new node
-      setTimeout(() => {
-        const zoom = state.zoom;
-        updateState({
-          pan: {
-            x: window.innerWidth / 2 - newNode.x * zoom,
-            y: window.innerHeight / 2 - newNode.y * zoom
-          }
-        });
-      }, 50);
+      newNode.company = nodeData.company || '';
+      newNode.email = nodeData.email || '';
+      newNode.phone = nodeData.phone || '';
+      createPerson.mutate(newNode);
     } else if (nodeCreationType === 'brand') {
-      // Add to brands array
-      setBrands(prev => [...prev, newNode]);
-      setShowNodeCreationModal(false);
-      toast.success(`${newNode.name} criado!`);
-      
-      // Center view on the new node
-      setTimeout(() => {
-        const zoom = state.zoom;
-        updateState({
-          pan: {
-            x: window.innerWidth / 2 - newNode.x * zoom,
-            y: window.innerHeight / 2 - newNode.y * zoom
-          }
-        });
-      }, 50);
+      newNode.website = nodeData.website || '';
+      createBrand.mutate(newNode);
     }
-  };
 
-  const handleAddWorkflow = (name: string, color: string) => {
-    const newWorkflow = {
-      id: Date.now(),
-      name,
-      color,
-      description: ''
-    };
-    setWorkflows([...workflows, newWorkflow]);
-    toast.success(`Workflow "${name}" criado!`);
+    setShowNodeCreationModal(false);
   };
 
   const handleNodeUpdate = (updatedData: any) => {
     if (editingNodeInModal) {
-      saveToHistory();
-      
-      // Update the correct array based on node type
       if (editingNodeInModal.type === 'project') {
-        setProjects(prev => prev.map(n => n.id === editingNodeInModal.id ? { ...n, ...updatedData } : n));
+        updateProject.mutate({ id: editingNodeInModal.id, ...updatedData });
       } else if (editingNodeInModal.type === 'person') {
-        setPeople(prev => prev.map(n => n.id === editingNodeInModal.id ? { ...n, ...updatedData } : n));
+        updatePerson.mutate({ id: editingNodeInModal.id, ...updatedData });
       } else if (editingNodeInModal.type === 'brand') {
-        setBrands(prev => prev.map(n => n.id === editingNodeInModal.id ? { ...n, ...updatedData } : n));
+        updateBrand.mutate({ id: editingNodeInModal.id, ...updatedData });
       }
       
       setShowNodeCreationModal(false);
@@ -932,592 +232,297 @@ export const NetworkMatrix = () => {
     }
   };
 
-  const handleCreateNewProject = () => {
-    const newProject = {
-      id: Date.now(),
-      name: `Projeto ${projects.length + 1}`,
-      type: 'project' as const,
-      workflows: workflows.length > 0 ? [workflows[0].id] : [],
-      category: 'P' as const,
-      status: 'Ativo' as const,
-      deadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      x: 500,
-      y: 400
-    };
-    
-    setProjects([...projects, newProject]);
-    setActiveProjectId(newProject.id);
-    setViewMode('single');
-    
-    setTimeout(() => {
-      setEditingProjectId(newProject.id);
-      setEditingProjectName(newProject.name);
-      autoOrganizeSingle(newProject.id);
-    }, 100);
+  const handleDeleteNode = (nodeId: number) => {
+    const node = allNodes.find(n => n.id === nodeId);
+    if (!node) return;
+
+    if (node.type === 'project') {
+      deleteProject.mutate(nodeId);
+    } else if (node.type === 'person') {
+      deletePerson.mutate(nodeId);
+    } else if (node.type === 'brand') {
+      deleteBrand.mutate(nodeId);
+    }
+
+    // Delete associated connections
+    const connIds = allConnections.filter(c => c.from === nodeId || c.to === nodeId).map(c => c.id);
+    connIds.forEach(id => removeConnection.mutate(id));
   };
 
-  const handleProjectNameChange = (projectId: number, newName: string) => {
-    if (newName.trim()) {
-      setProjects(prev => 
-        prev.map(p => p.id === projectId ? { ...p, name: newName.trim() } : p)
-      );
-    }
-    setEditingProjectId(null);
-    setEditingProjectName('');
+  const handleAddWorkflow = (name: string, color: string) => {
+    createWorkflow.mutate({ name, color, description: '' });
   };
 
-  const handleDeleteProject = (projectId: number, projectName: string) => {
-    if (projects.length <= 1) {
-      alert('Você precisa ter pelo menos um projeto!');
-      return;
-    }
+  const getAllCategories = (type: 'person' | 'brand' | 'project') => {
+    return [...CATEGORIES[type], ...(customCategories[type] || [])];
+  };
+
+  const addCustomCategory = (type: 'person' | 'brand' | 'project', category: string) => {
+    setCustomCategories(prev => ({
+      ...prev,
+      [type]: [...(prev[type] || []), category]
+    }));
+  };
+
+  const handleMouseDown = (e: React.MouseEvent, nodeId: number) => {
+    if (e.button !== 0) return;
     
-    if (confirm(`Deletar projeto "${projectName}"?`)) {
-      setProjects(prev => prev.filter(p => p.id !== projectId));
-      if (activeProjectId === projectId) {
-        const remainingProjects = projects.filter(p => p.id !== projectId);
-        setActiveProjectId(remainingProjects[0].id);
+    const node = allNodes.find(n => n.id === nodeId);
+    if (!node) return;
+
+    const rect = svgRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    updateState({
+      dragging: nodeId,
+      offset: {
+        x: (e.clientX - rect.left) / state.zoom - node.x,
+        y: (e.clientY - rect.top) / state.zoom - node.y
+      }
+    });
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    const rect = svgRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    const mouseX = (e.clientX - rect.left - state.pan.x) / state.zoom;
+    const mouseY = (e.clientY - rect.top - state.pan.y) / state.zoom;
+
+    if (state.dragging !== null) {
+      const node = allNodes.find(n => n.id === state.dragging);
+      if (node) {
+        const newX = mouseX - state.offset.x;
+        const newY = mouseY - state.offset.y;
+        
+        // Temporary update for smooth dragging
+        if (node.type === 'project') {
+          projects.find(p => p.id === node.id)!.x = newX;
+          projects.find(p => p.id === node.id)!.y = newY;
+        } else if (node.type === 'person') {
+          people.find(p => p.id === node.id)!.x = newX;
+          people.find(p => p.id === node.id)!.y = newY;
+        } else if (node.type === 'brand') {
+          brands.find(b => b.id === node.id)!.x = newX;
+          brands.find(b => b.id === node.id)!.y = newY;
+        }
+      }
+    } else if (state.isPanning) {
+      updateState({
+        pan: {
+          x: e.clientX - state.panStart.x,
+          y: e.clientY - state.panStart.y
+        }
+      });
+    } else if (state.isDraggingConnection && state.connectionStart) {
+      updateState({ connectionEnd: { x: mouseX, y: mouseY } });
+    }
+  };
+
+  const handleMouseUp = (e: React.MouseEvent) => {
+    if (state.dragging !== null) {
+      const node = allNodes.find(n => n.id === state.dragging);
+      if (node) {
+        debouncedUpdatePosition(node.id, node.type, node.x, node.y);
       }
     }
+
+    if (state.isDraggingConnection && state.connectionStart) {
+      const rect = svgRef.current?.getBoundingClientRect();
+      if (!rect) return;
+
+      const mouseX = (e.clientX - rect.left - state.pan.x) / state.zoom;
+      const mouseY = (e.clientY - rect.top - state.pan.y) / state.zoom;
+
+      const targetNode = allNodes.find(n => {
+        const dx = n.x - mouseX;
+        const dy = n.y - mouseY;
+        return Math.sqrt(dx * dx + dy * dy) < 30 && n.id !== state.connectionStart!.id;
+      });
+
+      if (targetNode) {
+        createConnection.mutate({
+          from: state.connectionStart.id,
+          to: targetNode.id,
+          type: 'strong'
+        });
+      }
+    }
+
+    updateState({
+      dragging: null,
+      isPanning: false,
+      isDraggingConnection: false,
+      connectionStart: null
+    });
   };
 
   return (
-    <div className="min-h-screen h-screen bg-background flex flex-col overflow-hidden">
-      {state.contextMenu && (
-        <ContextMenu 
-          contextMenu={state.contextMenu}
-          updateState={updateState}
-          viewMode={viewMode}
-          onCreateNode={(type) => {
-            if (state.contextMenu) {
-              setNodeCreationType(type as 'person' | 'project' | 'brand');
-              setNodeCreationPosition({
-                x: state.contextMenu.canvasX,
-                y: state.contextMenu.canvasY
-              });
-              setShowNodeCreationModal(true);
-              updateState({ contextMenu: null });
-            }
-          }}
-        />
-      )}
-
-      {showPathFinder && (
-        <PathFinderModal
-          nodes={nodes}
-          connections={connections}
-          pathStart={pathStart}
-          pathEnd={pathEnd}
-          setPathStart={setPathStart}
-          setPathEnd={setPathEnd}
-          setShowPathFinder={setShowPathFinder}
-          setHighlightedPath={setHighlightedPath}
-        />
-      )}
-
-      {showQuickActions && (
-        <QuickActionsMenu
-          setShowQuickActions={setShowQuickActions}
-          onAutoOrganize={autoOrganize}
-          onShowPathFinder={() => setShowPathFinder(true)}
-          onFitToScreen={() => {
-            const width = window.innerWidth;
-            const height = window.innerHeight - 100;
-            const bounds = calculateBounds(viewMode === 'single' ? nodes : allNodes);
-            const zoom = calculateOptimalZoom(bounds, width, height);
-            const pan = calculateCenterPan(bounds, zoom, width, height);
-            updateState({ zoom, pan });
-          }}
-          onExport={exportData}
-        />
-      )}
-
-      {showFlowStarterModal && (
-        <FlowStarterModal
-          isOpen={showFlowStarterModal}
-          onClose={() => setShowFlowStarterModal(false)}
-          onSelectType={(type) => {
-            setShowFlowStarterModal(false);
-            const width = window.innerWidth;
-            const height = window.innerHeight - 100;
-            setNodeCreationType(type);
-            setNodeCreationPosition({
-              x: (width / 2 - state.pan.x) / state.zoom,
-              y: (height / 2 - state.pan.y) / state.zoom
-            });
-            setShowNodeCreationModal(true);
-          }}
-        />
-      )}
-
-      {showNodeCreationModal && (
-        <NodeCreationModal
-          type={editingNodeInModal?.type || nodeCreationType}
-          getAllCategories={getAllCategories}
-          onClose={() => {
-            setShowNodeCreationModal(false);
-            setEditingNodeInModal(null);
-          }}
-          onCreate={editingNodeInModal ? handleNodeUpdate : handleNodeCreation}
-          editingNode={editingNodeInModal}
-          workflows={workflows}
-          onAddWorkflow={handleAddWorkflow}
-        />
-      )}
-
-      {/* Header */}
-      <div className="bg-card/80 backdrop-blur-xl border-b border-border px-6 py-4 z-20">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-6">
-            <div>
-              <h1 className="text-2xl font-bold text-foreground tracking-tight">Network Matrix</h1>
-              <div className="text-xs text-muted-foreground mt-0.5 font-medium">VISION ECOSYSTEM</div>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            <div className="flex gap-2">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      onClick={() => setViewMode('master')}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                        viewMode === 'master' 
-                          ? 'bg-purple-600 border border-purple-500 text-white shadow-lg' 
-                          : 'bg-transparent border border-purple-500/30 text-purple-400 hover:bg-purple-600/20'
-                      }`}
-                    >
-                      <Layers size={16} className="inline mr-2" />
-                      Master View
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Ver todos os projetos</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      onClick={() => {
-                        setViewMode('single');
-                        
-                        // Centralizar quando mudar para single view
-                        setTimeout(() => {
-                          if (activeProjectId) {
-                            autoOrganizeSingle(activeProjectId);
-                          }
-                        }, 50);
-                        
-                        setTimeout(() => {
-                          const width = window.innerWidth;
-                          const height = window.innerHeight - 100;
-                          const currentNodes = getNodesForSingleView(activeProjectId);
-                          
-                          if (currentNodes.length > 0 && svgRef.current) {
-                            const bounds = calculateBounds(currentNodes);
-                            const zoom = calculateOptimalZoom(bounds, width, height);
-                            const pan = calculateCenterPan(bounds, zoom, width, height);
-                            updateState({ zoom, pan });
-                          }
-                        }, 300);
-                      }}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                        viewMode === 'single' 
-                          ? 'bg-blue-600 border border-blue-500 text-white shadow-lg' 
-                          : 'bg-transparent border border-blue-500/30 text-blue-400 hover:bg-blue-600/20'
-                      }`}
-                    >
-                      <Target size={16} className="inline mr-2" />
-                      Single View
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Ver projeto específico</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
-            
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button 
-                    onClick={() => setShowFlowStarterModal(true)}
-                    variant="outline" 
-                    size="icon" 
-                    className="rounded-lg hover:bg-primary/10"
-                  >
-                    <Plus size={18} />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Criar novo flow</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button 
-                    onClick={() => setShowLinkedInImport(true)}
-                    variant="outline" 
-                    size="icon" 
-                    className="rounded-lg bg-[#0A66C2]/10 border-[#0A66C2]/30 text-[#0A66C2] hover:bg-[#0A66C2]/20"
-                  >
-                    <Building2 size={18} />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Importar LinkedIn</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            
-            <div className="w-px h-8 bg-border mx-1"></div>
-            
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button onClick={undo} disabled={historyIndex <= 0}
-                    className={`p-2 rounded-lg transition-all ${historyIndex <= 0 ? 'text-muted' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'}`}>
-                    <Undo2 size={18} />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Desfazer (Ctrl+Z)</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button onClick={redo} disabled={historyIndex >= history.length - 1}
-                    className={`p-2 rounded-lg transition-all ${historyIndex >= history.length - 1 ? 'text-muted' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'}`}>
-                    <Redo2 size={18} />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Refazer (Ctrl+Y)</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            
-            <div className="w-px h-8 bg-border mx-1"></div>
-            
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button onClick={() => {
-                    const width = window.innerWidth;
-                    const height = window.innerHeight - 100;
-                    const newZoom = Math.max(state.zoom / 1.2, 0.3);
-                    const centerX = (width / 2 - state.pan.x) / state.zoom;
-                    const centerY = (height / 2 - state.pan.y) / state.zoom;
-                    updateState({ 
-                      zoom: newZoom,
-                      pan: {
-                        x: width / 2 - centerX * newZoom,
-                        y: height / 2 - centerY * newZoom
-                      }
-                    });
-                  }} 
-                    className="p-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-all">
-                    <ZoomOut size={18} />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Reduzir zoom</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            <div className="text-sm text-muted-foreground font-mono px-2 min-w-[50px] text-center">
-              {Math.round(state.zoom * 100)}%
-            </div>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button onClick={() => {
-                    const width = window.innerWidth;
-                    const height = window.innerHeight - 100;
-                    const newZoom = Math.min(state.zoom * 1.2, 3);
-                    const centerX = (width / 2 - state.pan.x) / state.zoom;
-                    const centerY = (height / 2 - state.pan.y) / state.zoom;
-                    updateState({ 
-                      zoom: newZoom,
-                      pan: {
-                        x: width / 2 - centerX * newZoom,
-                        y: height / 2 - centerY * newZoom
-                      }
-                    });
-                  }} 
-                    className="p-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-all">
-                    <ZoomIn size={18} />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Aumentar zoom</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button onClick={() => {
-                    const width = window.innerWidth;
-                    const height = window.innerHeight - 100;
-                    const bounds = calculateBounds(viewMode === 'single' ? nodes : allNodes);
-                    const zoom = calculateOptimalZoom(bounds, width, height);
-                    const pan = calculateCenterPan(bounds, zoom, width, height);
-                    updateState({ zoom, pan });
-                  }} 
-                    className="p-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-all">
-                    <Maximize2 size={18} />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Ajustar à tela</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            
-            <div className="w-px h-8 bg-border mx-1"></div>
-            
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button 
-                    onClick={() => setShowProjectManager(!showProjectManager)}
-                    className={`p-2 rounded-lg transition-all ${showProjectManager ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'}`}>
-                    <FolderKanban size={18} />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Gerenciar Projetos</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button 
-                    onClick={() => updateState({ showAnalytics: !state.showAnalytics, showSidebar: false })}
-                    className={`p-2 rounded-lg transition-all ${state.showAnalytics ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'}`}>
-                    <BarChart3 size={18} />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Análises Inteligentes</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button 
-                    onClick={() => setShowLegend(!showLegend)}
-                    className={`p-2 rounded-lg transition-all ${showLegend ? 'bg-secondary text-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'}`}>
-                    <Info size={18} />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Stakeholders</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            
-            <div className="w-px h-8 bg-border mx-1"></div>
-            
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button 
-                    onClick={() => {
-                      signOut();
-                      toast('Logout realizado com sucesso!');
-                    }}
-                    className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-all">
-                    <LogOut size={18} />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Sair</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
-        </div>
-        
-        
-        {selectedNodes.length > 0 && (
-          <div className="mt-2 text-sm text-primary flex items-center gap-2">
-            <span className="inline-block w-2 h-2 bg-primary rounded-full animate-pulse"></span>
-            {selectedNodes.length} nó(s) selecionado(s) • Shift+Click para adicionar • Backspace para deletar
-          </div>
-        )}
-        
-      </div>
-
-      {showLegend && (
-        <Legend nodes={nodes} setShowLegend={setShowLegend} />
-      )}
-
-      <div className="flex-1 relative overflow-hidden">
-        <Canvas
-          svgRef={svgRef}
-          state={state}
-          updateState={updateState}
-          viewMode={viewMode}
-          workflows={workflows}
-          nodes={nodes}
-          connections={connections}
-          selectedNodes={selectedNodes}
-          setSelectedNodes={setSelectedNodes}
-          selectedConnection={selectedConnection}
-          setSelectedConnection={setSelectedConnection}
-          highlightedPath={highlightedPath}
-          hoveredNode={hoveredNode}
-          setHoveredNode={setHoveredNode}
-          updateNodePosition={updateNodePosition}
-          setConnections={setConnections}
-          saveToHistory={saveToHistory}
-          projects={projects}
-          allConnections={allConnections}
-          onOpenEditModal={(node) => {
-            setEditingNodeInModal(node);
-            setNodeCreationType(node.type);
-            setShowNodeCreationModal(true);
-          }}
-          onGoToProject={(id) => {
-            setActiveProjectId(id);
-            setViewMode('single');
-            // useEffect will handle centering automatically
-          }}
-        />
-
-        {/* Botões flutuantes de ação */}
-        <div className="fixed bottom-6 right-6 flex flex-col gap-3 z-30">
-          {/* Reorganizar Nós */}
-          <button
-            onClick={() => {
-              toast.info('Organizando nós...');
-              autoOrganize();
-            }}
-            className="p-4 bg-primary text-primary-foreground rounded-full shadow-2xl hover:scale-110 transition-all group relative"
-            title="Reorganizar Nós (A)"
-          >
-            <LayoutGrid size={22} className="group-hover:scale-110 transition-transform" />
-            <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 bg-popover text-popover-foreground px-3 py-1.5 rounded-lg text-sm font-medium shadow-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-              Reorganizar Nós
-            </span>
-          </button>
-          
-          {/* Salvar Design */}
-          <button
-            onClick={saveCurrentDesign}
-            className="p-4 bg-green-600 text-white rounded-full shadow-2xl hover:scale-110 transition-all group relative"
-            title="Salvar Design (S)"
-          >
-            <Save size={22} className="group-hover:scale-110 transition-transform" />
-            <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 bg-popover text-popover-foreground px-3 py-1.5 rounded-lg text-sm font-medium shadow-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-              Salvar Design
-            </span>
-          </button>
-          
-          {/* Centralizar View (NOVO) */}
-          <button
-            onClick={() => {
-              const width = window.innerWidth;
-              const height = window.innerHeight - 100;
-              const currentNodes = viewMode === 'single' ? nodes : allNodes;
+    <div className="relative w-full h-screen overflow-hidden bg-background">
+      <TooltipProvider>
+        {/* Header */}
+        <div className="absolute top-0 left-0 right-0 z-20 bg-background/95 backdrop-blur-sm border-b border-border">
+          <div className="flex items-center justify-between px-4 py-3">
+            <div className="flex items-center gap-4">
+              <h1 className="text-xl font-bold">Network Matrix</h1>
               
-              if (currentNodes.length > 0) {
-                const bounds = calculateBounds(currentNodes);
-                const centerX = (bounds.minX + bounds.maxX) / 2;
-                const centerY = (bounds.minY + bounds.maxY) / 2;
-                
-                updateState({
-                  pan: {
-                    x: width / 2 - centerX * state.zoom,
-                    y: height / 2 - centerY * state.zoom
-                  }
-                });
-              }
-            }}
-            className="p-3.5 bg-accent text-accent-foreground rounded-full shadow-xl hover:scale-110 transition-all group relative"
-            title="Centralizar (C)"
-          >
-            <Target size={20} />
-            <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 bg-popover text-popover-foreground px-3 py-1.5 rounded-lg text-sm font-medium shadow-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-              Centralizar
-            </span>
-          </button>
-          
-          {/* Encontrar Caminho */}
-          <button
-            onClick={() => setShowPathFinder(true)}
-            className="p-3.5 bg-secondary text-foreground rounded-full shadow-xl hover:scale-110 transition-all group relative"
-            title="Encontrar Caminho (P)"
-          >
-            <Route size={20} />
-            <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 bg-popover text-popover-foreground px-3 py-1.5 rounded-lg text-sm font-medium shadow-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-              Encontrar Caminho
-            </span>
-          </button>
-          
-          {/* Encaixar Tudo */}
-          <button
-            onClick={() => {
-              const width = window.innerWidth;
-              const height = window.innerHeight - 100;
-              const bounds = calculateBounds(viewMode === 'single' ? nodes : allNodes);
-              const zoom = calculateOptimalZoom(bounds, width, height);
-              const pan = calculateCenterPan(bounds, zoom, width, height);
-              updateState({ zoom, pan });
-            }}
-            className="p-3.5 bg-secondary text-foreground rounded-full shadow-xl hover:scale-110 transition-all group relative"
-            title="Encaixar Tudo (F)"
-          >
-            <Maximize2 size={20} />
-            <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 bg-popover text-popover-foreground px-3 py-1.5 rounded-lg text-sm font-medium shadow-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-              Encaixar Tudo
-            </span>
-          </button>
+              {viewMode === 'single' && centerNode && (
+                <PathIndicator
+                  selectedNode={selectedNode}
+                  centerNode={centerNode}
+                />
+              )}
+            </div>
+
+            <div className="flex items-center gap-2" data-tour="create-buttons">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setNodeCreationType('person');
+                  setNodeCreationPosition({ x: 300, y: 300 });
+                  setShowNodeCreationModal(true);
+                }}
+              >
+                <User className="w-4 h-4 mr-2" />
+                Pessoa
+              </Button>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setNodeCreationType('project');
+                  setNodeCreationPosition({ x: 500, y: 400 });
+                  setShowNodeCreationModal(true);
+                }}
+              >
+                <FolderKanban className="w-4 h-4 mr-2" />
+                Projeto
+              </Button>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setNodeCreationType('brand');
+                  setNodeCreationPosition({ x: 700, y: 300 });
+                  setShowNodeCreationModal(true);
+                }}
+              >
+                <Building2 className="w-4 h-4 mr-2" />
+                Marca
+              </Button>
+
+              <div className="w-px h-6 bg-border" />
+
+              <Button
+                variant="outline"
+                size="sm"
+                data-tour="workflows"
+                onClick={() => setShowFlowStarterModal(true)}
+              >
+                <Layers className="w-4 h-4" />
+              </Button>
+
+              <div className="flex gap-1" data-tour="views">
+                <Button
+                  variant={viewMode === 'master' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setViewMode('master')}
+                >
+                  <LayoutGrid className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant={viewMode === 'single' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => activeProjectId && setViewMode('single')}
+                  disabled={!activeProjectId}
+                >
+                  <Maximize2 className="w-4 h-4" />
+                </Button>
+              </div>
+
+              <div className="w-px h-6 bg-border" />
+
+              <Button
+                variant="outline"
+                size="sm"
+                data-tour="project-manager"
+                onClick={() => setShowProjectManager(true)}
+              >
+                <Target className="w-4 h-4" />
+              </Button>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" data-tour="more-tools">
+                    <Info className="w-4 h-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => setShowAnalytics(true)}>
+                    <BarChart3 className="w-4 h-4 mr-2" />
+                    Analytics
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setShowAIInsights(true)}>
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    AI Insights
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setShowPathFinder(true)}>
+                    <Route className="w-4 h-4 mr-2" />
+                    Path Finder
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={reopenTour}>
+                    <Info className="w-4 h-4 mr-2" />
+                    Ver Tour
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={signOut}
+              >
+                <LogOut className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
         </div>
 
-        <Drawer open={state.showSidebar && state.editingNode !== null} onOpenChange={(open) => {
-          if (!open) updateState({ showSidebar: false, editingNode: null });
-        }}>
-          <DrawerContent className="h-[90vh]">
-            {state.editingNode && (
-              <NodeEditor 
-                node={state.editingNode} 
-                getAllCategories={getAllCategories}
-                addCustomCategory={addCustomCategory}
-                onUpdate={(field, value) => {
-                  const updated = { ...state.editingNode, [field]: value };
-                  updateState({ editingNode: updated });
-                  setNodes(nodes.map(n => n.id === updated.id ? updated : n));
-                }}
-                onClose={() => updateState({ showSidebar: false, editingNode: null })}
-                onDelete={() => deleteNode(state.editingNode.id)}
-                onConfirm={() => {
-                  updateState({ showSidebar: false, editingNode: null });
-                  toast.success('Alterações salvas!');
-                }}
-              />
-            )}
-          </DrawerContent>
-        </Drawer>
-
-        {state.showAnalytics && (
-          <AnalyticsPanel 
-            nodes={nodes} 
+        {/* Canvas */}
+        <div
+          data-tour="canvas"
+          className="absolute inset-0 pt-16"
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+        >
+          <Canvas
+            svgRef={svgRef}
+            nodes={nodes}
             connections={connections}
-            onClose={() => updateState({ showAnalytics: false })} 
+            state={state}
+            updateState={updateState}
+            selectedNodes={selectedNodes}
+            setSelectedNodes={setSelectedNodes}
+            selectedConnection={selectedConnection}
+            setSelectedConnection={setSelectedConnection}
+            highlightedPath={highlightedPath}
+            workflows={workflows}
+            hoveredNode={hoveredNode}
+            setHoveredNode={setHoveredNode}
+          />
+        </div>
+
+        {/* Modals */}
+        {showFlowStarterModal && (
+          <FlowStarterModal
+            isOpen={showFlowStarterModal}
+            onClose={() => setShowFlowStarterModal(false)}
+            workflows={workflows}
+            onAddWorkflow={handleAddWorkflow}
           />
         )}
 
@@ -1533,70 +538,27 @@ export const NetworkMatrix = () => {
               setActiveProjectId(projectId);
               setViewMode('single');
               setShowProjectManager(false);
-              
-              // First timeout: let React recalculate nodes
-              setTimeout(() => {
-                autoOrganizeSingle(projectId);
-              }, 50);
-              
-              // Second timeout: center view after layout is done
-              setTimeout(() => {
-                const width = window.innerWidth;
-                const height = window.innerHeight - 100;
-                
-                // Get the actual nodes after layout (recalculated by React)
-                const currentNodes = getNodesForSingleView(projectId);
-                
-                if (currentNodes.length > 0) {
-                  const bounds = calculateBounds(currentNodes);
-                  const zoom = 0.9;
-                  const pan = calculateCenterPan(bounds, zoom, width, height);
-                  updateState({ zoom, pan });
-                }
-              }, 300);
             }}
             onProjectCreate={(data) => {
-              const newProject = {
-                id: Date.now(),
-                type: 'project' as const,
-                x: 500,
-                y: 400,
-                ...data,
-              };
-              setProjects([...projects, newProject as any]);
-              setActiveProjectId(newProject.id);
-              setViewMode('single');
-              setTimeout(() => autoOrganizeSingle(newProject.id), 100);
-              toast.success('Projeto criado com sucesso!');
+              createProject.mutate(data);
+              toast.success('Projeto criado!');
             }}
             onProjectUpdate={(id, updates) => {
-              setProjects(prev => prev.map(p => p.id === id ? { ...p, ...updates as any } : p));
+              updateProject.mutate({ id, ...updates });
             }}
             onProjectDelete={(id) => {
-              const project = projects.find(p => p.id === id);
-              if (project) handleDeleteProject(id, project.name);
+              deleteProject.mutate(id);
             }}
           />
         )}
 
-        {showLinkedInImport && (
-          <LinkedInImportModal
-            open={showLinkedInImport}
-            onOpenChange={setShowLinkedInImport}
-            onImport={handleLinkedInImport}
-            projects={projects}
+        {showTour && (
+          <OnboardingTour
+            onComplete={completeTour}
+            onSkip={completeTour}
           />
         )}
-
-        {viewMode === 'single' && (
-          <PathIndicator
-            selectedNode={selectedNode}
-            centerNode={centerNode}
-            allNodes={allNodes}
-            connections={allConnections}
-          />
-        )}
-      </div>
+      </TooltipProvider>
     </div>
   );
 };
