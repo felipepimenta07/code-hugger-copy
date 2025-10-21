@@ -850,48 +850,72 @@ export const Canvas: React.FC<CanvasProps> = ({
               className="cursor-pointer"
             >
               {/* Nó Central Especial */}
-              {isCenterNode && !shouldSimplify && (
+              {isCenterNode && (
                 <>
-                  <circle 
-                    r={nodeSize + 40} 
-                    fill="url(#gradientPinkPurple)" 
-                    opacity="0.4" 
-                    filter="url(#glow)"
-                    className="animate-pulse"
-                    style={{ animationDuration: '3s' }}
-                  />
-                  <circle 
-                    r={nodeSize + 15} 
-                    fill="#8b5cf6" 
-                    opacity="0.8" 
-                  />
-                  <circle 
-                    r={nodeSize} 
-                    fill="#ec4899" 
-                    strokeWidth="3"
-                    stroke="white"
-                  />
+                  {shouldSimplify ? (
+                    // Simplified rendering during drag - single circle only
+                    <circle 
+                      r={nodeSize} 
+                      fill="#ec4899" 
+                      strokeWidth="2"
+                      stroke="white"
+                    />
+                  ) : (
+                    <>
+                      <circle 
+                        r={nodeSize + 40} 
+                        fill="url(#gradientPinkPurple)" 
+                        opacity="0.4" 
+                        filter="url(#glow)"
+                        className="animate-pulse"
+                        style={{ animationDuration: '3s' }}
+                      />
+                      <circle 
+                        r={nodeSize + 15} 
+                        fill="#8b5cf6" 
+                        opacity="0.8" 
+                      />
+                      <circle 
+                        r={nodeSize} 
+                        fill="#ec4899" 
+                        strokeWidth="3"
+                        stroke="white"
+                      />
+                    </>
+                  )}
                 </>
               )}
               
               {/* Nós Outer (Cyan especial) */}
-              {!isCenterNode && (node as any).level === 'outer' && !shouldSimplify && (
+              {!isCenterNode && (node as any).level === 'outer' && (
                 <>
-                  <circle
-                    r={nodeSize + 15}
-                    fill="rgba(6, 182, 212, 0.3)"
-                    filter="url(#glow)"
-                  />
-                  <circle
-                    r={nodeSize}
-                    fill="rgba(6, 182, 212, 0.2)"
-                  />
-                  <circle
-                    r={nodeSize - 2}
-                    fill="#1a1a1a"
-                    stroke="#06b6d4"
-                    strokeWidth="3"
-                  />
+                  {shouldSimplify ? (
+                    // Simplified rendering during drag - single circle only
+                    <circle
+                      r={nodeSize}
+                      fill="#1a1a1a"
+                      stroke="#06b6d4"
+                      strokeWidth="2"
+                    />
+                  ) : (
+                    <>
+                      <circle
+                        r={nodeSize + 15}
+                        fill="rgba(6, 182, 212, 0.3)"
+                        filter="url(#glow)"
+                      />
+                      <circle
+                        r={nodeSize}
+                        fill="rgba(6, 182, 212, 0.2)"
+                      />
+                      <circle
+                        r={nodeSize - 2}
+                        fill="#1a1a1a"
+                        stroke="#06b6d4"
+                        strokeWidth="3"
+                      />
+                    </>
+                  )}
                 </>
               )}
               

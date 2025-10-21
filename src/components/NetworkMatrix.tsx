@@ -738,12 +738,16 @@ export const NetworkMatrix = () => {
 
   // Inicializar activeCenterId quando projetos carregarem
   useEffect(() => {
-    if (projects.length > 0 && !activeCenterId) {
+    // Só setar automaticamente se:
+    // 1. Temos projetos
+    // 2. NÃO temos activeCenterId ainda (primeira vez)
+    // 3. NÃO estamos em Single View (evita sobrescrever durante navegação)
+    if (projects.length > 0 && !activeCenterId && viewMode !== 'single') {
       setActiveCenterId(projects[0].id);
       setActiveCenterType('project');
       setActiveProjectId(projects[0].id);
     }
-  }, [projects.length, activeCenterId]);
+  }, [projects.length, activeCenterId, viewMode]);
 
   const handleGoToProject = (projectId: number) => {
     console.log('[NetworkMatrix] handleGoToProject called with projectId:', projectId);
