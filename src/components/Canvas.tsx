@@ -331,10 +331,7 @@ export const Canvas: React.FC<CanvasProps> = ({
 
   return (
     <div 
-      className="flex-1"
-      style={{
-        backgroundColor: '#0b0b0b'
-      }}
+      className="absolute inset-0 bg-background"
     >
     <svg
       ref={svgRef}
