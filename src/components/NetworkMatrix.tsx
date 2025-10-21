@@ -846,18 +846,15 @@ export const NetworkMatrix = () => {
       y: 400
     };
     
-    createProject.mutate(newProject);
-    setViewMode('single');
-    
-    setTimeout(() => {
-      const createdProject = projects[projects.length - 1];
-      if (createdProject) {
+    createProject.mutate(newProject, {
+      onSuccess: (createdProject) => {
+        setViewMode('single');
         setActiveProjectId(createdProject.id);
         setEditingProjectId(createdProject.id);
         setEditingProjectName(createdProject.name);
-        autoOrganizeSingle(createdProject.id);
+        setTimeout(() => autoOrganizeSingle(createdProject.id), 100);
       }
-    }, 100);
+    });
   };
 
   const handleProjectNameChange = (projectId: number, newName: string) => {
