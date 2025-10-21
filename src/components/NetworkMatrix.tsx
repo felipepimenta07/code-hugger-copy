@@ -1461,7 +1461,7 @@ export const NetworkMatrix = () => {
 
         {showProjectManager && (
           <ProjectManagerPanel
-            projects={projects}
+            projects={projects.map(p => ({ ...p, type: 'project' as const, workflows: [] }))}
             workflows={workflows}
             people={people}
             brands={brands}
