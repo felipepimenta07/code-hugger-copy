@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Plus, Trash2, ZoomIn, ZoomOut, X, Building2, User, FolderKanban, Undo2, Redo2, LayoutGrid, Maximize2, Info, Layers, BarChart3, Route, Sparkles, Target, Save, LogOut } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -1092,6 +1093,38 @@ export const NetworkMatrix = () => {
     }
   };
 
+  const handleResetAllData = async () => {
+    if (!confirm('Isso vai apagar TODOS os seus projetos, pessoas, marcas e conexões. Tem certeza?')) {
+      return;
+    }
+    
+    if (!confirm('ÚLTIMA CHANCE! Todos os dados serão perdidos permanentemente. Continuar?')) {
+      return;
+    }
+
+    try {
+      toast.info('Apagando todos os dados...');
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Não autenticado');
+
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/reset-user-data`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) throw new Error('Erro ao resetar dados');
+
+      toast.success('Todos os dados foram apagados! Recarregando...');
+      setTimeout(() => window.location.reload(), 1500);
+    } catch (error) {
+      console.error('Error resetting data:', error);
+      toast.error('Erro ao resetar dados');
+    }
+  };
+
   // Loading screen
   if (isLoadingData) {
     return (
@@ -1523,6 +1556,21 @@ export const NetworkMatrix = () => {
                 </TooltipTrigger>
                 <TooltipContent>
                   <p>Ver tour novamente</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button 
+                    onClick={handleResetAllData}
+                    className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-all">
+                    <Trash2 size={18} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Resetar Tudo</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
