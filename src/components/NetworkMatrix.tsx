@@ -784,13 +784,14 @@ export const NetworkMatrix = () => {
       }
     }
 
-    // Criar no Supabase
+    // Criar no Supabase (remover campos que não existem nas tabelas)
     if (nodeCreationType === 'project') {
-      newNode.status = nodeData.projectStatus || nodeData.status || 'ativo';
-      newNode.deadline = nodeData.startDate || nodeData.deadline || '';
-      newNode.category = nodeData.category || 'M';
+      const { type, homeProjectId, ...projectData } = newNode;
+      projectData.status = nodeData.projectStatus || nodeData.status || 'ativo';
+      projectData.deadline = nodeData.startDate || nodeData.deadline || '';
+      projectData.category = nodeData.category || 'M';
       
-      createProject.mutate(newNode);
+      createProject.mutate(projectData);
       setShowNodeCreationModal(false);
       
       // Switch to Single View and center on the new project
@@ -799,10 +800,12 @@ export const NetworkMatrix = () => {
         setViewMode('single');
       }, 100);
     } else if (nodeCreationType === 'person') {
-      createPerson.mutate(newNode);
+      const { type, homeProjectId, ...personData } = newNode;
+      createPerson.mutate(personData);
       setShowNodeCreationModal(false);
     } else if (nodeCreationType === 'brand') {
-      createBrand.mutate(newNode);
+      const { type, homeProjectId, ...brandData } = newNode;
+      createBrand.mutate(brandData);
       setShowNodeCreationModal(false);
     }
   };
