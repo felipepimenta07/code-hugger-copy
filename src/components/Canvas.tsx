@@ -333,9 +333,7 @@ export const Canvas: React.FC<CanvasProps> = ({
     <div 
       className="flex-1"
       style={{
-        backgroundImage: 'radial-gradient(rgba(255,255,255,0.04) 1px, transparent 1px)',
-        backgroundSize: '24px 24px',
-        backgroundColor: '#000'
+        backgroundColor: '#0b0b0b'
       }}
     >
     <svg
@@ -399,10 +397,10 @@ export const Canvas: React.FC<CanvasProps> = ({
         </radialGradient>
       </defs>
 
-      {/* Fixed background pattern - covers entire viewport, doesn't move with pan/zoom */}
-      <rect width="100%" height="100%" fill="url(#dotGrid)" pointerEvents="none" />
-
       <g transform={`translate(${state.pan.x}, ${state.pan.y}) scale(${state.zoom})`}>
+        
+        {/* Background pattern - FIRST element so it renders behind everything */}
+        <rect x="-10000" y="-10000" width="20000" height="20000" fill="url(#dotGrid)" pointerEvents="none" />
         
         {/* Anéis Decorativos Radiais (Single View) */}
         {viewMode === 'single' && nodes.length > 0 && (() => {
