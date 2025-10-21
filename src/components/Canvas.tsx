@@ -198,7 +198,6 @@ export const Canvas: React.FC<CanvasProps> = ({
 
   const handleCanvasContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
-    if (viewMode === 'master') return;
     const rect = svgRef.current!.getBoundingClientRect();
     const x = (e.clientX - rect.left - state.pan.x) / state.zoom;
     const y = (e.clientY - rect.top - state.pan.y) / state.zoom;
@@ -206,6 +205,28 @@ export const Canvas: React.FC<CanvasProps> = ({
     if (!clickedNode) {
       updateState({ contextMenu: { x: e.clientX, y: e.clientY, canvasX: x, canvasY: y, type: 'canvas' } });
     }
+  };
+
+  const handleWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    if (!svgRef.current) return;
+    
+    const rect = svgRef.current.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+    
+    const worldX = (mouseX - state.pan.x) / state.zoom;
+    const worldY = (mouseY - state.pan.y) / state.zoom;
+    
+    const factor = e.deltaY > 0 ? 1 / 1.1 : 1.1;
+    const newZoom = Math.min(3, Math.max(0.3, state.zoom * factor));
+    
+    const newPan = {
+      x: mouseX - worldX * newZoom,
+      y: mouseY - worldY * newZoom
+    };
+    
+    updateState({ zoom: newZoom, pan: newPan });
   };
 
   return (
@@ -216,6 +237,7 @@ export const Canvas: React.FC<CanvasProps> = ({
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onContextMenu={handleCanvasContextMenu}
+      onWheel={handleWheel}
       onMouseDown={(e) => {
         if (e.button === 0 && !e.shiftKey) {
           setSelectedNodes([]);
@@ -244,6 +266,11 @@ export const Canvas: React.FC<CanvasProps> = ({
         <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
           <polygon points="0 0, 10 3, 0 6" fill="hsl(var(--connection-strong))" />
         </marker>
+        
+        <pattern id="dotGrid" width="24" height="24" patternUnits="userSpaceOnUse">
+          <rect width="24" height="24" fill="#000000" />
+          <circle cx="12" cy="12" r="1" fill="rgba(255,255,255,0.06)" />
+        </pattern>
       </defs>
 
       <defs>
@@ -258,7 +285,7 @@ export const Canvas: React.FC<CanvasProps> = ({
       </defs>
 
       <g transform={`translate(${state.pan.x}, ${state.pan.y}) scale(${state.zoom})`}>
-        <rect x="-5000" y="-5000" width="15000" height="15000" fill="#000000" />
+        <rect x="-5000" y="-5000" width="15000" height="15000" fill="url(#dotGrid)" />
         
         {/* Anéis Decorativos Radiais (Single View) */}
         {viewMode === 'single' && nodes.length > 0 && (() => {

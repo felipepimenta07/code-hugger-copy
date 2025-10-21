@@ -17,7 +17,7 @@ const TOUR_STEPS: Step[] = [
   {
     target: '[data-tour="create-buttons"]',
     title: '➕ Criar Nós',
-    content: 'Use estes botões para adicionar Pessoas, Projetos ou Marcas no seu canvas.'
+    content: 'Use estes botões para adicionar Pessoas, Projetos ou Marcas no seu canvas. Dica: clique com o botão direito do mouse no canvas para criar nós diretamente no ponto desejado.'
   },
   {
     target: '[data-tour="canvas"]',

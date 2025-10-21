@@ -670,7 +670,8 @@ export const NetworkMatrix = () => {
     nodes,
     allNodes,
     viewMode,
-    zoom: state.zoom
+    zoom: state.zoom,
+    pan: state.pan
   });
 
   const addNode = () => {

@@ -19,6 +19,7 @@ interface KeyboardShortcutsProps {
   allNodes?: any[];
   viewMode?: string;
   zoom?: number;
+  pan?: { x: number; y: number };
 }
 
 export const useKeyboardShortcuts = ({
@@ -39,7 +40,8 @@ export const useKeyboardShortcuts = ({
   nodes,
   allNodes,
   viewMode,
-  zoom
+  zoom,
+  pan
 }: KeyboardShortcutsProps) => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -119,6 +121,50 @@ export const useKeyboardShortcuts = ({
           });
         }
       }
+
+      // Zoom In - Cmd/Ctrl + or =
+      if ((e.metaKey || e.ctrlKey) && (e.key === '=' || e.key === '+')) {
+        e.preventDefault();
+        const width = window.innerWidth;
+        const height = window.innerHeight - 100;
+        const factor = 1.2;
+        const currentZoom = zoom || 0.5;
+        const currentPan = pan || { x: 0, y: 0 };
+        const newZoom = Math.min(3, currentZoom * factor);
+        
+        const centerX = (width / 2 - currentPan.x) / currentZoom;
+        const centerY = (height / 2 - currentPan.y) / currentZoom;
+        
+        updateState({
+          zoom: newZoom,
+          pan: {
+            x: width / 2 - centerX * newZoom,
+            y: height / 2 - centerY * newZoom
+          }
+        });
+      }
+
+      // Zoom Out - Cmd/Ctrl -
+      if ((e.metaKey || e.ctrlKey) && e.key === '-') {
+        e.preventDefault();
+        const width = window.innerWidth;
+        const height = window.innerHeight - 100;
+        const factor = 1 / 1.2;
+        const currentZoom = zoom || 0.5;
+        const currentPan = pan || { x: 0, y: 0 };
+        const newZoom = Math.max(0.3, currentZoom * factor);
+        
+        const centerX = (width / 2 - currentPan.x) / currentZoom;
+        const centerY = (height / 2 - currentPan.y) / currentZoom;
+        
+        updateState({
+          zoom: newZoom,
+          pan: {
+            x: width / 2 - centerX * newZoom,
+            y: height / 2 - centerY * newZoom
+          }
+        });
+      }
     };
     
     document.addEventListener('keydown', handleKeyDown);
@@ -141,6 +187,7 @@ export const useKeyboardShortcuts = ({
     nodes,
     allNodes,
     viewMode,
-    zoom
+    zoom,
+    pan
   ]);
 };
