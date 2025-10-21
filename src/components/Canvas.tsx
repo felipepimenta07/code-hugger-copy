@@ -96,6 +96,8 @@ export const Canvas: React.FC<CanvasProps> = ({
     e.stopPropagation();
     if (e.button === 0 && !(e.ctrlKey || e.metaKey)) {
       const node = nodes.find(n => n.id === nodeId);
+      if (!node) return;
+      
       const rect = svgRef.current!.getBoundingClientRect();
       const x = (e.clientX - rect.left - state.pan.x) / state.zoom;
       const y = (e.clientY - rect.top - state.pan.y) / state.zoom;
@@ -147,6 +149,8 @@ export const Canvas: React.FC<CanvasProps> = ({
     
     if (state.dragging) {
       const draggedNode = nodes.find(n => n.id === state.dragging);
+      if (!draggedNode) return;
+      
       const dx = x - state.offset.x - draggedNode.x;
       const dy = y - state.offset.y - draggedNode.y;
       
