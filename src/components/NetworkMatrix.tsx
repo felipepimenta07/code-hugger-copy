@@ -22,8 +22,15 @@ import { PathIndicator } from './PathIndicator';
 import { useNetworkState } from '@/hooks/useNetworkState';
 import { useNetworkHistory } from '@/hooks/useNetworkHistory';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
-import { SAMPLE_WORKFLOWS, SAMPLE_PROJECTS, SAMPLE_PEOPLE, SAMPLE_BRANDS, SAMPLE_CONNECTIONS } from '@/data/sampleNetworkData';
 import { ParsedLinkedInData, LinkedInImportOptions } from '@/types/linkedin';
+import { useProjects } from '@/hooks/useProjects';
+import { usePeople } from '@/hooks/usePeople';
+import { useBrands } from '@/hooks/useBrands';
+import { useConnections } from '@/hooks/useConnections';
+import { useWorkflows } from '@/hooks/useWorkflows';
+import { useOnboarding } from '@/hooks/useOnboarding';
+import { OnboardingTour } from './OnboardingTour';
+import { useDebouncedCallback } from 'use-debounce';
 
 const CATEGORIES = {
   person: ['Pessoal', 'Profissional', 'Cliente', 'Fornecedor', 'Parceiro'],
@@ -34,14 +41,15 @@ const CATEGORIES = {
 export const NetworkMatrix = () => {
   const { signOut } = useAuth();
   
-  // Nova arquitetura: separar projetos, pessoas e marcas
-  const [projects, setProjects] = useState<any[]>(SAMPLE_PROJECTS);
-  const [people, setPeople] = useState<any[]>(SAMPLE_PEOPLE);
-  const [brands, setBrands] = useState<any[]>(SAMPLE_BRANDS);
-  const [allConnections, setAllConnections] = useState(SAMPLE_CONNECTIONS);
-  const [workflows, setWorkflows] = useState(SAMPLE_WORKFLOWS);
+  // Hooks Supabase para dados
+  const { projects, isLoading: loadingProjects, createProject, updateProject, deleteProject } = useProjects();
+  const { people, isLoading: loadingPeople, createPerson, updatePerson, deletePerson } = usePeople();
+  const { brands, isLoading: loadingBrands, createBrand, updateBrand, deleteBrand } = useBrands();
+  const { connections: allConnections, isLoading: loadingConnections, createConnection, deleteConnection: deleteConnectionMutation } = useConnections();
+  const { workflows, isLoading: loadingWorkflows, createWorkflow, updateWorkflow, deleteWorkflow } = useWorkflows();
+  const { showTour, loading: loadingOnboarding, completeTour, reopenTour } = useOnboarding();
 
-  const [activeProjectId, setActiveProjectId] = useState<number | null>(SAMPLE_PROJECTS[0]?.id ?? null);
+  const [activeProjectId, setActiveProjectId] = useState<number | null>(projects[0]?.id ?? null);
   const [viewMode, setViewMode] = useState('master');
   const [showLegend, setShowLegend] = useState(false);
   const [selectedNodes, setSelectedNodes] = useState([]);
@@ -70,78 +78,27 @@ export const NetworkMatrix = () => {
   // Combinar todos os nós
   const allNodes = [...projects, ...people, ...brands];
   
-  // Carregar design salvo ao iniciar
-  React.useEffect(() => {
-    const savedDesign = localStorage.getItem('networkDesign');
-    if (savedDesign) {
-      try {
-        const parsed = JSON.parse(savedDesign);
-        
-        // Validar estrutura
-        if (!parsed.projects || !parsed.people || !parsed.brands || !parsed.savedAt) {
-          console.warn('Design salvo tem estrutura inválida, ignorando...');
-          return;
-        }
-        
-        const { projects: savedProjects, people: savedPeople, brands: savedBrands } = parsed;
-        
-        // Mesclar posições salvas com dados atuais (validar que x e y existem)
-        if (Array.isArray(savedProjects)) {
-          setProjects(prev => prev.map(p => {
-            const saved = savedProjects.find((sp: any) => sp.id === p.id);
-            return saved && typeof saved.x === 'number' && typeof saved.y === 'number' 
-              ? { ...p, x: saved.x, y: saved.y } 
-              : p;
-          }));
-        }
-        
-        if (Array.isArray(savedPeople)) {
-          setPeople(prev => prev.map(p => {
-            const saved = savedPeople.find((sp: any) => sp.id === p.id);
-            return saved && typeof saved.x === 'number' && typeof saved.y === 'number'
-              ? { ...p, x: saved.x, y: saved.y } 
-              : p;
-          }));
-        }
-        
-        if (Array.isArray(savedBrands)) {
-          setBrands(prev => prev.map(b => {
-            const saved = savedBrands.find((sb: any) => sb.id === b.id);
-            return saved && typeof saved.x === 'number' && typeof saved.y === 'number'
-              ? { ...b, x: saved.x, y: saved.y } 
-              : b;
-          }));
-        }
-        
-        toast.success('Design carregado com sucesso!');
-      } catch (error) {
-        console.error('Erro ao carregar design salvo:', error);
-        toast.error('Erro ao carregar design salvo');
-      }
+  // Loading state (DEPOIS de todos os hooks)
+  const isLoadingData = loadingProjects || loadingPeople || loadingBrands || loadingConnections || loadingWorkflows || loadingOnboarding;
+
+  // Debounced auto-save para posições dos nós
+  const debouncedUpdatePosition = useDebouncedCallback((id: number, type: string, x: number, y: number) => {
+    if (type === 'project') {
+      updateProject.mutate({ id, x, y });
+    } else if (type === 'person') {
+      updatePerson.mutate({ id, x, y });
+    } else if (type === 'brand') {
+      updateBrand.mutate({ id, x, y });
     }
-  }, []);
+  }, 1000);
+  
+  // Removido: localStorage design loading (agora vem do Supabase)
   
   // Função para salvar design atual
   const saveCurrentDesign = () => {
-    try {
-      const designData = {
-        projects: projects.map(p => ({ id: p.id, x: p.x, y: p.y })),
-        people: people.map(p => ({ id: p.id, x: p.x, y: p.y })),
-        brands: brands.map(b => ({ id: b.id, x: b.x, y: b.y })),
-        savedAt: new Date().toISOString()
-      };
-      
-      localStorage.setItem('networkDesign', JSON.stringify(designData));
-      toast.success('Design salvo com sucesso!', {
-        description: 'As posições dos nós foram salvas.'
-      });
-      console.log('Design salvo:', designData);
-    } catch (error) {
-      console.error('Erro ao salvar design:', error);
-      toast.error('Erro ao salvar design', {
-        description: 'Não foi possível salvar o design atual.'
-      });
-    }
+    toast.success('Salvando automaticamente...', {
+      description: 'Suas alterações são salvas em tempo real.'
+    });
   };
 
   // Função para importar dados do LinkedIn
@@ -211,10 +168,10 @@ export const NetworkMatrix = () => {
       }
     });
     
-    // Update state
-    setPeople(prev => [...prev, ...newPeople]);
-    setBrands(prev => [...prev, ...newBrands]);
-    setAllConnections(prev => [...prev, ...newConnections]);
+    // Create nodes and connections in Supabase
+    newPeople.forEach(p => createPerson.mutate(p));
+    newBrands.forEach(b => createBrand.mutate(b));
+    newConnections.forEach(c => createConnection.mutate(c));
     
     // Show success message
     toast.success(
@@ -419,66 +376,62 @@ export const NetworkMatrix = () => {
   };
 
   const undo = () => {
-    if (historyIndex > 0) {
-      const snapshot = history[historyIndex - 1];
-      setProjects(snapshot.projects);
-      setPeople(snapshot.people);
-      setBrands(snapshot.brands);
-      setAllConnections(snapshot.allConnections);
-      setViewMode(snapshot.viewMode);
-      setActiveProjectId(snapshot.activeProjectId);
-      setHistoryIndex(historyIndex - 1);
-    }
+    // Undo desabilitado temporariamente (requer sincronização com Supabase)
+    toast.info('Undo/Redo em desenvolvimento');
   };
 
   const redo = () => {
-    if (historyIndex < history.length - 1) {
-      const snapshot = history[historyIndex + 1];
-      setProjects(snapshot.projects);
-      setPeople(snapshot.people);
-      setBrands(snapshot.brands);
-      setAllConnections(snapshot.allConnections);
-      setViewMode(snapshot.viewMode);
-      setActiveProjectId(snapshot.activeProjectId);
-      setHistoryIndex(historyIndex + 1);
-    }
+    toast.info('Undo/Redo em desenvolvimento');
   };
 
   // Função para atualizar posição de nós (corrige dragging) and clear highlight
   const updateNodePosition = (nodeId: number, deltaX: number, deltaY: number) => {
-    const isProject = projects.find(p => p.id === nodeId);
-    const isPerson = people.find(p => p.id === nodeId);
-    const isBrand = brands.find(b => b.id === nodeId);
+    const node = allNodes.find(n => n.id === nodeId);
+    if (!node) return;
     
-    if (isProject) {
-      setProjects(prev => prev.map(p => 
-        p.id === nodeId ? { ...p, x: p.x + deltaX, y: p.y + deltaY, isNewHighlight: false } : p
-      ));
-    } else if (isPerson) {
-      setPeople(prev => prev.map(p => 
-        p.id === nodeId ? { ...p, x: p.x + deltaX, y: p.y + deltaY, isNewHighlight: false } : p
-      ));
-    } else if (isBrand) {
-      setBrands(prev => prev.map(b => 
-        b.id === nodeId ? { ...b, x: b.x + deltaX, y: b.y + deltaY, isNewHighlight: false } : b
-      ));
+    const newX = node.x + deltaX;
+    const newY = node.y + deltaY;
+    
+    // Atualizar localmente (otimista)
+    if (node.type === 'project') {
+      updateProject.mutate({ id: nodeId, x: newX, y: newY });
+    } else if (node.type === 'person') {
+      updatePerson.mutate({ id: nodeId, x: newX, y: newY });
+    } else if (node.type === 'brand') {
+      updateBrand.mutate({ id: nodeId, x: newX, y: newY });
     }
+    
+    // Chamar auto-save debounced
+    debouncedUpdatePosition(nodeId, node.type, newX, newY);
   };
 
   const setNodes = (updater) => {
     const newNodes = typeof updater === 'function' ? updater(allNodesWithAnchors) : updater;
     
-    const newProjects = newNodes.filter(n => n.type === 'project');
-    const newPeople = newNodes.filter(n => n.type === 'person');
-    const newBrands = newNodes.filter(n => n.type === 'brand');
+    // Deletar nós que foram removidos
+    const newNodeIds = new Set(newNodes.map((n: any) => n.id));
     
-    setProjects(newProjects);
-    setPeople(newPeople);
-    setBrands(newBrands);
+    projects.forEach(p => {
+      if (!newNodeIds.has(p.id)) deleteProject.mutate(p.id);
+    });
+    people.forEach(p => {
+      if (!newNodeIds.has(p.id)) deletePerson.mutate(p.id);
+    });
+    brands.forEach(b => {
+      if (!newNodeIds.has(b.id)) deleteBrand.mutate(b.id);
+    });
   };
 
   const setConnections = (updater) => {
-    setAllConnections(typeof updater === 'function' ? updater(allConnections) : updater);
+    const newConnections = typeof updater === 'function' ? updater(allConnections) : updater;
+    
+    // Deletar conexões removidas
+    const newConnIds = new Set(newConnections.map((c: any) => c.id));
+    allConnections.forEach(c => {
+      if (c.id && !newConnIds.has(c.id)) {
+        deleteConnectionMutation.mutate(c.id);
+      }
+    });
   };
 
   // Helper: Contar conexões
@@ -530,16 +483,12 @@ export const NetworkMatrix = () => {
 
   const updateAllNodePositions = (layoutedNodes: any[]) => {
     layoutedNodes.forEach(node => {
-      const isProject = projects.find(p => p.id === node.id);
-      const isPerson = people.find(p => p.id === node.id);
-      const isBrand = brands.find(b => b.id === node.id);
-      
-      if (isProject) {
-        setProjects(prev => prev.map(p => p.id === node.id ? { ...p, x: node.x, y: node.y } : p));
-      } else if (isPerson) {
-        setPeople(prev => prev.map(p => p.id === node.id ? { ...p, x: node.x, y: node.y } : p));
-      } else if (isBrand) {
-        setBrands(prev => prev.map(b => b.id === node.id ? { ...b, x: node.x, y: node.y } : b));
+      if (node.type === 'project') {
+        updateProject.mutate({ id: node.id, x: node.x, y: node.y });
+      } else if (node.type === 'person') {
+        updatePerson.mutate({ id: node.id, x: node.x, y: node.y });
+      } else if (node.type === 'brand') {
+        updateBrand.mutate({ id: node.id, x: node.x, y: node.y });
       }
     });
   };
@@ -760,12 +709,13 @@ export const NetworkMatrix = () => {
               
               // Only set homeProjectId if this is the last connection to the project
               if (otherConnectionsToProject.length === 0 && !(node as any).homeProjectId) {
+                const updateData = { id: node.id, homeProjectId: activeProjectId };
                 if (node.type === 'person') {
-                  setPeople(prev => prev.map(p => p.id === node.id ? { ...p, homeProjectId: activeProjectId } : p));
+                  updatePerson.mutate(updateData);
                 } else if (node.type === 'brand') {
-                  setBrands(prev => prev.map(b => b.id === node.id ? { ...b, homeProjectId: activeProjectId } : b));
+                  updateBrand.mutate(updateData);
                 } else if (node.type === 'project') {
-                  setProjects(prev => prev.map(p => p.id === node.id ? { ...p, homeProjectId: activeProjectId } : p));
+                  updateProject.mutate(updateData);
                 }
               }
             }
@@ -805,22 +755,7 @@ export const NetworkMatrix = () => {
   };
 
   const handleFileImport = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const result = event.target?.result;
-        if (typeof result === 'string') {
-          const imported = JSON.parse(result);
-          setWorkflows(imported);
-          alert('Dados importados com sucesso!');
-        }
-      } catch (err) {
-        alert('Erro ao importar arquivo.');
-      }
-    };
-    reader.readAsText(file);
+    toast.info('Import em desenvolvimento');
   };
 
   const getAllCategories = (type) => [...CATEGORIES[type], ...(customCategories[type] || [])];
@@ -836,11 +771,9 @@ export const NetworkMatrix = () => {
   const handleNodeCreation = (nodeData: any) => {
     saveToHistory();
     const newNode: any = {
-      id: Date.now(),
       type: nodeCreationType,
       x: nodeCreationPosition.x,
       y: nodeCreationPosition.y,
-      isNewHighlight: true,
       ...nodeData
     };
 
@@ -851,79 +784,50 @@ export const NetworkMatrix = () => {
       }
     }
 
-    // Set default fields for projects
+    // Criar no Supabase
     if (nodeCreationType === 'project') {
-      newNode.workflows = nodeData.workflows || [];
       newNode.status = nodeData.projectStatus || nodeData.status || 'ativo';
       newNode.deadline = nodeData.startDate || nodeData.deadline || '';
       newNode.category = nodeData.category || 'M';
       
-      // Add to projects array
-      setProjects(prev => [...prev, newNode]);
+      createProject.mutate(newNode);
       setShowNodeCreationModal(false);
       
       // Switch to Single View and center on the new project
-      setActiveProjectId(newNode.id);
-      setViewMode('single');
-      toast.success(`Projeto "${newNode.name}" criado!`);
-      // useEffect will handle organization and centering automatically
+      setTimeout(() => {
+        setActiveProjectId(newNode.id);
+        setViewMode('single');
+      }, 100);
     } else if (nodeCreationType === 'person') {
-      // Add to people array
-      setPeople(prev => [...prev, newNode]);
+      createPerson.mutate(newNode);
       setShowNodeCreationModal(false);
-      toast.success(`${newNode.name} criado!`);
-      
-      // Center view on the new node
-      setTimeout(() => {
-        const zoom = state.zoom;
-        updateState({
-          pan: {
-            x: window.innerWidth / 2 - newNode.x * zoom,
-            y: window.innerHeight / 2 - newNode.y * zoom
-          }
-        });
-      }, 50);
     } else if (nodeCreationType === 'brand') {
-      // Add to brands array
-      setBrands(prev => [...prev, newNode]);
+      createBrand.mutate(newNode);
       setShowNodeCreationModal(false);
-      toast.success(`${newNode.name} criado!`);
-      
-      // Center view on the new node
-      setTimeout(() => {
-        const zoom = state.zoom;
-        updateState({
-          pan: {
-            x: window.innerWidth / 2 - newNode.x * zoom,
-            y: window.innerHeight / 2 - newNode.y * zoom
-          }
-        });
-      }, 50);
     }
   };
 
   const handleAddWorkflow = (name: string, color: string) => {
     const newWorkflow = {
-      id: Date.now(),
       name,
       color,
       description: ''
     };
-    setWorkflows([...workflows, newWorkflow]);
-    toast.success(`Workflow "${name}" criado!`);
+    createWorkflow.mutate(newWorkflow);
   };
 
   const handleNodeUpdate = (updatedData: any) => {
     if (editingNodeInModal) {
       saveToHistory();
       
-      // Update the correct array based on node type
+      // Update no Supabase
+      const updateData = { id: editingNodeInModal.id, ...updatedData };
       if (editingNodeInModal.type === 'project') {
-        setProjects(prev => prev.map(n => n.id === editingNodeInModal.id ? { ...n, ...updatedData } : n));
+        updateProject.mutate(updateData);
       } else if (editingNodeInModal.type === 'person') {
-        setPeople(prev => prev.map(n => n.id === editingNodeInModal.id ? { ...n, ...updatedData } : n));
+        updatePerson.mutate(updateData);
       } else if (editingNodeInModal.type === 'brand') {
-        setBrands(prev => prev.map(n => n.id === editingNodeInModal.id ? { ...n, ...updatedData } : n));
+        updateBrand.mutate(updateData);
       }
       
       setShowNodeCreationModal(false);
@@ -934,10 +838,7 @@ export const NetworkMatrix = () => {
 
   const handleCreateNewProject = () => {
     const newProject = {
-      id: Date.now(),
       name: `Projeto ${projects.length + 1}`,
-      type: 'project' as const,
-      workflows: workflows.length > 0 ? [workflows[0].id] : [],
       category: 'P' as const,
       status: 'Ativo' as const,
       deadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
@@ -945,22 +846,23 @@ export const NetworkMatrix = () => {
       y: 400
     };
     
-    setProjects([...projects, newProject]);
-    setActiveProjectId(newProject.id);
+    createProject.mutate(newProject);
     setViewMode('single');
     
     setTimeout(() => {
-      setEditingProjectId(newProject.id);
-      setEditingProjectName(newProject.name);
-      autoOrganizeSingle(newProject.id);
+      const createdProject = projects[projects.length - 1];
+      if (createdProject) {
+        setActiveProjectId(createdProject.id);
+        setEditingProjectId(createdProject.id);
+        setEditingProjectName(createdProject.name);
+        autoOrganizeSingle(createdProject.id);
+      }
     }, 100);
   };
 
   const handleProjectNameChange = (projectId: number, newName: string) => {
     if (newName.trim()) {
-      setProjects(prev => 
-        prev.map(p => p.id === projectId ? { ...p, name: newName.trim() } : p)
-      );
+      updateProject.mutate({ id: projectId, name: newName.trim() });
     }
     setEditingProjectId(null);
     setEditingProjectName('');
@@ -973,13 +875,27 @@ export const NetworkMatrix = () => {
     }
     
     if (confirm(`Deletar projeto "${projectName}"?`)) {
-      setProjects(prev => prev.filter(p => p.id !== projectId));
+      deleteProject.mutate(projectId);
       if (activeProjectId === projectId) {
         const remainingProjects = projects.filter(p => p.id !== projectId);
-        setActiveProjectId(remainingProjects[0].id);
+        if (remainingProjects.length > 0) {
+          setActiveProjectId(remainingProjects[0].id);
+        }
       }
     }
   };
+
+  // Loading screen
+  if (isLoadingData) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted">
+        <div className="text-center space-y-4">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-primary mx-auto" />
+          <p className="text-lg text-muted-foreground">Carregando seu workspace...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen h-screen bg-background flex flex-col overflow-hidden">
@@ -1141,23 +1057,25 @@ export const NetworkMatrix = () => {
               </TooltipProvider>
             </div>
             
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button 
-                    onClick={() => setShowFlowStarterModal(true)}
-                    variant="outline" 
-                    size="icon" 
-                    className="rounded-lg hover:bg-primary/10"
-                  >
-                    <Plus size={18} />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Criar novo flow</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <div data-tour="create-buttons">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      onClick={() => setShowFlowStarterModal(true)}
+                      variant="outline" 
+                      size="icon" 
+                      className="rounded-lg hover:bg-primary/10"
+                    >
+                      <Plus size={18} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Criar novo flow</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
             
             <TooltipProvider>
               <Tooltip>
@@ -1286,50 +1204,70 @@ export const NetworkMatrix = () => {
             
             <div className="w-px h-8 bg-border mx-1"></div>
             
+            <div data-tour="workflows">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button 
+                      onClick={() => setShowProjectManager(!showProjectManager)}
+                      className={`p-2 rounded-lg transition-all ${showProjectManager ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'}`}>
+                      <FolderKanban size={18} />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Gerenciar Projetos</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+            
+            <div data-tour="tools">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button 
+                      onClick={() => updateState({ showAnalytics: !state.showAnalytics, showSidebar: false })}
+                      className={`p-2 rounded-lg transition-all ${state.showAnalytics ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'}`}>
+                      <BarChart3 size={18} />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Análises Inteligentes</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button 
+                      onClick={() => setShowLegend(!showLegend)}
+                      className={`p-2 rounded-lg transition-all ${showLegend ? 'bg-secondary text-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'}`}>
+                      <Info size={18} />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Stakeholders</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+            
+            <div className="w-px h-8 bg-border mx-1"></div>
+            
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button 
-                    onClick={() => setShowProjectManager(!showProjectManager)}
-                    className={`p-2 rounded-lg transition-all ${showProjectManager ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'}`}>
-                    <FolderKanban size={18} />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Gerenciar Projetos</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button 
-                    onClick={() => updateState({ showAnalytics: !state.showAnalytics, showSidebar: false })}
-                    className={`p-2 rounded-lg transition-all ${state.showAnalytics ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'}`}>
-                    <BarChart3 size={18} />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Análises Inteligentes</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button 
-                    onClick={() => setShowLegend(!showLegend)}
-                    className={`p-2 rounded-lg transition-all ${showLegend ? 'bg-secondary text-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'}`}>
+                    onClick={reopenTour}
+                    className="p-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-all">
                     <Info size={18} />
                   </button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Stakeholders</p>
+                  <p>Ver tour novamente</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
-            
-            <div className="w-px h-8 bg-border mx-1"></div>
             
             <TooltipProvider>
               <Tooltip>
@@ -1365,7 +1303,7 @@ export const NetworkMatrix = () => {
         <Legend nodes={nodes} setShowLegend={setShowLegend} />
       )}
 
-      <div className="flex-1 relative overflow-hidden">
+      <div className="flex-1 relative overflow-hidden" data-tour="canvas">
         <Canvas
           svgRef={svgRef}
           state={state}
@@ -1556,21 +1494,11 @@ export const NetworkMatrix = () => {
               }, 300);
             }}
             onProjectCreate={(data) => {
-              const newProject = {
-                id: Date.now(),
-                type: 'project' as const,
-                x: 500,
-                y: 400,
-                ...data,
-              };
-              setProjects([...projects, newProject as any]);
-              setActiveProjectId(newProject.id);
+              createProject.mutate({ x: 500, y: 400, ...data });
               setViewMode('single');
-              setTimeout(() => autoOrganizeSingle(newProject.id), 100);
-              toast.success('Projeto criado com sucesso!');
             }}
             onProjectUpdate={(id, updates) => {
-              setProjects(prev => prev.map(p => p.id === id ? { ...p, ...updates as any } : p));
+              updateProject.mutate({ id, ...updates });
             }}
             onProjectDelete={(id) => {
               const project = projects.find(p => p.id === id);
@@ -1597,6 +1525,14 @@ export const NetworkMatrix = () => {
           />
         )}
       </div>
+      
+      {/* Onboarding Tour */}
+      {showTour && (
+        <OnboardingTour
+          onComplete={completeTour}
+          onSkip={completeTour}
+        />
+      )}
     </div>
   );
 };
