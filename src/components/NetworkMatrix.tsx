@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Trash2, ZoomIn, ZoomOut, X, Building2, User, FolderKanban, Undo2, Redo2, LayoutGrid, Maximize2, Info, Layers, BarChart3, Route, Sparkles, Target, Save } from 'lucide-react';
+import { Plus, Trash2, ZoomIn, ZoomOut, X, Building2, User, FolderKanban, Undo2, Redo2, LayoutGrid, Maximize2, Info, Layers, BarChart3, Route, Sparkles, Target, Save, LogOut } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -31,6 +32,8 @@ const CATEGORIES = {
 };
 
 export const NetworkMatrix = () => {
+  const { signOut } = useAuth();
+  
   // Nova arquitetura: separar projetos, pessoas e marcas
   const [projects, setProjects] = useState<any[]>(SAMPLE_PROJECTS);
   const [people, setPeople] = useState<any[]>(SAMPLE_PEOPLE);
@@ -1322,6 +1325,26 @@ export const NetworkMatrix = () => {
                 </TooltipTrigger>
                 <TooltipContent>
                   <p>Stakeholders</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            
+            <div className="w-px h-8 bg-border mx-1"></div>
+            
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button 
+                    onClick={() => {
+                      signOut();
+                      toast('Logout realizado com sucesso!');
+                    }}
+                    className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-all">
+                    <LogOut size={18} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Sair</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
