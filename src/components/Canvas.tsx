@@ -190,15 +190,14 @@ export const Canvas: React.FC<CanvasProps> = ({
     }
   };
 
-  const handleNodeClick = (e: React.MouseEvent, nodeId: number) => {
+  const handleNodeClick = (e: React.MouseEvent, nodeId: number, nodeType?: 'person' | 'brand' | 'project') => {
     e.stopPropagation();
-    console.log('[Canvas] Node clicked:', nodeId);
+    console.log('[Canvas] Node clicked:', nodeId, 'type:', nodeType);
     
     // Master View: click em qualquer nó abre o Single View centrado nele
     if (viewMode === 'master' && onGoToProject) {
-      const node = nodes.find(n => n.id === nodeId);
-      console.log('[Canvas] Calling onGoToProject with nodeId:', nodeId, 'type:', node?.type);
-      onGoToProject(nodeId, node?.type);
+      console.log('[Canvas] Calling onGoToProject with nodeId:', nodeId, 'type:', nodeType);
+      onGoToProject(nodeId, nodeType);
     }
   };
 
@@ -838,10 +837,11 @@ export const Canvas: React.FC<CanvasProps> = ({
           
           return (
             <g 
-              key={node.id} 
+              key={`${node.type}-${node.id}`}
+              data-node-type={node.type}
               transform={`translate(${node.x + (dragOffsets[node.id]?.dx ?? 0)}, ${node.y + (dragOffsets[node.id]?.dy ?? 0)})`}
               onMouseDown={(e) => handleNodeMouseDown(e, node.id)}
-              onClick={(e) => handleNodeClick(e, node.id)}
+              onClick={(e) => handleNodeClick(e, node.id, node.type)}
               onDoubleClick={(e) => handleNodeDoubleClick(e, node.id)}
               onMouseEnter={() => setHoveredNode(node.id)}
               onMouseLeave={() => setHoveredNode(null)}
