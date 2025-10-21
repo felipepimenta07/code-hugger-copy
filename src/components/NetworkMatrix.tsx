@@ -168,9 +168,27 @@ export const NetworkMatrix = () => {
       }
     });
     
-    // Create nodes and connections in Supabase
-    newPeople.forEach(p => createPerson.mutate(p));
-    newBrands.forEach(b => createBrand.mutate(b));
+    // Create nodes and connections in Backend (sanitized payloads)
+    newPeople.forEach(p =>
+      createPerson.mutate({
+        name: p.name,
+        company: p.company || null,
+        email: p.email || null,
+        phone: null,
+        category: p.category || null,
+        x: p.x,
+        y: p.y,
+      })
+    );
+    newBrands.forEach(b =>
+      createBrand.mutate({
+        name: b.name,
+        website: b.website || null,
+        category: b.category || null,
+        x: b.x,
+        y: b.y,
+      })
+    );
     newConnections.forEach(c => createConnection.mutate(c));
     
     // Show success message
@@ -784,29 +802,51 @@ export const NetworkMatrix = () => {
       }
     }
 
-    // Criar no Supabase (remover campos que não existem nas tabelas)
+    // Criar no Backend com payloads válidos por tabela
     if (nodeCreationType === 'project') {
-      const { type, homeProjectId, ...projectData } = newNode;
-      projectData.status = nodeData.projectStatus || nodeData.status || 'ativo';
-      projectData.deadline = nodeData.startDate || nodeData.deadline || '';
-      projectData.category = nodeData.category || 'M';
-      
-      createProject.mutate(projectData);
-      setShowNodeCreationModal(false);
-      
-      // Switch to Single View and center on the new project
-      setTimeout(() => {
-        setActiveProjectId(newNode.id);
-        setViewMode('single');
-      }, 100);
+      const projectData = {
+        name: newNode.name,
+        category: nodeData.category || 'M',
+        status: nodeData.projectStatus || nodeData.status || 'ativo',
+        deadline: (nodeData.startDate || nodeData.deadline) || null,
+        x: newNode.x,
+        y: newNode.y,
+      };
+
+      createProject.mutate(projectData, {
+        onSuccess: (createdProject: any) => {
+          setShowNodeCreationModal(false);
+          setViewMode('single');
+          setActiveProjectId(createdProject.id);
+          setEditingProjectId(createdProject.id);
+          setEditingProjectName(createdProject.name);
+          setTimeout(() => autoOrganizeSingle(createdProject.id), 100);
+        },
+      });
     } else if (nodeCreationType === 'person') {
-      const { type, homeProjectId, ...personData } = newNode;
-      createPerson.mutate(personData);
-      setShowNodeCreationModal(false);
+      const personData = {
+        name: newNode.name,
+        company: newNode.company || nodeData.company || null,
+        email: newNode.email || null,
+        phone: newNode.phone || null,
+        category: nodeData.category || newNode.category || null,
+        x: newNode.x,
+        y: newNode.y,
+      };
+      createPerson.mutate(personData, {
+        onSuccess: () => setShowNodeCreationModal(false),
+      });
     } else if (nodeCreationType === 'brand') {
-      const { type, homeProjectId, ...brandData } = newNode;
-      createBrand.mutate(brandData);
-      setShowNodeCreationModal(false);
+      const brandData = {
+        name: newNode.name,
+        website: newNode.website || null,
+        category: nodeData.category || newNode.category || null,
+        x: newNode.x,
+        y: newNode.y,
+      };
+      createBrand.mutate(brandData, {
+        onSuccess: () => setShowNodeCreationModal(false),
+      });
     }
   };
 
