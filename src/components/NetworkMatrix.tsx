@@ -745,14 +745,22 @@ export const NetworkMatrix = () => {
   }, [projects.length, activeCenterId]);
 
   const handleGoToProject = (projectId: number) => {
+    console.log('[NetworkMatrix] handleGoToProject called with projectId:', projectId);
     setActiveCenterId(projectId);
     setActiveCenterType('project');
     setActiveProjectId(projectId);
     setViewMode('single');
     
-    setTimeout(() => autoOrganizeSingle(projectId), 50);
+    // Pass projectId directly instead of relying on async state
     setTimeout(() => {
+      console.log('[NetworkMatrix] Calling autoOrganizeSingle with projectId:', projectId);
+      autoOrganizeSingle(projectId);
+    }, 50);
+    
+    setTimeout(() => {
+      console.log('[NetworkMatrix] Centering view for projectId:', projectId);
       const nodesToCenter = getNodesForSingleView(projectId);
+      console.log('[NetworkMatrix] Nodes to center:', nodesToCenter.length, nodesToCenter.map(n => n.id));
       if (nodesToCenter.length > 0 && svgRef.current) {
         const rect = svgRef.current.getBoundingClientRect();
         const bounds = calculateBounds(nodesToCenter);

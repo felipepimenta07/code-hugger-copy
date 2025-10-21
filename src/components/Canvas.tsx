@@ -106,6 +106,16 @@ export const Canvas: React.FC<CanvasProps> = ({
     return depths;
   }, [viewMode, nodes, connections]);
 
+  // Memoize connection counts for performance
+  const connectionCounts = useMemo(() => {
+    const counts = new Map<number, number>();
+    connections.forEach(conn => {
+      counts.set(conn.from, (counts.get(conn.from) || 0) + 1);
+      counts.set(conn.to, (counts.get(conn.to) || 0) + 1);
+    });
+    return counts;
+  }, [connections]);
+
   // PHASE 1: Pre-calculate connection data (memoized to avoid recalculating on every render)
   const connectionData = useMemo(() => {
     return connections.map((conn, idx) => {
@@ -145,6 +155,14 @@ export const Canvas: React.FC<CanvasProps> = ({
       };
     }).filter(Boolean);
   }, [connections, nodes, nodeDepths, allConnections, viewMode]);
+
+  // During drag, only render connections touching selected nodes
+  const connectionsToRender = useMemo(() => {
+    if (!isDraggingAny) return connectionData;
+    return connectionData.filter(d => 
+      selectedNodes.includes(d.from.id) || selectedNodes.includes(d.to.id)
+    );
+  }, [isDraggingAny, connectionData, selectedNodes]);
   
   const handleNodeMouseDown = (e: React.MouseEvent, nodeId: number) => {
     e.stopPropagation();
@@ -174,11 +192,13 @@ export const Canvas: React.FC<CanvasProps> = ({
 
   const handleNodeClick = (e: React.MouseEvent, nodeId: number) => {
     e.stopPropagation();
+    console.log('[Canvas] Node clicked:', nodeId);
     
     // Master View: click em projeto abre o Single View desse projeto
     if (viewMode === 'master' && onGoToProject) {
       const node = nodes.find(n => n.id === nodeId);
       if (node?.type === 'project') {
+        console.log('[Canvas] Calling onGoToProject with nodeId:', nodeId);
         onGoToProject(nodeId);
       }
     }
@@ -599,7 +619,8 @@ export const Canvas: React.FC<CanvasProps> = ({
           let strokeWidth;
           let strokeDasharray = undefined;
           let opacity = 1;
-          let useGlow = false;
+          // Disable glow during drag for performance
+          let useGlow = !isDraggingAny && (isSelected || isInPath) && connectionLevel <= 1;
           
           if (isInPath) {
             strokeColor = '#10b981';
@@ -656,9 +677,17 @@ export const Canvas: React.FC<CanvasProps> = ({
             opacity = 1;
           }
           
-          const controlX = (from.x + to.x) / 2;
-          const controlY = (from.y + to.y) / 2 - 80;
-          const pathData = `M ${from.x},${from.y} Q ${controlX},${controlY} ${to.x},${to.y}`;
+          // Simplified paths during drag for performance
+          let pathData: string;
+          if (isDraggingAny) {
+            // Straight line during drag
+            pathData = `M ${from.x},${from.y} L ${to.x},${to.y}`;
+          } else {
+            // Bezier curve for smooth visual
+            const controlX = (from.x + to.x) / 2;
+            const controlY = (from.y + to.y) / 2 - 80;
+            pathData = `M ${from.x},${from.y} Q ${controlX},${controlY} ${to.x},${to.y}`;
+          }
           
           // Gerar tooltip inteligente para conexões cross-flow
           let tooltipText = '';
@@ -792,10 +821,10 @@ export const Canvas: React.FC<CanvasProps> = ({
           const colors = nodeColors[node.type as keyof typeof nodeColors];
           const isSelected = selectedNodes.includes(node.id);
           const isInPath = highlightedPath.includes(node.id);
-          const connectionCount = connections.filter(c => c.from === node.id || c.to === node.id).length;
+          const connectionCount = connectionCounts.get(node.id) || 0;
           
-          // PHASE 1: Simplify non-selected nodes during drag
-          const shouldSimplify = isDraggingAny && !isSelected;
+          // PHASE 1: Aggressive simplification during drag - remove ALL glows/filters
+          const shouldSimplify = isDraggingAny;
           
           // Tamanho por nível hierárquico
           let baseSize = 40;
