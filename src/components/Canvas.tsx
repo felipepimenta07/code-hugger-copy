@@ -60,6 +60,9 @@ export const Canvas: React.FC<CanvasProps> = ({
     position: { x: number; y: number };
   } | null>(null);
 
+  // Local drag offsets for smooth dragging (UI-only)
+  const [dragOffsets, setDragOffsets] = useState<Record<number, { dx: number; dy: number }>>({});
+
   // BFS to calculate depth from center node (for connection styling by distance)
   const calculateNodeDepths = () => {
     if (viewMode !== 'single' || nodes.length === 0) return new Map<number, number>();
@@ -154,9 +157,11 @@ export const Canvas: React.FC<CanvasProps> = ({
       const dx = x - state.offset.x - draggedNode.x;
       const dy = y - state.offset.y - draggedNode.y;
       
+      const offsets: Record<number, { dx: number; dy: number }> = {};
       selectedNodes.forEach(nodeId => {
-        updateNodePosition(nodeId, dx, dy);
+        offsets[nodeId] = { dx, dy };
       });
+      setDragOffsets(offsets);
     } else if (state.isPanning) {
       updateState({ pan: { x: e.clientX - state.panStart.x, y: e.clientY - state.panStart.y } });
     } else if (state.isDraggingConnection) {
@@ -188,9 +193,24 @@ export const Canvas: React.FC<CanvasProps> = ({
       }
     }
     
+    // Finalize dragging: persist positions once and clear offsets
     if (state.dragging) {
-      saveToHistory();
+      const rect = svgRef.current!.getBoundingClientRect();
+      const x = (e.clientX - rect.left - state.pan.x) / state.zoom;
+      const y = (e.clientY - rect.top - state.pan.y) / state.zoom;
+      const draggedNode = nodes.find(n => n.id === state.dragging);
+      if (draggedNode) {
+        const dx = x - state.offset.x - draggedNode.x;
+        const dy = y - state.offset.y - draggedNode.y;
+        selectedNodes.forEach(nodeId => {
+          updateNodePosition(nodeId, dx, dy);
+        });
+        saveToHistory();
+      }
     }
+
+    // Clear UI drag offsets
+    setDragOffsets({});
     
     updateState({ 
       dragging: null, 
@@ -703,7 +723,7 @@ export const Canvas: React.FC<CanvasProps> = ({
           return (
             <g 
               key={node.id} 
-              transform={`translate(${node.x}, ${node.y})`}
+              transform={`translate(${node.x + (dragOffsets[node.id]?.dx ?? 0)}, ${node.y + (dragOffsets[node.id]?.dy ?? 0)})`}
               onMouseDown={(e) => handleNodeMouseDown(e, node.id)}
               onClick={(e) => handleNodeClick(e, node.id)}
               onDoubleClick={(e) => handleNodeDoubleClick(e, node.id)}
