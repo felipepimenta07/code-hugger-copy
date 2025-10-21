@@ -741,31 +741,76 @@ export const NetworkMatrix = () => {
     // Só setar automaticamente se:
     // 1. Temos projetos
     // 2. NÃO temos activeCenterId ainda (primeira vez)
-    // 3. NÃO estamos em Single View (evita sobrescrever durante navegação)
-    if (projects.length > 0 && !activeCenterId && viewMode !== 'single') {
+    // 3. Estamos em Master View (evita sobrescrever durante navegação)
+    if (projects.length > 0 && !activeCenterId && viewMode === 'master') {
       setActiveCenterId(projects[0].id);
       setActiveCenterType('project');
       setActiveProjectId(projects[0].id);
     }
   }, [projects.length, activeCenterId, viewMode]);
 
-  const handleGoToProject = (projectId: number) => {
-    console.log('[NetworkMatrix] handleGoToProject called with projectId:', projectId);
-    setActiveCenterId(projectId);
-    setActiveCenterType('project');
-    setActiveProjectId(projectId);
+  const handleGoToProject = (nodeId: number, nodeType?: 'person' | 'brand' | 'project') => {
+    console.log('[NetworkMatrix] handleGoToProject called with nodeId:', nodeId, 'type:', nodeType);
+    
+    // Se não passou o tipo, tentar inferir dos dados
+    if (!nodeType) {
+      const project = projects.find(p => p.id === nodeId);
+      const person = people.find(p => p.id === nodeId);
+      const brand = brands.find(b => b.id === nodeId);
+      
+      if (project) nodeType = 'project';
+      else if (person) nodeType = 'person';
+      else if (brand) nodeType = 'brand';
+    }
+    
+    setActiveCenterId(nodeId);
+    setActiveCenterType(nodeType || 'project');
+    
+    // Só setar activeProjectId se for realmente um projeto
+    if (nodeType === 'project') {
+      setActiveProjectId(nodeId);
+    }
+    
     setViewMode('single');
     
-    // Pass projectId directly instead of relying on async state
+    // Usar a função apropriada para organização
     setTimeout(() => {
-      console.log('[NetworkMatrix] Calling autoOrganizeSingle with projectId:', projectId);
-      autoOrganizeSingle(projectId);
+      console.log('[NetworkMatrix] Calling auto-organize for type:', nodeType, 'nodeId:', nodeId);
+      if (nodeType === 'project') {
+        autoOrganizeSingle(nodeId);
+      } else {
+        // Para pessoas/marcas, usar getNodesForEntity
+        const nodesToOrganize = getNodesForEntity(nodeId, 2);
+        if (nodesToOrganize.length > 0) {
+          const centerNode = allNodesWithAnchors.find(n => n.id === nodeId);
+          if (centerNode) {
+            const layouted = applyRadialLayout(nodesToOrganize, centerNode.x, centerNode.y);
+            layouted.forEach((node, index) => {
+              if (index > 0) { // Skip center node
+                const originalNode = allNodesWithAnchors.find(n => n.id === node.id);
+                if (originalNode) {
+                  updateNodePosition(node.id, node.x - originalNode.x, node.y - originalNode.y);
+                }
+              }
+            });
+          }
+        }
+      }
     }, 50);
     
+    // Centralizar visualização
     setTimeout(() => {
-      console.log('[NetworkMatrix] Centering view for projectId:', projectId);
-      const nodesToCenter = getNodesForSingleView(projectId);
+      console.log('[NetworkMatrix] Centering view for nodeId:', nodeId, 'type:', nodeType);
+      let nodesToCenter: any[] = [];
+      
+      if (nodeType === 'project') {
+        nodesToCenter = getNodesForSingleView(nodeId);
+      } else {
+        nodesToCenter = getNodesForEntity(nodeId, 2);
+      }
+      
       console.log('[NetworkMatrix] Nodes to center:', nodesToCenter.length, nodesToCenter.map(n => n.id));
+      
       if (nodesToCenter.length > 0 && svgRef.current) {
         const rect = svgRef.current.getBoundingClientRect();
         const bounds = calculateBounds(nodesToCenter);

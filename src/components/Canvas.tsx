@@ -23,7 +23,7 @@ interface CanvasProps {
   onOpenEditModal?: (node: any) => void;
   projects?: any[];
   allConnections?: any[];
-  onGoToProject?: (id: number) => void;
+  onGoToProject?: (id: number, type?: 'person' | 'brand' | 'project') => void;
 }
 
 const nodeColors = {
@@ -194,13 +194,11 @@ export const Canvas: React.FC<CanvasProps> = ({
     e.stopPropagation();
     console.log('[Canvas] Node clicked:', nodeId);
     
-    // Master View: click em projeto abre o Single View desse projeto
+    // Master View: click em qualquer nó abre o Single View centrado nele
     if (viewMode === 'master' && onGoToProject) {
       const node = nodes.find(n => n.id === nodeId);
-      if (node?.type === 'project') {
-        console.log('[Canvas] Calling onGoToProject with nodeId:', nodeId);
-        onGoToProject(nodeId);
-      }
+      console.log('[Canvas] Calling onGoToProject with nodeId:', nodeId, 'type:', node?.type);
+      onGoToProject(nodeId, node?.type);
     }
   };
 
