@@ -835,7 +835,18 @@ export const NetworkMatrix = () => {
         y: newNode.y,
       };
       createPerson.mutate(personData, {
-        onSuccess: () => setShowNodeCreationModal(false),
+        onSuccess: (createdPerson: any) => {
+          setShowNodeCreationModal(false);
+          if (viewMode === 'single' && activeProjectId) {
+            createConnection.mutate({
+              from: createdPerson.id,
+              to: activeProjectId,
+              fromType: 'person',
+              toType: 'project',
+              type: 'strong',
+            });
+          }
+        },
       });
     } else if (nodeCreationType === 'brand') {
       const brandData = {
@@ -846,7 +857,18 @@ export const NetworkMatrix = () => {
         y: newNode.y,
       };
       createBrand.mutate(brandData, {
-        onSuccess: () => setShowNodeCreationModal(false),
+        onSuccess: (createdBrand: any) => {
+          setShowNodeCreationModal(false);
+          if (viewMode === 'single' && activeProjectId) {
+            createConnection.mutate({
+              from: createdBrand.id,
+              to: activeProjectId,
+              fromType: 'brand',
+              toType: 'project',
+              type: 'strong',
+            });
+          }
+        },
       });
     }
   };
