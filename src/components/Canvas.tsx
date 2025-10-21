@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { User, Target, Building2 } from 'lucide-react';
 import { ConnectionTooltip } from './ConnectionTooltip';
 
@@ -60,11 +60,13 @@ export const Canvas: React.FC<CanvasProps> = ({
     position: { x: number; y: number };
   } | null>(null);
 
-  // Local drag offsets for smooth dragging (UI-only)
+  // Local drag offsets for smooth dragging (UI-only, RAF-optimized)
   const [dragOffsets, setDragOffsets] = useState<Record<number, { dx: number; dy: number }>>({});
+  const dragOffsetsRef = useRef<Record<number, { dx: number; dy: number }>>({});
+  const rafRef = useRef<number | null>(null);
 
-  // BFS to calculate depth from center node (for connection styling by distance)
-  const calculateNodeDepths = () => {
+  // BFS to calculate depth from center node (for connection styling by distance) - MEMOIZED
+  const nodeDepths = useMemo(() => {
     if (viewMode !== 'single' || nodes.length === 0) return new Map<number, number>();
     
     const centerNode = nodes[0]; // Active project is always first in single view
@@ -91,9 +93,7 @@ export const Canvas: React.FC<CanvasProps> = ({
     }
     
     return depths;
-  };
-  
-  const nodeDepths = calculateNodeDepths();
+  }, [viewMode, nodes, connections]);
   
   const handleNodeMouseDown = (e: React.MouseEvent, nodeId: number) => {
     e.stopPropagation();
@@ -145,6 +145,14 @@ export const Canvas: React.FC<CanvasProps> = ({
     });
   };
 
+  const scheduleDragRender = () => {
+    if (rafRef.current) return; // Already scheduled
+    rafRef.current = requestAnimationFrame(() => {
+      setDragOffsets({ ...dragOffsetsRef.current });
+      rafRef.current = null;
+    });
+  };
+
   const handleMouseMove = (e: React.MouseEvent) => {
     const rect = svgRef.current!.getBoundingClientRect();
     const x = (e.clientX - rect.left - state.pan.x) / state.zoom;
@@ -157,11 +165,13 @@ export const Canvas: React.FC<CanvasProps> = ({
       const dx = x - state.offset.x - draggedNode.x;
       const dy = y - state.offset.y - draggedNode.y;
       
-      const offsets: Record<number, { dx: number; dy: number }> = {};
+      // Update ref immediately (no re-render)
       selectedNodes.forEach(nodeId => {
-        offsets[nodeId] = { dx, dy };
+        dragOffsetsRef.current[nodeId] = { dx, dy };
       });
-      setDragOffsets(offsets);
+      
+      // Schedule single render per frame (RAF optimization)
+      scheduleDragRender();
     } else if (state.isPanning) {
       updateState({ pan: { x: e.clientX - state.panStart.x, y: e.clientY - state.panStart.y } });
     } else if (state.isDraggingConnection) {
@@ -195,6 +205,12 @@ export const Canvas: React.FC<CanvasProps> = ({
     
     // Finalize dragging: persist positions once and clear offsets
     if (state.dragging) {
+      // Cancel pending RAF
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+      
       const rect = svgRef.current!.getBoundingClientRect();
       const x = (e.clientX - rect.left - state.pan.x) / state.zoom;
       const y = (e.clientY - rect.top - state.pan.y) / state.zoom;
@@ -209,8 +225,9 @@ export const Canvas: React.FC<CanvasProps> = ({
       }
     }
 
-    // Clear UI drag offsets
+    // Clear UI drag offsets and refs
     setDragOffsets({});
+    dragOffsetsRef.current = {};
     
     updateState({ 
       dragging: null, 
@@ -227,6 +244,7 @@ export const Canvas: React.FC<CanvasProps> = ({
     const y = (e.clientY - rect.top - state.pan.y) / state.zoom;
     const clickedNode = nodes.find(n => Math.sqrt((n.x - x) ** 2 + (n.y - y) ** 2) < 45);
     if (!clickedNode) {
+      console.debug('[Canvas] Context menu opened at screen:', { screenX: e.clientX, screenY: e.clientY }, 'canvas:', { x, y });
       updateState({ contextMenu: { x: e.clientX, y: e.clientY, canvasX: x, canvasY: y, type: 'canvas' } });
     }
   };
@@ -254,7 +272,14 @@ export const Canvas: React.FC<CanvasProps> = ({
   };
 
   return (
-    <>
+    <div 
+      className="flex-1"
+      style={{
+        backgroundImage: 'radial-gradient(rgba(255,255,255,0.04) 1px, transparent 1px)',
+        backgroundSize: '24px 24px',
+        backgroundColor: '#000'
+      }}
+    >
     <svg
       ref={svgRef}
       className="w-full h-full cursor-move"
@@ -291,9 +316,15 @@ export const Canvas: React.FC<CanvasProps> = ({
           <polygon points="0 0, 10 3, 0 6" fill="hsl(var(--connection-strong))" />
         </marker>
         
-        <pattern id="dotGrid" width="24" height="24" patternUnits="userSpaceOnUse">
-          <rect width="24" height="24" fill="#000000" />
-          <circle cx="12" cy="12" r="1" fill="rgba(255,255,255,0.06)" />
+        <pattern 
+          id="dotGrid" 
+          width="24" 
+          height="24" 
+          patternUnits="userSpaceOnUse"
+          patternTransform={`scale(${state.zoom})`}
+        >
+          <rect width="24" height="24" fill="#0b0b0b" />
+          <circle cx="12" cy="12" r="1" fill="#ffffff" fillOpacity="0.08" />
         </pattern>
       </defs>
 
@@ -1038,6 +1069,6 @@ export const Canvas: React.FC<CanvasProps> = ({
         />
       );
     })()}
-    </>
+    </div>
   );
 };

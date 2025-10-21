@@ -816,6 +816,9 @@ export const NetworkMatrix = () => {
 
       createProject.mutate(projectData, {
         onSuccess: (createdProject: any) => {
+          console.debug('[NetworkMatrix] Project created:', createdProject.id, createdProject.name);
+          toast.dismiss();
+          toast.success(`Projeto "${createdProject.name}" criado!`);
           setShowNodeCreationModal(false);
           setViewMode('single');
           setActiveProjectId(createdProject.id);
@@ -836,6 +839,13 @@ export const NetworkMatrix = () => {
       };
       createPerson.mutate(personData, {
         onSuccess: (createdPerson: any) => {
+          console.debug('[NetworkMatrix] Person created:', createdPerson.id, createdPerson.name);
+          toast.dismiss();
+          if (viewMode === 'single' && activeProjectId) {
+            toast.success(`${createdPerson.name} criado e conectado ao projeto!`);
+          } else {
+            toast.success(`${createdPerson.name} criado!`);
+          }
           setShowNodeCreationModal(false);
           if (viewMode === 'single' && activeProjectId) {
             createConnection.mutate({
@@ -844,6 +854,10 @@ export const NetworkMatrix = () => {
               fromType: 'person',
               toType: 'project',
               type: 'strong',
+            }, {
+              onSuccess: () => {
+                console.debug('[NetworkMatrix] Connection created: person', createdPerson.id, '-> project', activeProjectId);
+              }
             });
           }
         },
@@ -858,6 +872,13 @@ export const NetworkMatrix = () => {
       };
       createBrand.mutate(brandData, {
         onSuccess: (createdBrand: any) => {
+          console.debug('[NetworkMatrix] Brand created:', createdBrand.id, createdBrand.name);
+          toast.dismiss();
+          if (viewMode === 'single' && activeProjectId) {
+            toast.success(`${createdBrand.name} criado e conectado ao projeto!`);
+          } else {
+            toast.success(`${createdBrand.name} criado!`);
+          }
           setShowNodeCreationModal(false);
           if (viewMode === 'single' && activeProjectId) {
             createConnection.mutate({
@@ -866,6 +887,10 @@ export const NetworkMatrix = () => {
               fromType: 'brand',
               toType: 'project',
               type: 'strong',
+            }, {
+              onSuccess: () => {
+                console.debug('[NetworkMatrix] Connection created: brand', createdBrand.id, '-> project', activeProjectId);
+              }
             });
           }
         },
@@ -969,6 +994,17 @@ export const NetworkMatrix = () => {
           viewMode={viewMode}
           onCreateNode={(type) => {
             if (state.contextMenu) {
+              console.debug(`[NetworkMatrix] Creating node: type=${type}, canvas position=(${state.contextMenu.canvasX.toFixed(1)}, ${state.contextMenu.canvasY.toFixed(1)})`);
+              
+              // Show loading toast
+              if (type === 'project') {
+                toast.loading('Criando projeto...');
+              } else if (type === 'person') {
+                toast.loading('Criando pessoa...');
+              } else if (type === 'brand') {
+                toast.loading('Criando marca...');
+              }
+              
               setNodeCreationType(type as 'person' | 'project' | 'brand');
               setNodeCreationPosition({
                 x: state.contextMenu.canvasX,
