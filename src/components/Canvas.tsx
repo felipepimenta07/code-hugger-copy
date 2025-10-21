@@ -345,6 +345,7 @@ export const Canvas: React.FC<CanvasProps> = ({
       onMouseUp={handleMouseUp}
       onContextMenu={handleCanvasContextMenu}
       onWheel={handleWheel}
+      onMouseLeave={() => updateState({ isPanning: false })}
       onMouseDown={(e) => {
         if (e.button === 0 && !e.shiftKey) {
           setSelectedNodes([]);
@@ -374,13 +375,12 @@ export const Canvas: React.FC<CanvasProps> = ({
           <polygon points="0 0, 10 3, 0 6" fill="hsl(var(--connection-strong))" />
         </marker>
         
-        {/* PHASE 3: Improved background pattern with better contrast */}
+        {/* Background pattern - fixed, no transform to prevent zoom issues */}
         <pattern 
           id="dotGrid" 
           width="24" 
           height="24" 
           patternUnits="userSpaceOnUse"
-          patternTransform={`scale(${Math.max(0.5, Math.min(2, state.zoom))})`}
         >
           <rect width="24" height="24" fill="#0b0b0b" />
           <circle cx="12" cy="12" r="1" fill="#ffffff" fillOpacity="0.12" />
@@ -398,6 +398,9 @@ export const Canvas: React.FC<CanvasProps> = ({
           <stop offset="100%" stopColor="#0891b2" />
         </radialGradient>
       </defs>
+
+      {/* Fixed background pattern - covers entire viewport, doesn't move with pan/zoom */}
+      <rect width="100%" height="100%" fill="url(#dotGrid)" pointerEvents="none" />
 
       <g transform={`translate(${state.pan.x}, ${state.pan.y}) scale(${state.zoom})`}>
         
@@ -1100,8 +1103,6 @@ export const Canvas: React.FC<CanvasProps> = ({
           );
         })}
         
-        {/* PHASE 3: Background pattern rendered LAST for visibility */}
-        <rect x="-5000" y="-5000" width="15000" height="15000" fill="url(#dotGrid)" />
       </g>
     </svg>
     
