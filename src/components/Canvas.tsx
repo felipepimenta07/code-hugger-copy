@@ -174,7 +174,14 @@ export const Canvas: React.FC<CanvasProps> = ({
 
   const handleNodeClick = (e: React.MouseEvent, nodeId: number) => {
     e.stopPropagation();
-    // Simple click does nothing, let double click handle editing
+    
+    // Master View: click em projeto abre o Single View desse projeto
+    if (viewMode === 'master' && onGoToProject) {
+      const node = nodes.find(n => n.id === nodeId);
+      if (node?.type === 'project') {
+        onGoToProject(nodeId);
+      }
+    }
   };
 
   const handleNodeDoubleClick = (e: React.MouseEvent, nodeId: number) => {
@@ -566,8 +573,15 @@ export const Canvas: React.FC<CanvasProps> = ({
           );
         })}
 
-        {/* PHASE 1: Optimized connections rendering using pre-calculated data */}
-        {connectionData.map((data: any) => {
+        {/* PHASE 1: Optimized connections rendering - filter during drag for performance */}
+        {connectionData
+          .filter((data: any) => {
+            if (!isDraggingAny) return true;
+            // Durante drag: apenas conexões dos nós selecionados
+            if (!data) return false;
+            return selectedNodes.includes(data.from?.id) || selectedNodes.includes(data.to?.id);
+          })
+          .map((data: any) => {
           if (!data) return null;
           const { conn, idx, from, to, globalIdx, connectionLevel, isCrossFlow } = data;
           

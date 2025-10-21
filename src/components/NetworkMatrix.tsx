@@ -51,6 +51,8 @@ export const NetworkMatrix = () => {
 
   const [activeProjectId, setActiveProjectId] = useState<number | null>(projects[0]?.id ?? null);
   const [viewMode, setViewMode] = useState('master');
+  const [activeCenterId, setActiveCenterId] = useState<number | null>(null);
+  const [activeCenterType, setActiveCenterType] = useState<'project' | 'person' | 'brand' | null>(null);
   const [showLegend, setShowLegend] = useState(false);
   const [selectedNodes, setSelectedNodes] = useState([]);
   const [selectedConnection, setSelectedConnection] = useState(null);
@@ -341,6 +343,41 @@ export const NetworkMatrix = () => {
     return [projectNode, ...Array.from(included).filter(id => id !== projectId).map(id => byId.get(id)!).filter(Boolean)];
   };
 
+  // Helper: Expandir nós a partir de uma entidade (pessoa/marca) usando BFS
+  const getNodesForEntity = (centerId: number, maxDepth = 3) => {
+    const byId = new Map(allNodesWithAnchors.map(n => [n.id, n]));
+    const centerNode = byId.get(centerId);
+    if (!centerNode) return [];
+    
+    const included = new Set<number>([centerId]);
+    const queue: Array<{ id: number; depth: number }> = [{ id: centerId, depth: 0 }];
+    const visited = new Set<number>([centerId]);
+    
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      if (current.depth >= maxDepth) continue;
+      
+      // Encontrar vizinhos conectados
+      allConnections.forEach(c => {
+        let neighborId: number | null = null;
+        if (c.from === current.id) neighborId = c.to;
+        else if (c.to === current.id) neighborId = c.from;
+        
+        if (neighborId && !visited.has(neighborId)) {
+          const neighborNode = byId.get(neighborId);
+          // Não incluir outros projetos (apenas o flow local)
+          if (neighborNode && neighborNode.type !== 'project') {
+            visited.add(neighborId);
+            included.add(neighborId);
+            queue.push({ id: neighborId, depth: current.depth + 1 });
+          }
+        }
+      });
+    }
+    
+    return [centerNode, ...Array.from(included).filter(id => id !== centerId).map(id => byId.get(id)!).filter(Boolean)];
+  };
+
   // Filtrar nós e conexões por projeto/modo
   const nodes = viewMode === 'master'
     ? allNodesWithAnchors
@@ -349,15 +386,26 @@ export const NetworkMatrix = () => {
           const project = projects.find(p => p.id === n.anchorProjectId);
           return { ...n, projectId: project?.id, projectColor: project ? '#8b5cf6' : '#6366f1' };
         })
-    : (activeProjectId ? getNodesForSingleView(activeProjectId) : []);
+    : (() => {
+        // Single View: usar activeCenterType para determinar qual função chamar
+        if (activeCenterType === 'project' && activeCenterId) {
+          return getNodesForSingleView(activeCenterId);
+        } else if (activeCenterId && (activeCenterType === 'person' || activeCenterType === 'brand')) {
+          return getNodesForEntity(activeCenterId);
+        } else if (activeProjectId) {
+          // Fallback: usar activeProjectId se activeCenterId não estiver definido
+          return getNodesForSingleView(activeProjectId);
+        }
+        return [];
+      })();
 
   // Para o PathIndicator
   const selectedNode = selectedNodes.length === 1 
     ? allNodes.find(n => n.id === selectedNodes[0]) 
     : null;
 
-  const centerNode = viewMode === 'single' && activeProjectId
-    ? projects.find(p => p.id === activeProjectId)
+  const centerNode = viewMode === 'single' && activeCenterId
+    ? allNodes.find(n => n.id === activeCenterId)
     : null;
 
   const connections = viewMode === 'master'
@@ -369,9 +417,15 @@ export const NetworkMatrix = () => {
         // Both nodes must be in the filtered list
         if (!fromNode || !toNode) return false;
         
-        // If connection involves another project (not the active one), exclude it
-        if (fromNode.type === 'project' && fromNode.id !== activeProjectId) return false;
-        if (toNode.type === 'project' && toNode.id !== activeProjectId) return false;
+        // Se o centro for um projeto, excluir conexões com outros projetos
+        if (activeCenterType === 'project' && activeCenterId) {
+          if (fromNode.type === 'project' && fromNode.id !== activeCenterId) return false;
+          if (toNode.type === 'project' && toNode.id !== activeCenterId) return false;
+        }
+        // Se o centro for pessoa/marca, excluir todas as conexões com projetos
+        else if (activeCenterType !== 'project') {
+          if (fromNode.type === 'project' || toNode.type === 'project') return false;
+        }
         
         return true;
       });
@@ -514,9 +568,17 @@ export const NetworkMatrix = () => {
     });
   };
 
-  const autoOrganizeSingle = (projectId: number | null) => {
-    if (!projectId) return;
-    const nodesToLayout = getNodesForSingleView(projectId);
+  const autoOrganizeSingle = (centerId: number | null) => {
+    if (!centerId) return;
+    
+    // Determinar se é projeto ou entidade (pessoa/marca)
+    const centerNode = allNodes.find(n => n.id === centerId);
+    if (!centerNode) return;
+    
+    const nodesToLayout = centerNode.type === 'project'
+      ? getNodesForSingleView(centerId)
+      : getNodesForEntity(centerId);
+      
     if (nodesToLayout.length === 0) return;
 
     const layouted = applyRadialLayout(nodesToLayout, 500, 400);
@@ -525,7 +587,7 @@ export const NetworkMatrix = () => {
 
   const autoOrganize = () => {
     if (viewMode === 'single') {
-      autoOrganizeSingle(activeProjectId);
+      autoOrganizeSingle(activeCenterId);
     } else {
       // Master View: grid de clusters por projeto com centralização automática
       const cols = Math.max(2, Math.ceil(Math.sqrt(projects.length)));
@@ -627,13 +689,26 @@ export const NetworkMatrix = () => {
             setIsOrganizing(false);
           }, 200);
           
-        } else if (viewMode === 'single' && activeProjectId) {
-          // Single View: radial layout around project
-          console.debug('[NetworkMatrix] Auto-organizing Single View for project', activeProjectId);
-          autoOrganizeSingle(activeProjectId);
+        } else if (viewMode === 'single' && activeCenterId) {
+          // Single View: radial layout around center (projeto, pessoa ou marca)
+          console.debug('[NetworkMatrix] Auto-organizing Single View for', activeCenterType, activeCenterId);
+          
+          if (activeCenterType === 'project') {
+            autoOrganizeSingle(activeCenterId);
+          } else {
+            // Para pessoa/marca: aplicar layout radial
+            const nodesToLayout = getNodesForEntity(activeCenterId);
+            if (nodesToLayout.length > 0) {
+              const layouted = applyRadialLayout(nodesToLayout, 500, 400);
+              updateAllNodePositions(layouted);
+            }
+          }
           
           setTimeout(() => {
-            const nodesToCenter = getNodesForSingleView(activeProjectId);
+            const nodesToCenter = activeCenterType === 'project'
+              ? getNodesForSingleView(activeCenterId)
+              : getNodesForEntity(activeCenterId);
+              
             if (nodesToCenter.length > 0 && svgRef.current) {
               const rect = svgRef.current.getBoundingClientRect();
               const bounds = calculateBounds(nodesToCenter);
@@ -658,7 +733,35 @@ export const NetworkMatrix = () => {
       clearTimeout(timer);
       setIsOrganizing(false);
     };
-  }, [viewMode, activeProjectId, isLoadingData, allNodes.length, projects.length]);
+  }, [viewMode, activeCenterId, isLoadingData, allNodes.length, projects.length]);
+
+  // Inicializar activeCenterId quando projetos carregarem
+  useEffect(() => {
+    if (projects.length > 0 && !activeCenterId) {
+      setActiveCenterId(projects[0].id);
+      setActiveCenterType('project');
+      setActiveProjectId(projects[0].id);
+    }
+  }, [projects.length, activeCenterId]);
+
+  const handleGoToProject = (projectId: number) => {
+    setActiveCenterId(projectId);
+    setActiveCenterType('project');
+    setActiveProjectId(projectId);
+    setViewMode('single');
+    
+    setTimeout(() => autoOrganizeSingle(projectId), 50);
+    setTimeout(() => {
+      const nodesToCenter = getNodesForSingleView(projectId);
+      if (nodesToCenter.length > 0 && svgRef.current) {
+        const rect = svgRef.current.getBoundingClientRect();
+        const bounds = calculateBounds(nodesToCenter);
+        const zoom = 0.9;
+        const pan = calculateCenterPan(bounds, zoom, rect.width, rect.height);
+        updateState({ zoom, pan });
+      }
+    }, 300);
+  };
 
   useKeyboardShortcuts({
     selectedNodes,
@@ -1123,29 +1226,69 @@ export const NetworkMatrix = () => {
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <button
+                     <button
                       onClick={() => {
-                        setViewMode('single');
+                        // Determinar o centro para Single View
+                        let centerId = activeCenterId;
+                        let centerType = activeCenterType;
                         
-                        // Centralizar quando mudar para single view
-                        setTimeout(() => {
+                        // Se um nó está selecionado, usar ele como centro
+                        if (selectedNodes.length === 1) {
+                          const selectedNode = allNodes.find(n => n.id === selectedNodes[0]);
+                          if (selectedNode) {
+                            centerId = selectedNode.id;
+                            centerType = selectedNode.type as 'project' | 'person' | 'brand';
+                          }
+                        }
+                        // Fallback: usar activeProjectId ou primeiro projeto disponível
+                        else if (!centerId) {
                           if (activeProjectId) {
-                            autoOrganizeSingle(activeProjectId);
+                            centerId = activeProjectId;
+                            centerType = 'project';
+                          } else if (projects.length > 0) {
+                            centerId = projects[0].id;
+                            centerType = 'project';
                           }
-                        }, 50);
+                        }
                         
-                        setTimeout(() => {
-                          const width = window.innerWidth;
-                          const height = window.innerHeight - 100;
-                          const currentNodes = getNodesForSingleView(activeProjectId);
-                          
-                          if (currentNodes.length > 0 && svgRef.current) {
-                            const bounds = calculateBounds(currentNodes);
-                            const zoom = calculateOptimalZoom(bounds, width, height);
-                            const pan = calculateCenterPan(bounds, zoom, width, height);
-                            updateState({ zoom, pan });
+                        // Atualizar estado e mudar para Single View
+                        if (centerId && centerType) {
+                          setActiveCenterId(centerId);
+                          setActiveCenterType(centerType);
+                          if (centerType === 'project') {
+                            setActiveProjectId(centerId);
                           }
-                        }, 300);
+                          setViewMode('single');
+                          
+                          // Organizar e centralizar
+                          setTimeout(() => {
+                            if (centerType === 'project') {
+                              autoOrganizeSingle(centerId);
+                            } else {
+                              // Para pessoa/marca: aplicar layout radial
+                              const nodesToLayout = getNodesForEntity(centerId);
+                              if (nodesToLayout.length > 0) {
+                                const layouted = applyRadialLayout(nodesToLayout, 500, 400);
+                                updateAllNodePositions(layouted);
+                              }
+                            }
+                          }, 50);
+                          
+                          setTimeout(() => {
+                            const width = window.innerWidth;
+                            const height = window.innerHeight - 100;
+                            const currentNodes = centerType === 'project' 
+                              ? getNodesForSingleView(centerId)
+                              : getNodesForEntity(centerId);
+                            
+                            if (currentNodes.length > 0 && svgRef.current) {
+                              const bounds = calculateBounds(currentNodes);
+                              const zoom = calculateOptimalZoom(bounds, width, height);
+                              const pan = calculateCenterPan(bounds, zoom, width, height);
+                              updateState({ zoom, pan });
+                            }
+                          }, 300);
+                        }
                       }}
                       className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                         viewMode === 'single' 
@@ -1436,11 +1579,7 @@ export const NetworkMatrix = () => {
             setNodeCreationType(node.type);
             setShowNodeCreationModal(true);
           }}
-          onGoToProject={(id) => {
-            setActiveProjectId(id);
-            setViewMode('single');
-            // useEffect will handle centering automatically
-          }}
+          onGoToProject={handleGoToProject}
         />
 
         {/* Botões flutuantes de ação */}
