@@ -193,6 +193,9 @@ export const Canvas: React.FC<CanvasProps> = ({
   const handleNodeClick = (e: React.MouseEvent, nodeId: number, nodeType?: 'person' | 'brand' | 'project') => {
     e.stopPropagation();
     console.log('[Canvas] Node clicked:', nodeId, 'type:', nodeType);
+
+    // Evitar click após arraste (previne navegação/acidentes)
+    if (isDraggingAny || state.dragging) return;
     
     // Master View: click em qualquer nó abre o Single View centrado nele
     if (viewMode === 'master' && onGoToProject) {
@@ -364,7 +367,26 @@ export const Canvas: React.FC<CanvasProps> = ({
       onMouseUp={handleMouseUp}
       onContextMenu={handleCanvasContextMenu}
       onWheel={handleWheel}
-      onMouseLeave={() => updateState({ isPanning: false })}
+      onMouseLeave={() => {
+        if (state.dragging) {
+          const ids = Object.keys(dragOffsetsRef.current);
+          if (ids.length > 0) {
+            ids.forEach((id) => {
+              const off = dragOffsetsRef.current[Number(id)];
+              if (off) {
+                updateNodePosition(Number(id), off.dx, off.dy);
+              }
+            });
+            saveToHistory();
+          }
+          setDragOffsets({});
+          dragOffsetsRef.current = {};
+          setIsDraggingAny(false);
+          updateState({ dragging: null, isPanning: false, isDraggingConnection: false, connectionStart: null });
+        } else {
+          updateState({ isPanning: false });
+        }
+      }}
       onMouseDown={(e) => {
         if (e.button === 0 && !e.shiftKey) {
           setSelectedNodes([]);
@@ -526,7 +548,7 @@ export const Canvas: React.FC<CanvasProps> = ({
         
         
         {/* Clusters no Master View (por projeto) */}
-        {viewMode === 'master' && projects.map(project => {
+        {viewMode === 'master' && !isDraggingAny && projects.map(project => {
           const clusterNodes = nodes.filter(n => n.projectId === project.id);
           if (clusterNodes.length === 0 && !nodes.some(n => n.id === project.id)) return null;
           
