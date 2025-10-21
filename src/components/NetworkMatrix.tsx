@@ -81,7 +81,7 @@ export const NetworkMatrix = () => {
   // Loading state (DEPOIS de todos os hooks)
   const isLoadingData = loadingProjects || loadingPeople || loadingBrands || loadingConnections || loadingWorkflows || loadingOnboarding;
 
-  // Debounced auto-save para posições dos nós
+  // PHASE 2: Longer debounce to prevent mutation spam
   const debouncedUpdatePosition = useDebouncedCallback((id: number, type: string, x: number, y: number) => {
     if (type === 'project') {
       updateProject.mutate({ id, x, y });
@@ -90,7 +90,10 @@ export const NetworkMatrix = () => {
     } else if (type === 'brand') {
       updateBrand.mutate({ id, x, y });
     }
-  }, 1000);
+  }, 1500);
+  
+  // PHASE 2: Flag to prevent cascading auto-organizes
+  const [isOrganizing, setIsOrganizing] = useState(false);
   
   // Removido: localStorage design loading (agora vem do Supabase)
   
@@ -580,77 +583,82 @@ export const NetworkMatrix = () => {
     };
   };
 
-  // Removed problematic useEffect that caused race conditions with view switching
-
-  // Auto-organizar ao carregar a página
+  // PHASE 2: Consolidated auto-organize logic (single useEffect to prevent cascades)
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (allNodes.length > 0) {
-        autoOrganize();
-      }
-    }, 100);
+    if (isLoadingData || isOrganizing || allNodes.length === 0) return;
     
-    return () => clearTimeout(timer);
-  }, []);
-
-  // Auto-centralizar quando voltar para Master View
-  useEffect(() => {
-    if (viewMode === 'master' && projects.length > 0 && allNodes.length > 0) {
-      const timer = setTimeout(() => {
-        // First organize master view
-        const cols = Math.max(2, Math.ceil(Math.sqrt(projects.length)));
-        
-        projects.forEach((project, pIndex) => {
-          const clusterNodes = allNodesWithAnchors.filter(n => 
-            n.anchorProjectId === project.id && n.id !== project.id
-          );
-          const col = pIndex % cols;
-          const row = Math.floor(pIndex / cols);
-          const clusterX = col * 1400 + 700;
-          const clusterY = row * 1200 + 600;
-          const layouted = applyRadialLayout([project, ...clusterNodes], clusterX, clusterY);
-          updateAllNodePositions(layouted);
-        });
-        
-        // Then center - single flow after organization completes
-        setTimeout(() => {
-          const projectNodes = allNodesWithAnchors.filter(n => n.type === 'project');
-          if (projectNodes.length > 0 && svgRef.current) {
-            const rect = svgRef.current.getBoundingClientRect();
-            const bounds = calculateBounds(allNodes);
-            const computed = calculateOptimalZoom(bounds, rect.width, rect.height);
-            const zoom = Math.min(computed, 0.5);
-            const centerPan = calculateCenterPan(bounds, zoom, rect.width, rect.height);
-            updateState({ zoom, pan: centerPan });
-            toast.success('Nós organizados e centralizados!');
-          }
-        }, 150);
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [viewMode]);
-
-  // Auto-centralizar quando entrar em Single View
-  useEffect(() => {
-    if (viewMode === 'single' && activeProjectId && allNodes.length > 0) {
-      const timer = setTimeout(() => {
-        // First organize single view
-        autoOrganizeSingle(activeProjectId);
-        
-        // Then center after organization completes
-        setTimeout(() => {
-          const nodesToCenter = getNodesForSingleView(activeProjectId);
-          if (nodesToCenter.length > 0 && svgRef.current) {
-            const rect = svgRef.current.getBoundingClientRect();
-            const bounds = calculateBounds(nodesToCenter);
-            const centerPan = calculateCenterPan(bounds, 0.9, rect.width, rect.height);
-            updateState({ zoom: 0.9, pan: centerPan });
-          }
-        }, 150);
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [viewMode, activeProjectId]);
+    const performanceStart = performance.now();
+    
+    const timer = setTimeout(() => {
+      setIsOrganizing(true);
+      
+      try {
+        if (viewMode === 'master' && projects.length > 0) {
+          // Master View: organize projects in grid
+          console.debug('[NetworkMatrix] Auto-organizing Master View');
+          const cols = Math.max(2, Math.ceil(Math.sqrt(projects.length)));
+          
+          projects.forEach((project, pIndex) => {
+            const clusterNodes = allNodesWithAnchors.filter(n => 
+              n.anchorProjectId === project.id && n.id !== project.id
+            );
+            const col = pIndex % cols;
+            const row = Math.floor(pIndex / cols);
+            const clusterX = col * 1400 + 700;
+            const clusterY = row * 1200 + 600;
+            const layouted = applyRadialLayout([project, ...clusterNodes], clusterX, clusterY);
+            updateAllNodePositions(layouted);
+          });
+          
+          // Center view after organization
+          setTimeout(() => {
+            if (svgRef.current) {
+              const rect = svgRef.current.getBoundingClientRect();
+              const bounds = calculateBounds(allNodes);
+              const computed = calculateOptimalZoom(bounds, rect.width, rect.height);
+              const zoom = Math.min(computed, 0.5);
+              const centerPan = calculateCenterPan(bounds, zoom, rect.width, rect.height);
+              updateState({ zoom, pan: centerPan });
+              
+              const performanceEnd = performance.now();
+              console.debug(`[Perf] Master organize took ${(performanceEnd - performanceStart).toFixed(2)}ms`);
+              toast.success('Nós organizados e centralizados!');
+            }
+            setIsOrganizing(false);
+          }, 200);
+          
+        } else if (viewMode === 'single' && activeProjectId) {
+          // Single View: radial layout around project
+          console.debug('[NetworkMatrix] Auto-organizing Single View for project', activeProjectId);
+          autoOrganizeSingle(activeProjectId);
+          
+          setTimeout(() => {
+            const nodesToCenter = getNodesForSingleView(activeProjectId);
+            if (nodesToCenter.length > 0 && svgRef.current) {
+              const rect = svgRef.current.getBoundingClientRect();
+              const bounds = calculateBounds(nodesToCenter);
+              const centerPan = calculateCenterPan(bounds, 0.9, rect.width, rect.height);
+              updateState({ zoom: 0.9, pan: centerPan });
+              
+              const performanceEnd = performance.now();
+              console.debug(`[Perf] Single organize took ${(performanceEnd - performanceStart).toFixed(2)}ms`);
+            }
+            setIsOrganizing(false);
+          }, 200);
+        } else {
+          setIsOrganizing(false);
+        }
+      } catch (error) {
+        console.error('[NetworkMatrix] Error during auto-organize:', error);
+        setIsOrganizing(false);
+      }
+    }, 200);
+    
+    return () => {
+      clearTimeout(timer);
+      setIsOrganizing(false);
+    };
+  }, [viewMode, activeProjectId, isLoadingData, allNodes.length, projects.length]);
 
   useKeyboardShortcuts({
     selectedNodes,

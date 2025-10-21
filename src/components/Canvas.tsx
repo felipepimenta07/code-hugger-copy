@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { User, Target, Building2 } from 'lucide-react';
 import { ConnectionTooltip } from './ConnectionTooltip';
 
@@ -62,8 +62,19 @@ export const Canvas: React.FC<CanvasProps> = ({
 
   // Local drag offsets for smooth dragging (UI-only, RAF-optimized)
   const [dragOffsets, setDragOffsets] = useState<Record<number, { dx: number; dy: number }>>({});
+  const [isDraggingAny, setIsDraggingAny] = useState(false);
   const dragOffsetsRef = useRef<Record<number, { dx: number; dy: number }>>({});
   const rafRef = useRef<number | null>(null);
+  const lastHoverTimeRef = useRef<number>(0);
+  const renderCountRef = useRef(0);
+
+  // Performance monitoring (dev only)
+  useEffect(() => {
+    renderCountRef.current++;
+    if (process.env.NODE_ENV === 'development') {
+      console.debug(`[Canvas] Render #${renderCountRef.current}`);
+    }
+  });
 
   // BFS to calculate depth from center node (for connection styling by distance) - MEMOIZED
   const nodeDepths = useMemo(() => {
@@ -94,6 +105,46 @@ export const Canvas: React.FC<CanvasProps> = ({
     
     return depths;
   }, [viewMode, nodes, connections]);
+
+  // PHASE 1: Pre-calculate connection data (memoized to avoid recalculating on every render)
+  const connectionData = useMemo(() => {
+    return connections.map((conn, idx) => {
+      const from = nodes.find(n => n.id === conn.from);
+      const to = nodes.find(n => n.id === conn.to);
+      if (!from || !to) return null;
+      if (from.type === 'project' && to.type === 'project') return null;
+      
+      const globalIdx = allConnections.findIndex(c => 
+        (c.from === conn.from && c.to === conn.to) || 
+        (c.from === conn.to && c.to === conn.from)
+      );
+      
+      const fromDepth = nodeDepths.get(from.id) ?? 0;
+      const toDepth = nodeDepths.get(to.id) ?? 0;
+      const connectionLevel = Math.min(fromDepth, toDepth);
+      
+      const getAssignment = (node: any) => {
+        if (node.type === 'project') return node.id;
+        return node.projectId ?? node.anchorProjectId ?? node.homeProjectId ?? null;
+      };
+      const fromProj = getAssignment(from);
+      const toProj = getAssignment(to);
+      
+      const isCrossFlow = viewMode === 'master' &&
+        fromProj && toProj && fromProj !== toProj &&
+        !(from.type === 'project' && to.type === 'project');
+      
+      return {
+        conn,
+        idx,
+        from,
+        to,
+        globalIdx,
+        connectionLevel,
+        isCrossFlow
+      };
+    }).filter(Boolean);
+  }, [connections, nodes, nodeDepths, allConnections, viewMode]);
   
   const handleNodeMouseDown = (e: React.MouseEvent, nodeId: number) => {
     e.stopPropagation();
@@ -115,6 +166,7 @@ export const Canvas: React.FC<CanvasProps> = ({
         if (!selectedNodes.includes(nodeId)) {
           setSelectedNodes([nodeId]);
         }
+        setIsDraggingAny(true);
         updateState({ dragging: nodeId, offset: { x: x - node.x, y: y - node.y }, selectedNode: nodeId });
       }
     }
@@ -145,13 +197,18 @@ export const Canvas: React.FC<CanvasProps> = ({
     });
   };
 
-  const scheduleDragRender = () => {
+  // PHASE 1: Optimized drag rendering with dirty flag check
+  const scheduleDragRender = React.useCallback(() => {
     if (rafRef.current) return; // Already scheduled
     rafRef.current = requestAnimationFrame(() => {
-      setDragOffsets({ ...dragOffsetsRef.current });
+      // Only update if there are actual changes
+      const hasChanges = Object.keys(dragOffsetsRef.current).length > 0;
+      if (hasChanges) {
+        setDragOffsets({ ...dragOffsetsRef.current });
+      }
       rafRef.current = null;
     });
-  };
+  }, []);
 
   const handleMouseMove = (e: React.MouseEvent) => {
     const rect = svgRef.current!.getBoundingClientRect();
@@ -228,6 +285,7 @@ export const Canvas: React.FC<CanvasProps> = ({
     // Clear UI drag offsets and refs
     setDragOffsets({});
     dragOffsetsRef.current = {};
+    setIsDraggingAny(false);
     
     updateState({ 
       dragging: null, 
@@ -316,15 +374,17 @@ export const Canvas: React.FC<CanvasProps> = ({
           <polygon points="0 0, 10 3, 0 6" fill="hsl(var(--connection-strong))" />
         </marker>
         
+        {/* PHASE 3: Improved background pattern with better contrast */}
         <pattern 
           id="dotGrid" 
           width="24" 
           height="24" 
           patternUnits="userSpaceOnUse"
-          patternTransform={`scale(${state.zoom})`}
+          patternTransform={`scale(${Math.max(0.5, Math.min(2, state.zoom))})`}
         >
           <rect width="24" height="24" fill="#0b0b0b" />
-          <circle cx="12" cy="12" r="1" fill="#ffffff" fillOpacity="0.08" />
+          <circle cx="12" cy="12" r="1" fill="#ffffff" fillOpacity="0.12" />
+          <circle cx="12" cy="12" r="0.5" fill="#ffffff" fillOpacity="0.3" />
         </pattern>
       </defs>
 
@@ -340,7 +400,6 @@ export const Canvas: React.FC<CanvasProps> = ({
       </defs>
 
       <g transform={`translate(${state.pan.x}, ${state.pan.y}) scale(${state.zoom})`}>
-        <rect x="-5000" y="-5000" width="15000" height="15000" fill="url(#dotGrid)" />
         
         {/* Anéis Decorativos Radiais (Single View) */}
         {viewMode === 'single' && nodes.length > 0 && (() => {
@@ -509,44 +568,18 @@ export const Canvas: React.FC<CanvasProps> = ({
           );
         })}
 
-        {/* Conexões */}
-        {connections.map((conn, idx) => {
-          const from = nodes.find(n => n.id === conn.from);
-          const to = nodes.find(n => n.id === conn.to);
-          if (!from || !to) return null;
-          // Não renderizar conexões projeto↔projeto
-          if (from.type === 'project' && to.type === 'project') return null;
+        {/* PHASE 1: Optimized connections rendering using pre-calculated data */}
+        {connectionData.map((data: any) => {
+          if (!data) return null;
+          const { conn, idx, from, to, globalIdx, connectionLevel, isCrossFlow } = data;
           
-          // Encontrar índice correto em allConnections
-          const globalIdx = allConnections.findIndex(c => 
-            (c.from === conn.from && c.to === conn.to) || 
-            (c.from === conn.to && c.to === conn.from)
-          );
           const isSelected = selectedConnection === globalIdx;
-          
-          // Calculate connection depth level based on node depths (distance from center)
-          const fromDepth = nodeDepths.get(from.id) ?? 0;
-          const toDepth = nodeDepths.get(to.id) ?? 0;
-          const connectionLevel = Math.min(fromDepth, toDepth);
-          
-          // Detectar cross-flow: nós de projetos diferentes (exceto projeto↔projeto)
-          const getAssignment = (node: any) => {
-            if (node.type === 'project') return node.id;
-            // No master view, projectId já vem calculado
-            return node.projectId ?? node.anchorProjectId ?? node.homeProjectId ?? null;
-          };
-          const fromProj = getAssignment(from);
-          const toProj = getAssignment(to);
-          
-          const isCrossFlow = viewMode === 'master' &&
-            fromProj && toProj && fromProj !== toProj &&
-            !(from.type === 'project' && to.type === 'project');
           
           const isInPath = highlightedPath.length > 0 && 
             highlightedPath.some((id, i) => 
               i < highlightedPath.length - 1 && 
               ((highlightedPath[i] === from.id && highlightedPath[i + 1] === to.id) ||
-                (highlightedPath[i] === to.id && highlightedPath[i + 1] === from.id))
+                 (highlightedPath[i] === to.id && highlightedPath[i + 1] === from.id))
             );
           
           // Styling based on priority: path > selected > cross-project > depth-based
@@ -663,10 +696,15 @@ export const Canvas: React.FC<CanvasProps> = ({
                       setSelectedNodes([]);
                     }}
                     onMouseEnter={(e) => {
-                      const rect = svgRef.current!.getBoundingClientRect();
-                      const midX = ((from.x + to.x) / 2) * state.zoom + state.pan.x + rect.left;
-                      const midY = ((from.y + to.y) / 2 - 80) * state.zoom + state.pan.y + rect.top;
-                      setHoveredConnection({ index: idx, position: { x: midX, y: midY } });
+                      // PHASE 4: Throttle hover updates
+                      const now = performance.now();
+                      if (now - lastHoverTimeRef.current > 100) {
+                        lastHoverTimeRef.current = now;
+                        const rect = svgRef.current!.getBoundingClientRect();
+                        const midX = ((from.x + to.x) / 2) * state.zoom + state.pan.x + rect.left;
+                        const midY = ((from.y + to.y) / 2 - 80) * state.zoom + state.pan.y + rect.top;
+                        setHoveredConnection({ index: idx, position: { x: midX, y: midY } });
+                      }
                     }}
                     onMouseLeave={() => setHoveredConnection(null)}
                   />
@@ -696,10 +734,15 @@ export const Canvas: React.FC<CanvasProps> = ({
                       setSelectedNodes([]);
                     }}
                     onMouseEnter={(e) => {
-                      const rect = svgRef.current!.getBoundingClientRect();
-                      const midX = ((from.x + to.x) / 2) * state.zoom + state.pan.x + rect.left;
-                      const midY = ((from.y + to.y) / 2 - 80) * state.zoom + state.pan.y + rect.top;
-                      setHoveredConnection({ index: idx, position: { x: midX, y: midY } });
+                      // PHASE 4: Throttle hover updates
+                      const now = performance.now();
+                      if (now - lastHoverTimeRef.current > 100) {
+                        lastHoverTimeRef.current = now;
+                        const rect = svgRef.current!.getBoundingClientRect();
+                        const midX = ((from.x + to.x) / 2) * state.zoom + state.pan.x + rect.left;
+                        const midY = ((from.y + to.y) / 2 - 80) * state.zoom + state.pan.y + rect.top;
+                        setHoveredConnection({ index: idx, position: { x: midX, y: midY } });
+                      }
                     }}
                     onMouseLeave={() => setHoveredConnection(null)}
                   />
@@ -732,12 +775,15 @@ export const Canvas: React.FC<CanvasProps> = ({
           />
         )}
         
-        {/* Nós */}
+        {/* Nós - PHASE 1: Simplified rendering during drag */}
         {nodes.map(node => {
           const colors = nodeColors[node.type as keyof typeof nodeColors];
           const isSelected = selectedNodes.includes(node.id);
           const isInPath = highlightedPath.includes(node.id);
           const connectionCount = connections.filter(c => c.from === node.id || c.to === node.id).length;
+          
+          // PHASE 1: Simplify non-selected nodes during drag
+          const shouldSimplify = isDraggingAny && !isSelected;
           
           // Tamanho por nível hierárquico
           let baseSize = 40;
@@ -763,7 +809,7 @@ export const Canvas: React.FC<CanvasProps> = ({
               className="cursor-pointer"
             >
               {/* Nó Central Especial */}
-              {isCenterNode && (
+              {isCenterNode && !shouldSimplify && (
                 <>
                   <circle 
                     r={nodeSize + 40} 
@@ -788,7 +834,7 @@ export const Canvas: React.FC<CanvasProps> = ({
               )}
               
               {/* Nós Outer (Cyan especial) */}
-              {!isCenterNode && (node as any).level === 'outer' && (
+              {!isCenterNode && (node as any).level === 'outer' && !shouldSimplify && (
                 <>
                   <circle
                     r={nodeSize + 15}
@@ -823,18 +869,23 @@ export const Canvas: React.FC<CanvasProps> = ({
               {/* Nós Normais (Inner/Middle) */}
               {!isCenterNode && (node as any).level !== 'outer' && (
                 <>
-                  <circle
-                    r={nodeSize + (isInPath ? 35 : (isHovered ? 30 : 20))}
-                    fill={isInPath ? 'hsl(var(--connection-path))' : colors.glow}
-                    opacity={isInPath ? 0.6 : (isHovered ? 0.5 : 0.3)}
-                    filter="url(#glow)"
-                  />
-                  
-                  <circle
-                    r={nodeSize + 8}
-                    fill={colors.secondary}
-                    opacity={isHovered ? 0.4 : 0.25}
-                  />
+                  {/* PHASE 1: Skip glows during drag for performance */}
+                  {!shouldSimplify && (
+                    <>
+                      <circle
+                        r={nodeSize + (isInPath ? 35 : (isHovered ? 30 : 20))}
+                        fill={isInPath ? 'hsl(var(--connection-path))' : colors.glow}
+                        opacity={isInPath ? 0.6 : (isHovered ? 0.5 : 0.3)}
+                        filter="url(#glow)"
+                      />
+                      
+                      <circle
+                        r={nodeSize + 8}
+                        fill={colors.secondary}
+                        opacity={isHovered ? 0.4 : 0.25}
+                      />
+                    </>
+                  )}
                   
                   {node.imageUrl ? (
                     <>
@@ -893,8 +944,8 @@ export const Canvas: React.FC<CanvasProps> = ({
                 </foreignObject>
               )}
               
-              {/* Badge de conexões ou Score (nó central) */}
-              {isCenterNode ? (
+              {/* Badge de conexões ou Score (nó central) - PHASE 1: Skip during simplified drag */}
+              {isCenterNode && !shouldSimplify ? (
                 <>
                   {/* Network Score no centro */}
                   <text
@@ -916,7 +967,7 @@ export const Canvas: React.FC<CanvasProps> = ({
                     NETWORK SCORE
                   </text>
                 </>
-              ) : connectionCount > 0 && (
+              ) : connectionCount > 0 && !shouldSimplify && (
                 <>
                   <circle
                     cx={nodeSize - 8}
@@ -1048,6 +1099,9 @@ export const Canvas: React.FC<CanvasProps> = ({
             </g>
           );
         })}
+        
+        {/* PHASE 3: Background pattern rendered LAST for visibility */}
+        <rect x="-5000" y="-5000" width="15000" height="15000" fill="url(#dotGrid)" />
       </g>
     </svg>
     
