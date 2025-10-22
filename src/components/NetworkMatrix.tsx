@@ -1057,12 +1057,16 @@ export const NetworkMatrix = () => {
     return false;
   };
 
-  const handleNodeCreation = async (nodeData: any) => {
+  const handleNodeCreation = async (nodeData: any, explicitType?: 'person' | 'project' | 'brand') => {
     if (!user) return;
     saveToHistory();
     
+    // Use explicitType se fornecido, caso contrário use nodeCreationType
+    const actualType = explicitType || nodeCreationType;
+    console.log('🔍 DEBUG - Criando nó:', { explicitType, nodeCreationType, actualType, nodeData });
+    
     const newNode: any = {
-      type: nodeCreationType,
+      type: actualType,
       x: nodeCreationPosition.x,
       y: nodeCreationPosition.y,
       isNewHighlight: true,
@@ -1078,7 +1082,7 @@ export const NetworkMatrix = () => {
 
     try {
       // Set default fields for projects
-      if (nodeCreationType === 'project') {
+      if (actualType === 'project') {
         newNode.status = nodeData.projectStatus || nodeData.status || 'ativo';
         newNode.deadline = nodeData.startDate || nodeData.deadline || null;
         newNode.category = nodeData.category || 'M';
@@ -1108,11 +1112,13 @@ export const NetworkMatrix = () => {
         setProjects(prev => [...prev, createdProject]);
         setShowNodeCreationModal(false);
         
+        console.log('✅ Projeto criado com sucesso:', createdProject);
+        
         // Switch to Single View and center on the new flow
         setActiveProjectId(createdProject.id);
         setViewMode('single');
         toast.success(`Flow "${createdProject.name}" criado!`);
-      } else if (nodeCreationType === 'person') {
+      } else if (actualType === 'person') {
         const { data, error } = await (supabase as any)
           .from('people')
           .insert([{
@@ -1138,6 +1144,9 @@ export const NetworkMatrix = () => {
         };
         setPeople(prev => [...prev, createdPerson]);
         setShowNodeCreationModal(false);
+        
+        console.log('✅ Pessoa criada com sucesso:', createdPerson);
+        
         toast.success(`${createdPerson.name} criado!`);
         
         // Center view on the new node
@@ -1150,7 +1159,7 @@ export const NetworkMatrix = () => {
             }
           });
         }, 50);
-      } else if (nodeCreationType === 'brand') {
+      } else if (actualType === 'brand') {
         const { data, error } = await (supabase as any)
           .from('brands')
           .insert([{
@@ -1174,6 +1183,9 @@ export const NetworkMatrix = () => {
         };
         setBrands(prev => [...prev, createdBrand]);
         setShowNodeCreationModal(false);
+        
+        console.log('✅ Marca criada com sucesso:', createdBrand);
+        
         toast.success(`${createdBrand.name} criado!`);
         
         // Center view on the new node
@@ -1416,7 +1428,10 @@ export const NetworkMatrix = () => {
             setShowNodeCreationModal(false);
             setEditingNodeInModal(null);
           }}
-          onCreate={editingNodeInModal ? handleNodeUpdate : handleNodeCreation}
+          onCreate={editingNodeInModal 
+            ? handleNodeUpdate 
+            : (nodeData) => handleNodeCreation(nodeData, editingNodeInModal?.type || nodeCreationType)
+          }
           editingNode={editingNodeInModal}
           workflows={workflows}
           onAddWorkflow={handleAddWorkflow}
