@@ -362,7 +362,7 @@ export const Canvas: React.FC<CanvasProps> = ({
         })()}
         
         
-        {/* Clusters no Master View (por projeto) */}
+        {/* Clusters no Master View (por flow) */}
         {viewMode === 'master' && projects.map(project => {
           const clusterNodes = nodes.filter(n => n.projectId === project.id);
           if (clusterNodes.length === 0 && !nodes.some(n => n.id === project.id)) return null;
@@ -411,7 +411,7 @@ export const Canvas: React.FC<CanvasProps> = ({
                 opacity="0.35"
               />
               
-              {/* Label do projeto */}
+              {/* Label do flow */}
               <text
                 x={avgX}
                 y={avgY - radius - 30}
@@ -432,7 +432,7 @@ export const Canvas: React.FC<CanvasProps> = ({
           const from = nodes.find(n => n.id === conn.from);
           const to = nodes.find(n => n.id === conn.to);
           if (!from || !to) return null;
-          // Não renderizar conexões projeto↔projeto
+          // Não renderizar conexões flow↔flow
           if (from.type === 'project' && to.type === 'project') return null;
           
           // Encontrar índice correto em allConnections
@@ -447,7 +447,7 @@ export const Canvas: React.FC<CanvasProps> = ({
           const toDepth = nodeDepths.get(to.id) ?? 0;
           const connectionLevel = Math.min(fromDepth, toDepth);
           
-          // Detectar cross-flow: nós de projetos diferentes (exceto projeto↔projeto)
+          // Detectar cross-flow: nós de flows diferentes (exceto flow↔flow)
           const getAssignment = (node: any) => {
             if (node.type === 'project') return node.id;
             // No master view, projectId já vem calculado
@@ -536,9 +536,9 @@ export const Canvas: React.FC<CanvasProps> = ({
           // Gerar tooltip inteligente para conexões cross-flow
           let tooltipText = '';
           if (isCrossFlow) {
-            // Pessoa ↔ Pessoa (projetos diferentes)
+            // Pessoa ↔ Pessoa (flows diferentes)
             if (from.type === 'person' && to.type === 'person') {
-              tooltipText = `${from.name} conectado(a) a ${to.name} (projetos diferentes)`;
+              tooltipText = `${from.name} conectado(a) a ${to.name} (flows diferentes)`;
             }
             // Pessoa ↔ Marca
             else if ((from.type === 'person' && to.type === 'brand') || (from.type === 'brand' && to.type === 'person')) {
@@ -546,21 +546,21 @@ export const Canvas: React.FC<CanvasProps> = ({
               const brand = from.type === 'brand' ? from : to;
               tooltipText = `${person.name} trabalha na ${brand.name}`;
             }
-            // Marca ↔ Marca (projetos diferentes)
+            // Marca ↔ Marca (flows diferentes)
             else if (from.type === 'brand' && to.type === 'brand') {
-              tooltipText = `${from.name} parceira de ${to.name} (projetos diferentes)`;
+              tooltipText = `${from.name} parceira de ${to.name} (flows diferentes)`;
             }
-            // Pessoa ↔ Projeto (projetos diferentes)
+            // Pessoa ↔ Flow (flows diferentes)
             else if ((from.type === 'person' && to.type === 'project') || (from.type === 'project' && to.type === 'person')) {
               const person = from.type === 'person' ? from : to;
               const project = from.type === 'project' ? from : to;
-              tooltipText = `${person.name} participa do projeto ${project.name}`;
+              tooltipText = `${person.name} participa do flow ${project.name}`;
             }
-            // Marca ↔ Projeto (projetos diferentes)
+            // Marca ↔ Flow (flows diferentes)
             else if ((from.type === 'brand' && to.type === 'project') || (from.type === 'project' && to.type === 'brand')) {
               const brand = from.type === 'brand' ? from : to;
               const project = from.type === 'project' ? from : to;
-              tooltipText = `${brand.name} participa do projeto ${project.name}`;
+              tooltipText = `${brand.name} participa do flow ${project.name}`;
             }
           }
           

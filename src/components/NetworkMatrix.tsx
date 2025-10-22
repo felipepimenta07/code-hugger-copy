@@ -34,7 +34,7 @@ const CATEGORIES = {
 export const NetworkMatrix = () => {
   const { user, signOut } = useAuth();
   
-  // Nova arquitetura: separar projetos, pessoas e marcas
+  // Nova arquitetura: separar flows, pessoas e marcas
   const [projects, setProjects] = useState<any[]>(SAMPLE_PROJECTS);
   const [people, setPeople] = useState<any[]>(SAMPLE_PEOPLE);
   const [brands, setBrands] = useState<any[]>(SAMPLE_BRANDS);
@@ -242,13 +242,13 @@ export const NetworkMatrix = () => {
     const byId = new Map(allNodes.map(n => [n.id, n]));
     
     for (const n of allNodes) {
-      // Projetos se ancoram neles mesmos
+      // Flows se ancoram neles mesmos
       if (n.type === 'project') { 
         map.set(n.id, n.id); 
         continue; 
       }
       
-      // 1º grau: buscar projeto conectado diretamente
+      // 1º grau: buscar flow conectado diretamente
       const directProjects = allConnections
         .filter(c => c.from === n.id || c.to === n.id)
         .map(c => {
@@ -263,7 +263,7 @@ export const NetworkMatrix = () => {
         continue;
       }
       
-      // 2º grau: buscar via vizinhos (pessoas/marcas conectadas a projetos)
+      // 2º grau: buscar via vizinhos (pessoas/marcas conectadas a flows)
       const neighbors = allConnections
         .filter(c => c.from === n.id || c.to === n.id)
         .map(c => c.from === n.id ? c.to : c.from);
@@ -363,7 +363,7 @@ export const NetworkMatrix = () => {
     return [projectNode, ...Array.from(included).filter(id => id !== projectId).map(id => byId.get(id)!).filter(Boolean)];
   };
 
-  // Filtrar nós e conexões por projeto/modo
+  // Filtrar nós e conexões por flow/modo
   const nodes = viewMode === 'master'
     ? allNodesWithAnchors
         .filter(n => n.type === 'project' || n.anchorProjectId !== null) // Ocultar nós órfãos
@@ -557,7 +557,7 @@ export const NetworkMatrix = () => {
     if (viewMode === 'single') {
       autoOrganizeSingle(activeProjectId);
     } else {
-      // Master View: grid de clusters por projeto com centralização automática
+      // Master View: grid de clusters por flow com centralização automática
       const cols = Math.max(2, Math.ceil(Math.sqrt(projects.length)));
       
       projects.forEach((project, pIndex) => {
@@ -860,10 +860,10 @@ export const NetworkMatrix = () => {
       setProjects(prev => [...prev, newNode]);
       setShowNodeCreationModal(false);
       
-      // Switch to Single View and center on the new project
+      // Switch to Single View and center on the new flow
       setActiveProjectId(newNode.id);
       setViewMode('single');
-      toast.success(`Projeto "${newNode.name}" criado!`);
+      toast.success(`Flow "${newNode.name}" criado!`);
       // useEffect will handle organization and centering automatically
     } else if (nodeCreationType === 'person') {
       // Add to people array
@@ -933,7 +933,7 @@ export const NetworkMatrix = () => {
   const handleCreateNewProject = () => {
     const newProject = {
       id: Date.now(),
-      name: `Projeto ${projects.length + 1}`,
+      name: `Flow ${projects.length + 1}`,
       type: 'project' as const,
       workflows: workflows.length > 0 ? [workflows[0].id] : [],
       category: 'P' as const,
@@ -966,11 +966,11 @@ export const NetworkMatrix = () => {
 
   const handleDeleteProject = (projectId: number, projectName: string) => {
     if (projects.length <= 1) {
-      alert('Você precisa ter pelo menos um projeto!');
+      alert('Você precisa ter pelo menos um flow!');
       return;
     }
     
-    if (confirm(`Deletar projeto "${projectName}"?`)) {
+    if (window.confirm(`Deletar flow "${projectName}"?`)) {
       setProjects(prev => prev.filter(p => p.id !== projectId));
       if (activeProjectId === projectId) {
         const remainingProjects = projects.filter(p => p.id !== projectId);
@@ -1091,7 +1091,7 @@ export const NetworkMatrix = () => {
                     </button>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>Ver todos os projetos</p>
+                    <p>Ver todos os flows</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -1133,7 +1133,7 @@ export const NetworkMatrix = () => {
                     </button>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>Ver projeto específico</p>
+                    <p>Ver flow específico</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -1326,7 +1326,7 @@ export const NetworkMatrix = () => {
                   </button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Gerenciar Projetos</p>
+                  <p>Gerenciar Flows</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -1577,7 +1577,7 @@ export const NetworkMatrix = () => {
               setActiveProjectId(newProject.id);
               setViewMode('single');
               setTimeout(() => autoOrganizeSingle(newProject.id), 100);
-              toast.success('Projeto criado com sucesso!');
+              toast.success('Flow criado com sucesso!');
             }}
             onProjectUpdate={(id, updates) => {
               setProjects(prev => prev.map(p => p.id === id ? { ...p, ...updates as any } : p));

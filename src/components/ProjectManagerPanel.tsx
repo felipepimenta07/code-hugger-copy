@@ -85,7 +85,7 @@ export const ProjectManagerPanel: React.FC<ProjectManagerPanelProps> = ({
 
   const handleSave = () => {
     if (!formData.name.trim()) {
-      toast.error('Nome do projeto é obrigatório');
+      toast.error('Nome do flow é obrigatório');
       return;
     }
 
@@ -96,10 +96,10 @@ export const ProjectManagerPanel: React.FC<ProjectManagerPanelProps> = ({
         x: 700,
         y: 500
       });
-      toast.success('Projeto criado!');
+      toast.success('Flow criado!');
     } else if (editingProject) {
       onProjectUpdate(editingProject.id, formData);
-      toast.success('Projeto atualizado!');
+      toast.success('Flow atualizado!');
     }
 
     setEditingProject(null);
@@ -107,9 +107,9 @@ export const ProjectManagerPanel: React.FC<ProjectManagerPanelProps> = ({
   };
 
   const handleDelete = (id: number, name: string) => {
-    if (confirm(`Tem certeza que deseja deletar o projeto "${name}"?`)) {
+    if (window.confirm(`Tem certeza que deseja deletar o flow "${name}"?`)) {
       onProjectDelete(id);
-      toast.success('Projeto deletado');
+      toast.success('Flow deletado');
     }
   };
 
@@ -180,7 +180,7 @@ export const ProjectManagerPanel: React.FC<ProjectManagerPanelProps> = ({
         <div className="p-4 border-b border-border flex items-center justify-between bg-gradient-to-r from-blue-500/10 to-purple-500/10">
           <div className="flex items-center gap-2">
             <Target className="h-5 w-5 text-blue-500" />
-            <h2 className="text-lg font-bold">Projetos</h2>
+            <h2 className="text-lg font-bold">Flows</h2>
             <Badge variant="secondary">{projects.length}</Badge>
           </div>
           <Button variant="ghost" size="icon" onClick={onClose}>
@@ -193,7 +193,7 @@ export const ProjectManagerPanel: React.FC<ProjectManagerPanelProps> = ({
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Buscar projetos..."
+              placeholder="Buscar flows..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9"
@@ -254,7 +254,7 @@ export const ProjectManagerPanel: React.FC<ProjectManagerPanelProps> = ({
 
           <Button onClick={openCreateDialog} className="w-full" size="sm">
             <Plus className="mr-2 h-4 w-4" />
-            Novo Projeto
+            Novo Flow
           </Button>
         </div>
 
@@ -264,7 +264,7 @@ export const ProjectManagerPanel: React.FC<ProjectManagerPanelProps> = ({
             {filteredProjects.length === 0 ? (
               <div className="text-center text-muted-foreground py-8">
                 <Target className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                <p className="text-sm">Nenhum projeto encontrado</p>
+                <p className="text-sm">Nenhum flow encontrado</p>
               </div>
             ) : (
               filteredProjects.map(project => {
@@ -318,7 +318,7 @@ export const ProjectManagerPanel: React.FC<ProjectManagerPanelProps> = ({
                         className="flex-1"
                       >
                         <MapPin className="mr-1 h-3 w-3" />
-                        Ver Projeto
+                        Ver Flow
                       </Button>
                       <Button 
                         variant="ghost" 
@@ -348,17 +348,17 @@ export const ProjectManagerPanel: React.FC<ProjectManagerPanelProps> = ({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {isCreating ? 'Criar Projeto' : `Editar: ${editingProject?.name}`}
+              {isCreating ? 'Criar Flow' : `Editar: ${editingProject?.name}`}
             </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4">
             <div>
-              <Label>Nome do Projeto</Label>
+              <Label>Nome do Flow</Label>
               <Input 
                 value={formData.name}
                 onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="Nome do projeto"
+                placeholder="Nome do flow"
               />
             </div>
 

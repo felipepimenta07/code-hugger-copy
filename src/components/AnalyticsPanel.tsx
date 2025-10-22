@@ -45,7 +45,7 @@ export const AnalyticsPanel: React.FC<AnalyticsPanelProps> = ({ nodes, connectio
               <div className="space-y-3">
                 {topConnectors.map((item, idx) => {
                   const typeLabel = item.node.type === 'person' ? 'Profissional' : 
-                                   item.node.type === 'project' ? 'Projeto' : 'Marca';
+                                   item.node.type === 'project' ? 'Flow' : 'Marca';
                   return (
                     <div key={item.node.id} className="flex items-center gap-4">
                       <div className="flex-shrink-0">
@@ -75,7 +75,7 @@ export const AnalyticsPanel: React.FC<AnalyticsPanelProps> = ({ nodes, connectio
                 <div className="flex items-start gap-3 p-4 bg-card/50 rounded-xl border border-border/50">
                   <span className="text-2xl flex-shrink-0">🎯</span>
                   <div>
-                    <div className="font-semibold text-foreground mb-1">1 projeto ativo</div>
+                    <div className="font-semibold text-foreground mb-1">1 flow ativo</div>
                     <div className="text-sm text-muted-foreground">
                       Densidade da rede: {density}%
                     </div>
