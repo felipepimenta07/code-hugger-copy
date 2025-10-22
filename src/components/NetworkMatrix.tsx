@@ -1167,20 +1167,27 @@ export const NetworkMatrix = () => {
           x: Number(data.x), 
           y: Number(data.y) 
         };
-        setPeople(prev => [...prev, createdPerson]);
+        
+        // Preserve homeProjectId for Single View visibility if created inside a flow
+        const createdPersonWithHome: any = { ...createdPerson };
+        if (viewMode === 'single' && activeProjectId) {
+          createdPersonWithHome.homeProjectId = activeProjectId;
+        }
+        
+        setPeople(prev => [...prev, createdPersonWithHome]);
         setShowNodeCreationModal(false);
         
-        console.log('✅ Pessoa criada com sucesso:', createdPerson);
+        console.log('✅ Pessoa criada com sucesso:', createdPersonWithHome);
         
-        toast.success(`${createdPerson.name} criado!`);
+        toast.success(`${createdPersonWithHome.name} criado!`);
         
         // Center view on the new node
         setTimeout(() => {
           const zoom = state.zoom;
           updateState({
             pan: {
-              x: window.innerWidth / 2 - createdPerson.x * zoom,
-              y: window.innerHeight / 2 - createdPerson.y * zoom
+              x: window.innerWidth / 2 - createdPersonWithHome.x * zoom,
+              y: window.innerHeight / 2 - createdPersonWithHome.y * zoom
             }
           });
         }, 50);
@@ -1206,20 +1213,27 @@ export const NetworkMatrix = () => {
           x: Number(data.x), 
           y: Number(data.y) 
         };
-        setBrands(prev => [...prev, createdBrand]);
+        
+        // Preserve homeProjectId for Single View visibility if created inside a flow
+        const createdBrandWithHome: any = { ...createdBrand };
+        if (viewMode === 'single' && activeProjectId) {
+          createdBrandWithHome.homeProjectId = activeProjectId;
+        }
+        
+        setBrands(prev => [...prev, createdBrandWithHome]);
         setShowNodeCreationModal(false);
         
-        console.log('✅ Marca criada com sucesso:', createdBrand);
+        console.log('✅ Marca criada com sucesso:', createdBrandWithHome);
         
-        toast.success(`${createdBrand.name} criado!`);
+        toast.success(`${createdBrandWithHome.name} criado!`);
         
         // Center view on the new node
         setTimeout(() => {
           const zoom = state.zoom;
           updateState({
             pan: {
-              x: window.innerWidth / 2 - createdBrand.x * zoom,
-              y: window.innerHeight / 2 - createdBrand.y * zoom
+              x: window.innerWidth / 2 - createdBrandWithHome.x * zoom,
+              y: window.innerHeight / 2 - createdBrandWithHome.y * zoom
             }
           });
         }, 50);
