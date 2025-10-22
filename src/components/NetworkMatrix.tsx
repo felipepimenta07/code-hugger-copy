@@ -530,6 +530,14 @@ export const NetworkMatrix = () => {
           return { ...n, projectId: project?.id, projectColor: project ? '#8b5cf6' : '#6366f1' };
         })
     : (activeProjectId ? getNodesForSingleView(activeProjectId) : []);
+  
+  // Debug: Log dos nodes no Single View
+  React.useEffect(() => {
+    if (viewMode === 'single') {
+      console.log('🔍 Single View - activeProjectId:', activeProjectId);
+      console.log('🔍 Nodes filtrados:', nodes.map(n => ({ id: n.id, name: n.name, type: n.type })));
+    }
+  }, [viewMode, activeProjectId, nodes]);
 
   // Para o PathIndicator
   const selectedNode = selectedNodes.length === 1 
@@ -1352,15 +1360,15 @@ export const NetworkMatrix = () => {
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
     
-    // Mouse position in canvas coordinates (before zoom)
+    // Mouse position in world/canvas coordinates (before zoom)
     const worldX = (mouseX - state.pan.x) / state.zoom;
     const worldY = (mouseY - state.pan.y) / state.zoom;
     
-    // Zoom delta (negative = zoom in, positive = zoom out)
-    const delta = e.deltaY > 0 ? -0.1 : 0.1;
-    const newZoom = Math.min(Math.max(state.zoom + delta, 0.1), 3);
+    // Zoom delta (negative deltaY = zoom in, positive = zoom out)
+    const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+    const newZoom = Math.min(Math.max(state.zoom * zoomFactor, 0.1), 3);
     
-    // Adjust pan to keep mouse at same canvas point
+    // Adjust pan to keep mouse position fixed in world coordinates
     const newPan = {
       x: mouseX - worldX * newZoom,
       y: mouseY - worldY * newZoom
@@ -1967,14 +1975,19 @@ export const NetworkMatrix = () => {
             connections={allConnections}
             onClose={() => setShowProjectManager(false)}
             onFocusProject={(projectId) => {
+              console.log('🎯 onFocusProject chamado:', projectId);
+              console.log('📊 Estado atual - activeProjectId:', activeProjectId);
+              console.log('📊 Projetos disponíveis:', projects.map(p => ({ id: p.id, name: p.name })));
+              
+              setShowProjectManager(false);
               setActiveProjectId(projectId);
               setViewMode('single');
-              setShowProjectManager(false);
               
-              // First timeout: let React recalculate nodes
+              // Aguardar React atualizar o estado antes de reorganizar
               setTimeout(() => {
+                console.log('📊 Após timeout - activeProjectId:', projectId);
                 autoOrganizeSingle(projectId);
-              }, 50);
+              }, 100);
               
               // Second timeout: center view after layout is done
               setTimeout(() => {
