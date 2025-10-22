@@ -114,11 +114,6 @@ export const NetworkMatrix = () => {
           y: Number(p.y) || 0
         }));
         setProjects(loadedProjects);
-        
-        // Set first project as active
-        if (loadedProjects.length > 0 && !activeProjectId) {
-          setActiveProjectId(loadedProjects[0].id);
-        }
 
         // Carregar people
         const { data: peopleData, error: peopleError } = await (supabase as any)
@@ -1503,7 +1498,10 @@ export const NetworkMatrix = () => {
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <button
-                      onClick={() => setViewMode('master')}
+                      onClick={() => {
+                        setActiveProjectId(null);
+                        setViewMode('master');
+                      }}
                       className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                         viewMode === 'master' 
                           ? 'bg-purple-600 border border-purple-500 text-white shadow-lg' 
