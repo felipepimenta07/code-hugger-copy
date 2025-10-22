@@ -1075,7 +1075,7 @@ export const NetworkMatrix = () => {
 
     // Set homeProjectId for nodes created in single view
     if (viewMode === 'single' && activeProjectId) {
-      if (nodeCreationType === 'person' || nodeCreationType === 'brand' || nodeCreationType === 'project') {
+      if (actualType === 'person' || actualType === 'brand' || actualType === 'project') {
         newNode.homeProjectId = activeProjectId;
       }
     }
@@ -1114,10 +1114,27 @@ export const NetworkMatrix = () => {
         
         console.log('✅ Projeto criado com sucesso:', createdProject);
         
-        // Switch to Single View and center on the new flow
-        setActiveProjectId(createdProject.id);
-        setViewMode('single');
-        toast.success(`Flow "${createdProject.name}" criado!`);
+        // Se criado na master view, muda para single view do novo projeto
+        // Se criado dentro de outro projeto (flow filho), mantém na view atual
+        if (viewMode === 'master') {
+          setActiveProjectId(createdProject.id);
+          setViewMode('single');
+          toast.success(`Flow "${createdProject.name}" criado!`);
+        } else {
+          // Criado como flow filho - apenas mostra mensagem
+          toast.success(`Flow filho "${createdProject.name}" criado!`);
+          
+          // Centraliza a view no novo nó
+          setTimeout(() => {
+            const zoom = state.zoom;
+            updateState({
+              pan: {
+                x: window.innerWidth / 2 - createdProject.x * zoom,
+                y: window.innerHeight / 2 - createdProject.y * zoom
+              }
+            });
+          }, 50);
+        }
       } else if (actualType === 'person') {
         const { data, error } = await (supabase as any)
           .from('people')
