@@ -63,6 +63,7 @@ export const Canvas: React.FC<CanvasProps> = ({
   // Local drag offsets for smooth dragging (UI-only, RAF-optimized)
   const [dragOffsets, setDragOffsets] = useState<Record<number, { dx: number; dy: number }>>({});
   const [isDraggingAny, setIsDraggingAny] = useState(false);
+  const [justFinishedDrag, setJustFinishedDrag] = useState(false);
   const dragOffsetsRef = useRef<Record<number, { dx: number; dy: number }>>({});
   const rafRef = useRef<number | null>(null);
   const lastHoverTimeRef = useRef<number>(0);
@@ -323,6 +324,7 @@ export const Canvas: React.FC<CanvasProps> = ({
   };
 
   const handleCanvasContextMenu = (e: React.MouseEvent) => {
+    if (justFinishedDrag) return; // Bloqueia menu após drag
     e.preventDefault();
     const rect = svgRef.current!.getBoundingClientRect();
     const x = (e.clientX - rect.left - state.pan.x) / state.zoom;
@@ -362,6 +364,11 @@ export const Canvas: React.FC<CanvasProps> = ({
     >
     <svg
       ref={svgRef}
+      style={{
+        willChange: isDraggingAny ? 'transform' : 'auto',
+        transform: 'translateZ(0)',
+        backfaceVisibility: 'hidden'
+      }}
       className="w-full h-full cursor-move"
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
@@ -383,6 +390,10 @@ export const Canvas: React.FC<CanvasProps> = ({
           dragOffsetsRef.current = {};
           setIsDraggingAny(false);
           updateState({ dragging: null, isPanning: false, isDraggingConnection: false, connectionStart: null });
+          
+          // Prevenir abertura acidental do context menu
+          setJustFinishedDrag(true);
+          setTimeout(() => setJustFinishedDrag(false), 150);
         } else {
           updateState({ isPanning: false });
         }
@@ -842,8 +853,8 @@ export const Canvas: React.FC<CanvasProps> = ({
           const isInPath = highlightedPath.includes(node.id);
           const connectionCount = connectionCounts.get(node.id) || 0;
           
-          // PHASE 1: Aggressive simplification during drag - remove ALL glows/filters
-          const shouldSimplify = isDraggingAny;
+          // PHASE 1: Simplificação inteligente durante drag - remove apenas filtros pesados
+          const shouldReduceEffects = isDraggingAny;
           
           // Tamanho por nível hierárquico
           let baseSize = 40;
@@ -872,70 +883,48 @@ export const Canvas: React.FC<CanvasProps> = ({
               {/* Nó Central Especial */}
               {isCenterNode && (
                 <>
-                  {shouldSimplify ? (
-                    // Simplified rendering during drag - single circle only
-                    <circle 
-                      r={nodeSize} 
-                      fill="#ec4899" 
-                      strokeWidth="2"
-                      stroke="white"
-                    />
-                  ) : (
-                    <>
-                      <circle 
-                        r={nodeSize + 40} 
-                        fill="url(#gradientPinkPurple)" 
-                        opacity="0.4" 
-                        filter="url(#glow)"
-                        className="animate-pulse"
-                        style={{ animationDuration: '3s' }}
-                      />
-                      <circle 
-                        r={nodeSize + 15} 
-                        fill="#8b5cf6" 
-                        opacity="0.8" 
-                      />
-                      <circle 
-                        r={nodeSize} 
-                        fill="#ec4899" 
-                        strokeWidth="3"
-                        stroke="white"
-                      />
-                    </>
-                  )}
+                  <circle 
+                    r={nodeSize + 40} 
+                    fill="url(#gradientPinkPurple)" 
+                    opacity={shouldReduceEffects ? "0.3" : "0.4"}
+                    filter={shouldReduceEffects ? undefined : "url(#glow)"}
+                    className="animate-pulse"
+                    style={{ animationDuration: shouldReduceEffects ? '4s' : '3s' }}
+                  />
+                  <circle 
+                    r={nodeSize + 15} 
+                    fill="#8b5cf6" 
+                    opacity="0.8" 
+                  />
+                  <circle 
+                    r={nodeSize} 
+                    fill="#ec4899" 
+                    strokeWidth="3"
+                    stroke="white"
+                  />
                 </>
               )}
               
               {/* Nós Outer (Cyan especial) */}
               {!isCenterNode && (node as any).level === 'outer' && (
                 <>
-                  {shouldSimplify ? (
-                    // Simplified rendering during drag - single circle only
-                    <circle
-                      r={nodeSize}
-                      fill="#1a1a1a"
-                      stroke="#06b6d4"
-                      strokeWidth="2"
-                    />
-                  ) : (
-                    <>
-                      <circle
-                        r={nodeSize + 15}
-                        fill="rgba(6, 182, 212, 0.3)"
-                        filter="url(#glow)"
-                      />
-                      <circle
-                        r={nodeSize}
-                        fill="rgba(6, 182, 212, 0.2)"
-                      />
-                      <circle
-                        r={nodeSize - 2}
-                        fill="#1a1a1a"
-                        stroke="#06b6d4"
-                        strokeWidth="3"
-                      />
-                    </>
-                  )}
+                  <circle
+                    r={nodeSize + 15}
+                    fill="rgba(6, 182, 212, 0.3)"
+                    filter={shouldReduceEffects ? undefined : "url(#glow)"}
+                    className="animate-pulse"
+                    style={{ animationDuration: shouldReduceEffects ? '4s' : '3s' }}
+                  />
+                  <circle
+                    r={nodeSize}
+                    fill="rgba(6, 182, 212, 0.2)"
+                  />
+                  <circle
+                    r={nodeSize - 2}
+                    fill="#1a1a1a"
+                    stroke="#06b6d4"
+                    strokeWidth="3"
+                  />
                 </>
               )}
               
@@ -954,23 +943,18 @@ export const Canvas: React.FC<CanvasProps> = ({
               {/* Nós Normais (Inner/Middle) */}
               {!isCenterNode && (node as any).level !== 'outer' && (
                 <>
-                  {/* PHASE 1: Skip glows during drag for performance */}
-                  {!shouldSimplify && (
-                    <>
-                      <circle
-                        r={nodeSize + (isInPath ? 35 : (isHovered ? 30 : 20))}
-                        fill={isInPath ? 'hsl(var(--connection-path))' : colors.glow}
-                        opacity={isInPath ? 0.6 : (isHovered ? 0.5 : 0.3)}
-                        filter="url(#glow)"
-                      />
-                      
-                      <circle
-                        r={nodeSize + 8}
-                        fill={colors.secondary}
-                        opacity={isHovered ? 0.4 : 0.25}
-                      />
-                    </>
-                  )}
+                  <circle
+                    r={nodeSize + (isInPath ? 35 : (isHovered ? 30 : 20))}
+                    fill={isInPath ? 'hsl(var(--connection-path))' : colors.glow}
+                    opacity={isInPath ? 0.6 : (isHovered ? 0.5 : 0.3)}
+                    filter={shouldReduceEffects ? undefined : "url(#glow)"}
+                  />
+                  
+                  <circle
+                    r={nodeSize + 8}
+                    fill={colors.secondary}
+                    opacity={isHovered ? 0.4 : 0.25}
+                  />
                   
                   {node.imageUrl ? (
                     <>
@@ -1029,8 +1013,8 @@ export const Canvas: React.FC<CanvasProps> = ({
                 </foreignObject>
               )}
               
-              {/* Badge de conexões ou Score (nó central) - PHASE 1: Skip during simplified drag */}
-              {isCenterNode && !shouldSimplify ? (
+              {/* Badge de conexões ou Score (nó central) */}
+              {isCenterNode ? (
                 <>
                   {/* Network Score no centro */}
                   <text
@@ -1052,7 +1036,7 @@ export const Canvas: React.FC<CanvasProps> = ({
                     NETWORK SCORE
                   </text>
                 </>
-              ) : connectionCount > 0 && !shouldSimplify && (
+              ) : connectionCount > 0 && (
                 <>
                   <circle
                     cx={nodeSize - 8}
