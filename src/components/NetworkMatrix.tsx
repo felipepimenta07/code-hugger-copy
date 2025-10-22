@@ -1,6 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Plus, Trash2, ZoomIn, ZoomOut, X, Building2, User, FolderKanban, Undo2, Redo2, LayoutGrid, Maximize2, Info, Layers, BarChart3, Route, Sparkles, Target, Save, LogOut } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+
+// Type helpers for Supabase queries
+const supabaseQuery = (table: string) => (supabase as any).from(table);
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -35,13 +39,14 @@ export const NetworkMatrix = () => {
   const { user, signOut } = useAuth();
   
   // Nova arquitetura: separar flows, pessoas e marcas
-  const [projects, setProjects] = useState<any[]>(SAMPLE_PROJECTS);
-  const [people, setPeople] = useState<any[]>(SAMPLE_PEOPLE);
-  const [brands, setBrands] = useState<any[]>(SAMPLE_BRANDS);
-  const [allConnections, setAllConnections] = useState(SAMPLE_CONNECTIONS);
-  const [workflows, setWorkflows] = useState(SAMPLE_WORKFLOWS);
+  const [projects, setProjects] = useState<any[]>([]);
+  const [people, setPeople] = useState<any[]>([]);
+  const [brands, setBrands] = useState<any[]>([]);
+  const [allConnections, setAllConnections] = useState<any[]>([]);
+  const [workflows, setWorkflows] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const [activeProjectId, setActiveProjectId] = useState<number | null>(SAMPLE_PROJECTS[0]?.id ?? null);
+  const [activeProjectId, setActiveProjectId] = useState<number | null>(null);
   const [viewMode, setViewMode] = useState('master');
   const [showLegend, setShowLegend] = useState(false);
   const [selectedNodes, setSelectedNodes] = useState([]);
@@ -70,56 +75,90 @@ export const NetworkMatrix = () => {
   // Combinar todos os nós
   const allNodes = [...projects, ...people, ...brands];
   
-  // Carregar design salvo ao iniciar
-  React.useEffect(() => {
-    const savedDesign = localStorage.getItem('networkDesign');
-    if (savedDesign) {
+  // Carregar dados do banco ao iniciar
+  useEffect(() => {
+    const loadData = async () => {
+      if (!user) return;
+      
+      setIsLoading(true);
       try {
-        const parsed = JSON.parse(savedDesign);
+        // Carregar workflows
+        const { data: workflowsData, error: workflowsError } = await supabaseQuery('workflows')
+          .select('*')
+          .eq('user_id', user.id);
         
-        // Validar estrutura
-        if (!parsed.projects || !parsed.people || !parsed.brands || !parsed.savedAt) {
-          console.warn('Design salvo tem estrutura inválida, ignorando...');
-          return;
+        if (workflowsError) throw workflowsError;
+        setWorkflows(workflowsData || []);
+
+        // Carregar projects
+        const { data: projectsData, error: projectsError } = await supabaseQuery('projects')
+          .select('*')
+          .eq('user_id', user.id);
+        
+        if (projectsError) throw projectsError;
+        const loadedProjects = projectsData?.map((p: any) => ({
+          ...p,
+          type: 'project',
+          x: Number(p.x) || 0,
+          y: Number(p.y) || 0
+        })) || [];
+        setProjects(loadedProjects);
+        
+        // Set first project as active
+        if (loadedProjects.length > 0 && !activeProjectId) {
+          setActiveProjectId(loadedProjects[0].id);
         }
+
+        // Carregar people
+        const { data: peopleData, error: peopleError } = await supabaseQuery('people')
+          .select('*')
+          .eq('user_id', user.id);
         
-        const { projects: savedProjects, people: savedPeople, brands: savedBrands } = parsed;
+        if (peopleError) throw peopleError;
+        setPeople(peopleData?.map((p: any) => ({
+          ...p,
+          type: 'person',
+          x: Number(p.x) || 0,
+          y: Number(p.y) || 0
+        })) || []);
+
+        // Carregar brands
+        const { data: brandsData, error: brandsError } = await supabaseQuery('brands')
+          .select('*')
+          .eq('user_id', user.id);
         
-        // Mesclar posições salvas com dados atuais (validar que x e y existem)
-        if (Array.isArray(savedProjects)) {
-          setProjects(prev => prev.map(p => {
-            const saved = savedProjects.find((sp: any) => sp.id === p.id);
-            return saved && typeof saved.x === 'number' && typeof saved.y === 'number' 
-              ? { ...p, x: saved.x, y: saved.y } 
-              : p;
-          }));
-        }
+        if (brandsError) throw brandsError;
+        setBrands(brandsData?.map((b: any) => ({
+          ...b,
+          type: 'brand',
+          x: Number(b.x) || 0,
+          y: Number(b.y) || 0
+        })) || []);
+
+        // Carregar connections
+        const { data: connectionsData, error: connectionsError } = await supabaseQuery('connections')
+          .select('*')
+          .eq('user_id', user.id);
         
-        if (Array.isArray(savedPeople)) {
-          setPeople(prev => prev.map(p => {
-            const saved = savedPeople.find((sp: any) => sp.id === p.id);
-            return saved && typeof saved.x === 'number' && typeof saved.y === 'number'
-              ? { ...p, x: saved.x, y: saved.y } 
-              : p;
-          }));
-        }
-        
-        if (Array.isArray(savedBrands)) {
-          setBrands(prev => prev.map(b => {
-            const saved = savedBrands.find((sb: any) => sb.id === b.id);
-            return saved && typeof saved.x === 'number' && typeof saved.y === 'number'
-              ? { ...b, x: saved.x, y: saved.y } 
-              : b;
-          }));
-        }
-        
-        toast.success('Design carregado com sucesso!');
-      } catch (error) {
-        console.error('Erro ao carregar design salvo:', error);
-        toast.error('Erro ao carregar design salvo');
+        if (connectionsError) throw connectionsError;
+        setAllConnections(connectionsData?.map((c: any) => ({
+          from: c.from_id,
+          to: c.to_id,
+          type: c.connection_type || 'strong',
+          id: c.id
+        })) || []);
+
+        toast.success('Dados carregados!');
+      } catch (error: any) {
+        console.error('Erro ao carregar dados:', error);
+        toast.error('Erro ao carregar dados', { description: error.message });
+      } finally {
+        setIsLoading(false);
       }
-    }
-  }, []);
+    };
+
+    loadData();
+  }, [user]);
   
   // Função para salvar design atual
   const saveCurrentDesign = () => {
@@ -144,96 +183,72 @@ export const NetworkMatrix = () => {
     }
   };
 
-  // Função para importar dados do LinkedIn
-  const handleLinkedInImport = (data: ParsedLinkedInData, options: LinkedInImportOptions) => {
+  const handleLinkedInImport = async (data: ParsedLinkedInData, options: LinkedInImportOptions) => {
+    if (!user) return;
     saveToHistory();
     
     const newPeople: any[] = [];
     const newBrands: any[] = [];
     const newConnections: any[] = [];
     
-    // Create brands from unique companies if option is enabled
-    const brandMap = new Map<string, number>();
-    if (options.createBrands) {
-      data.uniqueCompanies.forEach((company, index) => {
-        const brandId = Date.now() + index + 10000;
-        const brand = {
-          id: brandId,
-          type: 'brand',
-          name: company,
-          x: Math.random() * 400 + 100,
-          y: Math.random() * 400 + 100,
-          category: 'A',
-          workflowId: workflows[0]?.id
-        };
-        newBrands.push(brand);
-        brandMap.set(company, brandId);
-      });
+    try {
+      // Create brands from unique companies if option is enabled
+      if (options.createBrands) {
+        for (const company of data.uniqueCompanies) {
+          const { data: brandData, error } = await supabase
+            .from('brands' as any)
+            .insert([{
+              name: company,
+              user_id: user.id,
+              x: Math.random() * 400 + 100,
+              y: Math.random() * 400 + 100,
+              category: 'A'
+            }])
+            .select()
+            .single();
+          
+          if (error) throw error;
+          const brand = { ...brandData, type: 'brand', x: Number(brandData.x), y: Number(brandData.y) };
+          newBrands.push(brand);
+        }
+      }
+      
+      // Create person nodes from contacts
+      for (const contact of data.contacts) {
+        const fullName = `${contact.firstName} ${contact.lastName}`.trim();
+        
+        const { data: personData, error } = await supabase
+          .from('people' as any)
+          .insert([{
+            name: fullName || `Contato LinkedIn`,
+            user_id: user.id,
+            x: Math.random() * 400 + 100,
+            y: Math.random() * 400 + 100,
+            company: contact.company,
+            email: contact.email,
+            category: options.defaultCategory
+          }])
+          .select()
+          .single();
+        
+        if (error) throw error;
+        const person = { ...personData, type: 'person', x: Number(personData.x), y: Number(personData.y) };
+        newPeople.push(person);
+      }
+      
+      // Update state
+      setPeople(prev => [...prev, ...newPeople]);
+      setBrands(prev => [...prev, ...newBrands]);
+      
+      // Show success message
+      toast.success(
+        `Importação concluída! ${newPeople.length} pessoas` +
+        (newBrands.length > 0 ? `, ${newBrands.length} marcas` : '')
+      );
+    } catch (error: any) {
+      console.error('Erro ao importar:', error);
+      toast.error('Erro ao importar do LinkedIn', { description: error.message });
     }
-    
-    // Create person nodes from contacts
-    data.contacts.forEach((contact, index) => {
-      const personId = Date.now() + index + 20000;
-      const fullName = `${contact.firstName} ${contact.lastName}`.trim();
-      
-      const person = {
-        id: personId,
-        type: 'person',
-        name: fullName || `Contato LinkedIn ${index + 1}`,
-        x: Math.random() * 400 + 100,
-        y: Math.random() * 400 + 100,
-        category: options.defaultCategory,
-        workflowId: workflows[0]?.id,
-        company: contact.company,
-        role: contact.position,
-        email: contact.email,
-        notes: contact.profileUrl ? `LinkedIn: ${contact.profileUrl}` : undefined,
-        homeProjectId: options.connectToProject ? options.projectId : undefined
-      };
-      newPeople.push(person);
-      
-      // Create connection to brand if company exists and brands were created
-      if (contact.company && options.createBrands && brandMap.has(contact.company)) {
-        newConnections.push({
-          from: personId,
-          to: brandMap.get(contact.company)!,
-          type: 'works-at'
-        });
-      }
-      
-      // Create connection to project if option is enabled
-      if (options.connectToProject && options.projectId) {
-        newConnections.push({
-          from: personId,
-          to: options.projectId,
-          type: 'related'
-        });
-      }
-    });
-    
-    // Update state
-    setPeople(prev => [...prev, ...newPeople]);
-    setBrands(prev => [...prev, ...newBrands]);
-    setAllConnections(prev => [...prev, ...newConnections]);
-    
-    // Show success message
-    toast.success(
-      `Importação concluída! ${newPeople.length} pessoas` +
-      (newBrands.length > 0 ? `, ${newBrands.length} marcas` : '') +
-      (newConnections.length > 0 ? `, ${newConnections.length} conexões` : '')
-    );
-    
-    // Auto-organize and center view on new nodes
-    setTimeout(() => {
-      const allNewNodes = [...newPeople, ...newBrands];
-      if (allNewNodes.length > 0) {
-        const avgX = allNewNodes.reduce((sum, n) => sum + n.x, 0) / allNewNodes.length;
-        const avgY = allNewNodes.reduce((sum, n) => sum + n.y, 0) / allNewNodes.length;
-        updateState({
-          pan: { x: window.innerWidth / 2 - avgX * state.zoom, y: window.innerHeight / 2 - avgY * state.zoom }
-        });
-      }
-    }, 100);
   };
 
   // Calcular anchorProjectId por nó com busca de 2º grau (useMemo)
@@ -445,23 +460,58 @@ export const NetworkMatrix = () => {
   };
 
   // Função para atualizar posição de nós (corrige dragging) and clear highlight
-  const updateNodePosition = (nodeId: number, deltaX: number, deltaY: number) => {
+  const updateNodePosition = async (nodeId: number, deltaX: number, deltaY: number) => {
+    if (!user) return;
+    
     const isProject = projects.find(p => p.id === nodeId);
     const isPerson = people.find(p => p.id === nodeId);
     const isBrand = brands.find(b => b.id === nodeId);
     
     if (isProject) {
+      const newX = isProject.x + deltaX;
+      const newY = isProject.y + deltaY;
       setProjects(prev => prev.map(p => 
-        p.id === nodeId ? { ...p, x: p.x + deltaX, y: p.y + deltaY, isNewHighlight: false } : p
+        p.id === nodeId ? { ...p, x: newX, y: newY, isNewHighlight: false } : p
       ));
+      
+      // Debounce database update
+      setTimeout(async () => {
+        await supabase
+          .from('projects' as any)
+          .update({ x: newX, y: newY } as any)
+          .eq('id', nodeId)
+          .eq('user_id', user.id);
+      }, 500);
     } else if (isPerson) {
+      const newX = isPerson.x + deltaX;
+      const newY = isPerson.y + deltaY;
       setPeople(prev => prev.map(p => 
-        p.id === nodeId ? { ...p, x: p.x + deltaX, y: p.y + deltaY, isNewHighlight: false } : p
+        p.id === nodeId ? { ...p, x: newX, y: newY, isNewHighlight: false } : p
       ));
+      
+      // Debounce database update
+      setTimeout(async () => {
+        await supabase
+          .from('people' as any)
+          .update({ x: newX, y: newY } as any)
+          .eq('id', nodeId)
+          .eq('user_id', user.id);
+      }, 500);
     } else if (isBrand) {
+      const newX = isBrand.x + deltaX;
+      const newY = isBrand.y + deltaY;
       setBrands(prev => prev.map(b => 
-        b.id === nodeId ? { ...b, x: b.x + deltaX, y: b.y + deltaY, isNewHighlight: false } : b
+        b.id === nodeId ? { ...b, x: newX, y: newY, isNewHighlight: false } : b
       ));
+      
+      // Debounce database update
+      setTimeout(async () => {
+        await supabase
+          .from('brands' as any)
+          .update({ x: newX, y: newY } as any)
+          .eq('id', nodeId)
+          .eq('user_id', user.id);
+      }, 500);
     }
   };
 
@@ -777,12 +827,40 @@ export const NetworkMatrix = () => {
     setSelectedConnection(null);
   };
 
-  const deleteNode = (nodeId) => {
+  const deleteNode = async (nodeId) => {
+    if (!user) return;
     saveToHistory();
-    setNodes(prev => prev.filter(n => n.id !== nodeId));
-    setConnections(prev => prev.filter(c => c.from !== nodeId && c.to !== nodeId));
-    updateState({ selectedNode: null, showSidebar: false, editingNode: null });
-    setSelectedNodes(prev => prev.filter(id => id !== nodeId));
+    
+    const node = allNodes.find(n => n.id === nodeId);
+    if (!node) return;
+    
+    try {
+      // Delete from appropriate table
+      if (node.type === 'project') {
+        await supabase.from('projects' as any).delete().eq('id', nodeId).eq('user_id', user.id);
+      } else if (node.type === 'person') {
+        await supabase.from('people' as any).delete().eq('id', nodeId).eq('user_id', user.id);
+      } else if (node.type === 'brand') {
+        await supabase.from('brands' as any).delete().eq('id', nodeId).eq('user_id', user.id);
+      }
+      
+      // Delete all connections involving this node
+      await supabase
+        .from('connections' as any)
+        .delete()
+        .or(`from_id.eq.${nodeId},to_id.eq.${nodeId}`)
+        .eq('user_id', user.id);
+      
+      setNodes(prev => prev.filter(n => n.id !== nodeId));
+      setConnections(prev => prev.filter(c => c.from !== nodeId && c.to !== nodeId));
+      updateState({ selectedNode: null, showSidebar: false, editingNode: null });
+      setSelectedNodes(prev => prev.filter(id => id !== nodeId));
+      
+      toast.success('Nó deletado!');
+    } catch (error: any) {
+      console.error('Erro ao deletar nó:', error);
+      toast.error('Erro ao deletar nó', { description: error.message });
+    }
   };
 
   const exportData = () => {
@@ -831,10 +909,11 @@ export const NetworkMatrix = () => {
     return false;
   };
 
-  const handleNodeCreation = (nodeData: any) => {
+  const handleNodeCreation = async (nodeData: any) => {
+    if (!user) return;
     saveToHistory();
+    
     const newNode: any = {
-      id: Date.now(),
       type: nodeCreationType,
       x: nodeCreationPosition.x,
       y: nodeCreationPosition.y,
@@ -849,84 +928,188 @@ export const NetworkMatrix = () => {
       }
     }
 
-    // Set default fields for projects
-    if (nodeCreationType === 'project') {
-      newNode.workflows = nodeData.workflows || [];
-      newNode.status = nodeData.projectStatus || nodeData.status || 'ativo';
-      newNode.deadline = nodeData.startDate || nodeData.deadline || '';
-      newNode.category = nodeData.category || 'M';
-      
-      // Add to projects array
-      setProjects(prev => [...prev, newNode]);
-      setShowNodeCreationModal(false);
-      
-      // Switch to Single View and center on the new flow
-      setActiveProjectId(newNode.id);
-      setViewMode('single');
-      toast.success(`Flow "${newNode.name}" criado!`);
-      // useEffect will handle organization and centering automatically
-    } else if (nodeCreationType === 'person') {
-      // Add to people array
-      setPeople(prev => [...prev, newNode]);
-      setShowNodeCreationModal(false);
-      toast.success(`${newNode.name} criado!`);
-      
-      // Center view on the new node
-      setTimeout(() => {
-        const zoom = state.zoom;
-        updateState({
-          pan: {
-            x: window.innerWidth / 2 - newNode.x * zoom,
-            y: window.innerHeight / 2 - newNode.y * zoom
-          }
-        });
-      }, 50);
-    } else if (nodeCreationType === 'brand') {
-      // Add to brands array
-      setBrands(prev => [...prev, newNode]);
-      setShowNodeCreationModal(false);
-      toast.success(`${newNode.name} criado!`);
-      
-      // Center view on the new node
-      setTimeout(() => {
-        const zoom = state.zoom;
-        updateState({
-          pan: {
-            x: window.innerWidth / 2 - newNode.x * zoom,
-            y: window.innerHeight / 2 - newNode.y * zoom
-          }
-        });
-      }, 50);
+    try {
+      // Set default fields for projects
+      if (nodeCreationType === 'project') {
+        newNode.status = nodeData.projectStatus || nodeData.status || 'ativo';
+        newNode.deadline = nodeData.startDate || nodeData.deadline || null;
+        newNode.category = nodeData.category || 'M';
+        
+        const { data, error } = await supabase
+          .from('projects' as any)
+          .insert([{
+            name: newNode.name,
+            user_id: user.id,
+            x: newNode.x,
+            y: newNode.y,
+            status: newNode.status,
+            deadline: newNode.deadline,
+            category: newNode.category
+          }] as any)
+          .select()
+          .single();
+        
+        if (error) throw error;
+        
+        const createdProject = { ...data, type: 'project', x: Number(data!.x), y: Number(data!.y) };
+        setProjects(prev => [...prev, createdProject]);
+        setShowNodeCreationModal(false);
+        
+        // Switch to Single View and center on the new flow
+        setActiveProjectId(createdProject.id);
+        setViewMode('single');
+        toast.success(`Flow "${createdProject.name}" criado!`);
+      } else if (nodeCreationType === 'person') {
+        const { data, error } = await supabase
+          .from('people' as any)
+          .insert([{
+            name: newNode.name,
+            user_id: user.id,
+            x: newNode.x,
+            y: newNode.y,
+            email: newNode.email || null,
+            phone: newNode.phone || null,
+            company: newNode.company || null,
+            category: newNode.category || null
+          }] as any)
+          .select()
+          .single();
+        
+        if (error) throw error;
+        
+        const createdPerson = { ...data, type: 'person', x: Number(data!.x), y: Number(data!.y) };
+        setPeople(prev => [...prev, createdPerson]);
+        setShowNodeCreationModal(false);
+        toast.success(`${createdPerson.name} criado!`);
+        
+        // Center view on the new node
+        setTimeout(() => {
+          const zoom = state.zoom;
+          updateState({
+            pan: {
+              x: window.innerWidth / 2 - createdPerson.x * zoom,
+              y: window.innerHeight / 2 - createdPerson.y * zoom
+            }
+          });
+        }, 50);
+      } else if (nodeCreationType === 'brand') {
+        const { data, error } = await supabase
+          .from('brands' as any)
+          .insert([{
+            name: newNode.name,
+            user_id: user.id,
+            x: newNode.x,
+            y: newNode.y,
+            category: newNode.category || null,
+            website: newNode.website || null
+          }] as any)
+          .select()
+          .single();
+        
+        if (error) throw error;
+        
+        const createdBrand = { ...data, type: 'brand', x: Number(data!.x), y: Number(data!.y) };
+        setBrands(prev => [...prev, createdBrand]);
+        setShowNodeCreationModal(false);
+        toast.success(`${createdBrand.name} criado!`);
+        
+        // Center view on the new node
+        setTimeout(() => {
+          const zoom = state.zoom;
+          updateState({
+            pan: {
+              x: window.innerWidth / 2 - createdBrand.x * zoom,
+              y: window.innerHeight / 2 - createdBrand.y * zoom
+            }
+          });
+        }, 50);
+      }
+    } catch (error: any) {
+      console.error('Erro ao criar nó:', error);
+      toast.error('Erro ao criar', { description: error.message });
     }
   };
 
-  const handleAddWorkflow = (name: string, color: string) => {
-    const newWorkflow = {
-      id: Date.now(),
-      name,
-      color,
-      description: ''
-    };
-    setWorkflows([...workflows, newWorkflow]);
-    toast.success(`Workflow "${name}" criado!`);
+  const handleAddWorkflow = async (name: string, color: string) => {
+    if (!user) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('workflows' as any)
+        .insert([{
+          name,
+          color,
+          user_id: user.id,
+          description: ''
+        }] as any)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      setWorkflows([...workflows, data]);
+      toast.success(`Workflow "${name}" criado!`);
+    } catch (error: any) {
+      console.error('Erro ao criar workflow:', error);
+      toast.error('Erro ao criar workflow', { description: error.message });
+    }
   };
 
-  const handleNodeUpdate = (updatedData: any) => {
-    if (editingNodeInModal) {
-      saveToHistory();
-      
+  const handleNodeUpdate = async (updatedData: any) => {
+    if (!editingNodeInModal || !user) return;
+    
+    saveToHistory();
+    
+    try {
       // Update the correct array based on node type
       if (editingNodeInModal.type === 'project') {
+        await supabase
+          .from('projects' as any)
+          .update({
+            name: updatedData.name,
+            status: updatedData.status,
+            deadline: updatedData.deadline || null,
+            category: updatedData.category
+          } as any)
+          .eq('id', editingNodeInModal.id)
+          .eq('user_id', user.id);
+        
         setProjects(prev => prev.map(n => n.id === editingNodeInModal.id ? { ...n, ...updatedData } : n));
       } else if (editingNodeInModal.type === 'person') {
+        await supabase
+          .from('people' as any)
+          .update({
+            name: updatedData.name,
+            email: updatedData.email || null,
+            phone: updatedData.phone || null,
+            company: updatedData.company || null,
+            category: updatedData.category
+          } as any)
+          .eq('id', editingNodeInModal.id)
+          .eq('user_id', user.id);
+        
         setPeople(prev => prev.map(n => n.id === editingNodeInModal.id ? { ...n, ...updatedData } : n));
       } else if (editingNodeInModal.type === 'brand') {
+        await supabase
+          .from('brands' as any)
+          .update({
+            name: updatedData.name,
+            category: updatedData.category,
+            website: updatedData.website || null
+          } as any)
+          .eq('id', editingNodeInModal.id)
+          .eq('user_id', user.id);
+        
         setBrands(prev => prev.map(n => n.id === editingNodeInModal.id ? { ...n, ...updatedData } : n));
       }
       
       setShowNodeCreationModal(false);
       setEditingNodeInModal(null);
       updateState({ showSidebar: false });
+      toast.success(`${updatedData.name} atualizado!`);
+    } catch (error: any) {
+      console.error('Erro ao atualizar:', error);
+      toast.error('Erro ao atualizar', { description: error.message });
     }
   };
 
@@ -964,17 +1147,30 @@ export const NetworkMatrix = () => {
     setEditingProjectName('');
   };
 
-  const handleDeleteProject = (projectId: number, projectName: string) => {
-    setProjects(prev => prev.filter(p => p.id !== projectId));
-    if (activeProjectId === projectId) {
-      const remainingProjects = projects.filter(p => p.id !== projectId);
-      if (remainingProjects.length > 0) {
-        setActiveProjectId(remainingProjects[0].id);
-      } else {
-        setActiveProjectId(null);
+  const handleDeleteProject = async (projectId: number, projectName: string) => {
+    if (!user) return;
+    
+    try {
+      await supabase
+        .from('projects' as any)
+        .delete()
+        .eq('id', projectId)
+        .eq('user_id', user.id);
+      
+      setProjects(prev => prev.filter(p => p.id !== projectId));
+      if (activeProjectId === projectId) {
+        const remainingProjects = projects.filter(p => p.id !== projectId);
+        if (remainingProjects.length > 0) {
+          setActiveProjectId(remainingProjects[0].id);
+        } else {
+          setActiveProjectId(null);
+        }
       }
+      toast.success('Flow deletado!');
+    } catch (error: any) {
+      console.error('Erro ao deletar flow:', error);
+      toast.error('Erro ao deletar flow', { description: error.message });
     }
-    toast.success('Flow deletado!');
   };
 
   return (
