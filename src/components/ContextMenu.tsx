@@ -38,17 +38,9 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ contextMenu, updateSta
             </div>
           </>
         ) : (
-          <>
-            <div className="text-muted-foreground text-xs font-semibold p-3 border-b border-border">
-              Criar novo flow:
-            </div>
-            <div className="p-2">
-              <button onClick={() => onCreateNode('project')} 
-                className="w-full text-left px-3 py-2.5 text-foreground hover:bg-secondary rounded-xl flex items-center gap-2 transition-all">
-                🎯 Criar Projeto aqui
-              </button>
-            </div>
-          </>
+          <div className="p-4 text-center text-muted-foreground text-sm">
+            Use o botão <span className="font-bold text-foreground">+</span> no menu para criar um novo flow
+          </div>
         )}
       </div>
     </div>

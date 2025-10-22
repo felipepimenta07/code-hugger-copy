@@ -7,17 +7,8 @@ export const parseLinkedInCSV = (csvContent: string): ParsedLinkedInData => {
     throw new Error('Arquivo CSV vazio ou inválido');
   }
 
-  // Find header line (LinkedIn exports have notes before the header)
-  let headerIndex = lines.findIndex(line => 
-    line.toLowerCase().includes('first name') && line.toLowerCase().includes('last name')
-  );
-  
-  if (headerIndex === -1) {
-    throw new Error('Cabeçalho do CSV não encontrado');
-  }
-
   // Parse header
-  const header = lines[headerIndex].split(',').map(h => h.trim().replace(/"/g, ''));
+  const header = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
   
   // Find column indexes
   const indexes = {
@@ -33,8 +24,8 @@ export const parseLinkedInCSV = (csvContent: string): ParsedLinkedInData => {
   const contacts: LinkedInContact[] = [];
   const companiesSet = new Set<string>();
 
-  // Parse data rows (start after header)
-  for (let i = headerIndex + 1; i < lines.length; i++) {
+  // Parse data rows
+  for (let i = 1; i < lines.length; i++) {
     const line = lines[i];
     const values: string[] = [];
     let currentValue = '';

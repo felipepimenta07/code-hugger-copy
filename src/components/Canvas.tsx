@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import { User, Target, Building2 } from 'lucide-react';
 import { ConnectionTooltip } from './ConnectionTooltip';
 
@@ -23,7 +23,7 @@ interface CanvasProps {
   onOpenEditModal?: (node: any) => void;
   projects?: any[];
   allConnections?: any[];
-  onGoToProject?: (id: number, type?: 'person' | 'brand' | 'project') => void;
+  onGoToProject?: (id: number) => void;
 }
 
 const nodeColors = {
@@ -60,25 +60,8 @@ export const Canvas: React.FC<CanvasProps> = ({
     position: { x: number; y: number };
   } | null>(null);
 
-  // Local drag offsets for smooth dragging (UI-only, RAF-optimized)
-  const [dragOffsets, setDragOffsets] = useState<Record<number, { dx: number; dy: number }>>({});
-  const [isDraggingAny, setIsDraggingAny] = useState(false);
-  const [justFinishedDrag, setJustFinishedDrag] = useState(false);
-  const dragOffsetsRef = useRef<Record<number, { dx: number; dy: number }>>({});
-  const rafRef = useRef<number | null>(null);
-  const lastHoverTimeRef = useRef<number>(0);
-  const renderCountRef = useRef(0);
-
-  // Performance monitoring (dev only)
-  useEffect(() => {
-    renderCountRef.current++;
-    if (process.env.NODE_ENV === 'development') {
-      console.debug(`[Canvas] Render #${renderCountRef.current}`);
-    }
-  });
-
-  // BFS to calculate depth from center node (for connection styling by distance) - MEMOIZED
-  const nodeDepths = useMemo(() => {
+  // BFS to calculate depth from center node (for connection styling by distance)
+  const calculateNodeDepths = () => {
     if (viewMode !== 'single' || nodes.length === 0) return new Map<number, number>();
     
     const centerNode = nodes[0]; // Active project is always first in single view
@@ -105,72 +88,14 @@ export const Canvas: React.FC<CanvasProps> = ({
     }
     
     return depths;
-  }, [viewMode, nodes, connections]);
-
-  // Memoize connection counts for performance
-  const connectionCounts = useMemo(() => {
-    const counts = new Map<number, number>();
-    connections.forEach(conn => {
-      counts.set(conn.from, (counts.get(conn.from) || 0) + 1);
-      counts.set(conn.to, (counts.get(conn.to) || 0) + 1);
-    });
-    return counts;
-  }, [connections]);
-
-  // PHASE 1: Pre-calculate connection data (memoized to avoid recalculating on every render)
-  const connectionData = useMemo(() => {
-    return connections.map((conn, idx) => {
-      const from = nodes.find(n => n.id === conn.from);
-      const to = nodes.find(n => n.id === conn.to);
-      if (!from || !to) return null;
-      if (from.type === 'project' && to.type === 'project') return null;
-      
-      const globalIdx = allConnections.findIndex(c => 
-        (c.from === conn.from && c.to === conn.to) || 
-        (c.from === conn.to && c.to === conn.from)
-      );
-      
-      const fromDepth = nodeDepths.get(from.id) ?? 0;
-      const toDepth = nodeDepths.get(to.id) ?? 0;
-      const connectionLevel = Math.min(fromDepth, toDepth);
-      
-      const getAssignment = (node: any) => {
-        if (node.type === 'project') return node.id;
-        return node.projectId ?? node.anchorProjectId ?? node.homeProjectId ?? null;
-      };
-      const fromProj = getAssignment(from);
-      const toProj = getAssignment(to);
-      
-      const isCrossFlow = viewMode === 'master' &&
-        fromProj && toProj && fromProj !== toProj &&
-        !(from.type === 'project' && to.type === 'project');
-      
-      return {
-        conn,
-        idx,
-        from,
-        to,
-        globalIdx,
-        connectionLevel,
-        isCrossFlow
-      };
-    }).filter(Boolean);
-  }, [connections, nodes, nodeDepths, allConnections, viewMode]);
-
-  // During drag, only render connections touching selected nodes
-  const connectionsToRender = useMemo(() => {
-    if (!isDraggingAny) return connectionData;
-    return connectionData.filter(d => 
-      selectedNodes.includes(d.from.id) || selectedNodes.includes(d.to.id)
-    );
-  }, [isDraggingAny, connectionData, selectedNodes]);
+  };
+  
+  const nodeDepths = calculateNodeDepths();
   
   const handleNodeMouseDown = (e: React.MouseEvent, nodeId: number) => {
     e.stopPropagation();
     if (e.button === 0 && !(e.ctrlKey || e.metaKey)) {
       const node = nodes.find(n => n.id === nodeId);
-      if (!node) return;
-      
       const rect = svgRef.current!.getBoundingClientRect();
       const x = (e.clientX - rect.left - state.pan.x) / state.zoom;
       const y = (e.clientY - rect.top - state.pan.y) / state.zoom;
@@ -185,24 +110,14 @@ export const Canvas: React.FC<CanvasProps> = ({
         if (!selectedNodes.includes(nodeId)) {
           setSelectedNodes([nodeId]);
         }
-        setIsDraggingAny(true);
         updateState({ dragging: nodeId, offset: { x: x - node.x, y: y - node.y }, selectedNode: nodeId });
       }
     }
   };
 
-  const handleNodeClick = (e: React.MouseEvent, nodeId: number, nodeType?: 'person' | 'brand' | 'project') => {
+  const handleNodeClick = (e: React.MouseEvent, nodeId: number) => {
     e.stopPropagation();
-    console.log('[Canvas] Node clicked:', nodeId, 'type:', nodeType);
-
-    // Evitar click após arraste (previne navegação/acidentes)
-    if (isDraggingAny || state.dragging) return;
-    
-    // Master View: click em qualquer nó abre o Single View centrado nele
-    if (viewMode === 'master' && onGoToProject) {
-      console.log('[Canvas] Calling onGoToProject with nodeId:', nodeId, 'type:', nodeType);
-      onGoToProject(nodeId, nodeType);
-    }
+    // Simple click does nothing, let double click handle editing
   };
 
   const handleNodeDoubleClick = (e: React.MouseEvent, nodeId: number) => {
@@ -225,19 +140,6 @@ export const Canvas: React.FC<CanvasProps> = ({
     });
   };
 
-  // PHASE 1: Optimized drag rendering with dirty flag check
-  const scheduleDragRender = React.useCallback(() => {
-    if (rafRef.current) return; // Already scheduled
-    rafRef.current = requestAnimationFrame(() => {
-      // Only update if there are actual changes
-      const hasChanges = Object.keys(dragOffsetsRef.current).length > 0;
-      if (hasChanges) {
-        setDragOffsets({ ...dragOffsetsRef.current });
-      }
-      rafRef.current = null;
-    });
-  }, []);
-
   const handleMouseMove = (e: React.MouseEvent) => {
     const rect = svgRef.current!.getBoundingClientRect();
     const x = (e.clientX - rect.left - state.pan.x) / state.zoom;
@@ -245,18 +147,12 @@ export const Canvas: React.FC<CanvasProps> = ({
     
     if (state.dragging) {
       const draggedNode = nodes.find(n => n.id === state.dragging);
-      if (!draggedNode) return;
-      
       const dx = x - state.offset.x - draggedNode.x;
       const dy = y - state.offset.y - draggedNode.y;
       
-      // Update ref immediately (no re-render)
       selectedNodes.forEach(nodeId => {
-        dragOffsetsRef.current[nodeId] = { dx, dy };
+        updateNodePosition(nodeId, dx, dy);
       });
-      
-      // Schedule single render per frame (RAF optimization)
-      scheduleDragRender();
     } else if (state.isPanning) {
       updateState({ pan: { x: e.clientX - state.panStart.x, y: e.clientY - state.panStart.y } });
     } else if (state.isDraggingConnection) {
@@ -288,32 +184,9 @@ export const Canvas: React.FC<CanvasProps> = ({
       }
     }
     
-    // Finalize dragging: persist positions once and clear offsets
     if (state.dragging) {
-      // Cancel pending RAF
-      if (rafRef.current) {
-        cancelAnimationFrame(rafRef.current);
-        rafRef.current = null;
-      }
-      
-      const rect = svgRef.current!.getBoundingClientRect();
-      const x = (e.clientX - rect.left - state.pan.x) / state.zoom;
-      const y = (e.clientY - rect.top - state.pan.y) / state.zoom;
-      const draggedNode = nodes.find(n => n.id === state.dragging);
-      if (draggedNode) {
-        const dx = x - state.offset.x - draggedNode.x;
-        const dy = y - state.offset.y - draggedNode.y;
-        selectedNodes.forEach(nodeId => {
-          updateNodePosition(nodeId, dx, dy);
-        });
-        saveToHistory();
-      }
+      saveToHistory();
     }
-
-    // Clear UI drag offsets and refs
-    setDragOffsets({});
-    dragOffsetsRef.current = {};
-    setIsDraggingAny(false);
     
     updateState({ 
       dragging: null, 
@@ -324,80 +197,25 @@ export const Canvas: React.FC<CanvasProps> = ({
   };
 
   const handleCanvasContextMenu = (e: React.MouseEvent) => {
-    if (justFinishedDrag) return; // Bloqueia menu após drag
     e.preventDefault();
+    if (viewMode === 'master') return;
     const rect = svgRef.current!.getBoundingClientRect();
     const x = (e.clientX - rect.left - state.pan.x) / state.zoom;
     const y = (e.clientY - rect.top - state.pan.y) / state.zoom;
     const clickedNode = nodes.find(n => Math.sqrt((n.x - x) ** 2 + (n.y - y) ** 2) < 45);
     if (!clickedNode) {
-      console.debug('[Canvas] Context menu opened at screen:', { screenX: e.clientX, screenY: e.clientY }, 'canvas:', { x, y });
       updateState({ contextMenu: { x: e.clientX, y: e.clientY, canvasX: x, canvasY: y, type: 'canvas' } });
     }
   };
 
-  const handleWheel = (e: React.WheelEvent) => {
-    e.preventDefault();
-    if (!svgRef.current) return;
-    
-    const rect = svgRef.current.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
-    
-    const worldX = (mouseX - state.pan.x) / state.zoom;
-    const worldY = (mouseY - state.pan.y) / state.zoom;
-    
-    const factor = e.deltaY > 0 ? 1 / 1.1 : 1.1;
-    const newZoom = Math.min(3, Math.max(0.3, state.zoom * factor));
-    
-    const newPan = {
-      x: mouseX - worldX * newZoom,
-      y: mouseY - worldY * newZoom
-    };
-    
-    updateState({ zoom: newZoom, pan: newPan });
-  };
-
   return (
-    <div 
-      className="absolute inset-0 bg-background"
-    >
+    <>
     <svg
       ref={svgRef}
-      style={{
-        willChange: isDraggingAny ? 'transform' : 'auto',
-        transform: 'translateZ(0)',
-        backfaceVisibility: 'hidden'
-      }}
       className="w-full h-full cursor-move"
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onContextMenu={handleCanvasContextMenu}
-      onWheel={handleWheel}
-      onMouseLeave={() => {
-        if (state.dragging) {
-          const ids = Object.keys(dragOffsetsRef.current);
-          if (ids.length > 0) {
-            ids.forEach((id) => {
-              const off = dragOffsetsRef.current[Number(id)];
-              if (off) {
-                updateNodePosition(Number(id), off.dx, off.dy);
-              }
-            });
-            saveToHistory();
-          }
-          setDragOffsets({});
-          dragOffsetsRef.current = {};
-          setIsDraggingAny(false);
-          updateState({ dragging: null, isPanning: false, isDraggingConnection: false, connectionStart: null });
-          
-          // Prevenir abertura acidental do context menu
-          setJustFinishedDrag(true);
-          setTimeout(() => setJustFinishedDrag(false), 150);
-        } else {
-          updateState({ isPanning: false });
-        }
-      }}
       onMouseDown={(e) => {
         if (e.button === 0 && !e.shiftKey) {
           setSelectedNodes([]);
@@ -426,18 +244,6 @@ export const Canvas: React.FC<CanvasProps> = ({
         <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
           <polygon points="0 0, 10 3, 0 6" fill="hsl(var(--connection-strong))" />
         </marker>
-        
-        {/* Background pattern - fixed, no transform to prevent zoom issues */}
-        <pattern 
-          id="dotGrid" 
-          width="24" 
-          height="24" 
-          patternUnits="userSpaceOnUse"
-        >
-          <rect width="24" height="24" fill="#0b0b0b" />
-          <circle cx="12" cy="12" r="1" fill="#ffffff" fillOpacity="0.12" />
-          <circle cx="12" cy="12" r="0.5" fill="#ffffff" fillOpacity="0.3" />
-        </pattern>
       </defs>
 
       <defs>
@@ -452,9 +258,7 @@ export const Canvas: React.FC<CanvasProps> = ({
       </defs>
 
       <g transform={`translate(${state.pan.x}, ${state.pan.y}) scale(${state.zoom})`}>
-        
-        {/* Background pattern - FIRST element so it renders behind everything */}
-        <rect x="-10000" y="-10000" width="20000" height="20000" fill="url(#dotGrid)" pointerEvents="none" />
+        <rect x="-5000" y="-5000" width="15000" height="15000" fill="#000000" />
         
         {/* Anéis Decorativos Radiais (Single View) */}
         {viewMode === 'single' && nodes.length > 0 && (() => {
@@ -559,7 +363,7 @@ export const Canvas: React.FC<CanvasProps> = ({
         
         
         {/* Clusters no Master View (por projeto) */}
-        {viewMode === 'master' && !isDraggingAny && projects.map(project => {
+        {viewMode === 'master' && projects.map(project => {
           const clusterNodes = nodes.filter(n => n.projectId === project.id);
           if (clusterNodes.length === 0 && !nodes.some(n => n.id === project.id)) return null;
           
@@ -623,25 +427,44 @@ export const Canvas: React.FC<CanvasProps> = ({
           );
         })}
 
-        {/* PHASE 1: Optimized connections rendering - filter during drag for performance */}
-        {connectionData
-          .filter((data: any) => {
-            if (!isDraggingAny) return true;
-            // Durante drag: apenas conexões dos nós selecionados
-            if (!data) return false;
-            return selectedNodes.includes(data.from?.id) || selectedNodes.includes(data.to?.id);
-          })
-          .map((data: any) => {
-          if (!data) return null;
-          const { conn, idx, from, to, globalIdx, connectionLevel, isCrossFlow } = data;
+        {/* Conexões */}
+        {connections.map((conn, idx) => {
+          const from = nodes.find(n => n.id === conn.from);
+          const to = nodes.find(n => n.id === conn.to);
+          if (!from || !to) return null;
+          // Não renderizar conexões projeto↔projeto
+          if (from.type === 'project' && to.type === 'project') return null;
           
+          // Encontrar índice correto em allConnections
+          const globalIdx = allConnections.findIndex(c => 
+            (c.from === conn.from && c.to === conn.to) || 
+            (c.from === conn.to && c.to === conn.from)
+          );
           const isSelected = selectedConnection === globalIdx;
+          
+          // Calculate connection depth level based on node depths (distance from center)
+          const fromDepth = nodeDepths.get(from.id) ?? 0;
+          const toDepth = nodeDepths.get(to.id) ?? 0;
+          const connectionLevel = Math.min(fromDepth, toDepth);
+          
+          // Detectar cross-flow: nós de projetos diferentes (exceto projeto↔projeto)
+          const getAssignment = (node: any) => {
+            if (node.type === 'project') return node.id;
+            // No master view, projectId já vem calculado
+            return node.projectId ?? node.anchorProjectId ?? node.homeProjectId ?? null;
+          };
+          const fromProj = getAssignment(from);
+          const toProj = getAssignment(to);
+          
+          const isCrossFlow = viewMode === 'master' &&
+            fromProj && toProj && fromProj !== toProj &&
+            !(from.type === 'project' && to.type === 'project');
           
           const isInPath = highlightedPath.length > 0 && 
             highlightedPath.some((id, i) => 
               i < highlightedPath.length - 1 && 
               ((highlightedPath[i] === from.id && highlightedPath[i + 1] === to.id) ||
-                 (highlightedPath[i] === to.id && highlightedPath[i + 1] === from.id))
+                (highlightedPath[i] === to.id && highlightedPath[i + 1] === from.id))
             );
           
           // Styling based on priority: path > selected > cross-project > depth-based
@@ -649,8 +472,7 @@ export const Canvas: React.FC<CanvasProps> = ({
           let strokeWidth;
           let strokeDasharray = undefined;
           let opacity = 1;
-          // Disable glow during drag for performance
-          let useGlow = !isDraggingAny && (isSelected || isInPath) && connectionLevel <= 1;
+          let useGlow = false;
           
           if (isInPath) {
             strokeColor = '#10b981';
@@ -707,17 +529,9 @@ export const Canvas: React.FC<CanvasProps> = ({
             opacity = 1;
           }
           
-          // Simplified paths during drag for performance
-          let pathData: string;
-          if (isDraggingAny) {
-            // Straight line during drag
-            pathData = `M ${from.x},${from.y} L ${to.x},${to.y}`;
-          } else {
-            // Bezier curve for smooth visual
-            const controlX = (from.x + to.x) / 2;
-            const controlY = (from.y + to.y) / 2 - 80;
-            pathData = `M ${from.x},${from.y} Q ${controlX},${controlY} ${to.x},${to.y}`;
-          }
+          const controlX = (from.x + to.x) / 2;
+          const controlY = (from.y + to.y) / 2 - 80;
+          const pathData = `M ${from.x},${from.y} Q ${controlX},${controlY} ${to.x},${to.y}`;
           
           // Gerar tooltip inteligente para conexões cross-flow
           let tooltipText = '';
@@ -767,15 +581,10 @@ export const Canvas: React.FC<CanvasProps> = ({
                       setSelectedNodes([]);
                     }}
                     onMouseEnter={(e) => {
-                      // PHASE 4: Throttle hover updates
-                      const now = performance.now();
-                      if (now - lastHoverTimeRef.current > 100) {
-                        lastHoverTimeRef.current = now;
-                        const rect = svgRef.current!.getBoundingClientRect();
-                        const midX = ((from.x + to.x) / 2) * state.zoom + state.pan.x + rect.left;
-                        const midY = ((from.y + to.y) / 2 - 80) * state.zoom + state.pan.y + rect.top;
-                        setHoveredConnection({ index: idx, position: { x: midX, y: midY } });
-                      }
+                      const rect = svgRef.current!.getBoundingClientRect();
+                      const midX = ((from.x + to.x) / 2) * state.zoom + state.pan.x + rect.left;
+                      const midY = ((from.y + to.y) / 2 - 80) * state.zoom + state.pan.y + rect.top;
+                      setHoveredConnection({ index: idx, position: { x: midX, y: midY } });
                     }}
                     onMouseLeave={() => setHoveredConnection(null)}
                   />
@@ -805,15 +614,10 @@ export const Canvas: React.FC<CanvasProps> = ({
                       setSelectedNodes([]);
                     }}
                     onMouseEnter={(e) => {
-                      // PHASE 4: Throttle hover updates
-                      const now = performance.now();
-                      if (now - lastHoverTimeRef.current > 100) {
-                        lastHoverTimeRef.current = now;
-                        const rect = svgRef.current!.getBoundingClientRect();
-                        const midX = ((from.x + to.x) / 2) * state.zoom + state.pan.x + rect.left;
-                        const midY = ((from.y + to.y) / 2 - 80) * state.zoom + state.pan.y + rect.top;
-                        setHoveredConnection({ index: idx, position: { x: midX, y: midY } });
-                      }
+                      const rect = svgRef.current!.getBoundingClientRect();
+                      const midX = ((from.x + to.x) / 2) * state.zoom + state.pan.x + rect.left;
+                      const midY = ((from.y + to.y) / 2 - 80) * state.zoom + state.pan.y + rect.top;
+                      setHoveredConnection({ index: idx, position: { x: midX, y: midY } });
                     }}
                     onMouseLeave={() => setHoveredConnection(null)}
                   />
@@ -846,15 +650,12 @@ export const Canvas: React.FC<CanvasProps> = ({
           />
         )}
         
-        {/* Nós - PHASE 1: Simplified rendering during drag */}
+        {/* Nós */}
         {nodes.map(node => {
           const colors = nodeColors[node.type as keyof typeof nodeColors];
           const isSelected = selectedNodes.includes(node.id);
           const isInPath = highlightedPath.includes(node.id);
-          const connectionCount = connectionCounts.get(node.id) || 0;
-          
-          // PHASE 1: Simplificação inteligente durante drag - remove apenas filtros pesados
-          const shouldReduceEffects = isDraggingAny;
+          const connectionCount = connections.filter(c => c.from === node.id || c.to === node.id).length;
           
           // Tamanho por nível hierárquico
           let baseSize = 40;
@@ -870,11 +671,10 @@ export const Canvas: React.FC<CanvasProps> = ({
           
           return (
             <g 
-              key={`${node.type}-${node.id}`}
-              data-node-type={node.type}
-              transform={`translate(${node.x + (dragOffsets[node.id]?.dx ?? 0)}, ${node.y + (dragOffsets[node.id]?.dy ?? 0)})`}
+              key={node.id} 
+              transform={`translate(${node.x}, ${node.y})`}
               onMouseDown={(e) => handleNodeMouseDown(e, node.id)}
-              onClick={(e) => handleNodeClick(e, node.id, node.type)}
+              onClick={(e) => handleNodeClick(e, node.id)}
               onDoubleClick={(e) => handleNodeDoubleClick(e, node.id)}
               onMouseEnter={() => setHoveredNode(node.id)}
               onMouseLeave={() => setHoveredNode(null)}
@@ -886,10 +686,10 @@ export const Canvas: React.FC<CanvasProps> = ({
                   <circle 
                     r={nodeSize + 40} 
                     fill="url(#gradientPinkPurple)" 
-                    opacity={shouldReduceEffects ? "0.3" : "0.4"}
-                    filter={shouldReduceEffects ? undefined : "url(#glow)"}
+                    opacity="0.4" 
+                    filter="url(#glow)"
                     className="animate-pulse"
-                    style={{ animationDuration: shouldReduceEffects ? '4s' : '3s' }}
+                    style={{ animationDuration: '3s' }}
                   />
                   <circle 
                     r={nodeSize + 15} 
@@ -911,9 +711,7 @@ export const Canvas: React.FC<CanvasProps> = ({
                   <circle
                     r={nodeSize + 15}
                     fill="rgba(6, 182, 212, 0.3)"
-                    filter={shouldReduceEffects ? undefined : "url(#glow)"}
-                    className="animate-pulse"
-                    style={{ animationDuration: shouldReduceEffects ? '4s' : '3s' }}
+                    filter="url(#glow)"
                   />
                   <circle
                     r={nodeSize}
@@ -947,7 +745,7 @@ export const Canvas: React.FC<CanvasProps> = ({
                     r={nodeSize + (isInPath ? 35 : (isHovered ? 30 : 20))}
                     fill={isInPath ? 'hsl(var(--connection-path))' : colors.glow}
                     opacity={isInPath ? 0.6 : (isHovered ? 0.5 : 0.3)}
-                    filter={shouldReduceEffects ? undefined : "url(#glow)"}
+                    filter="url(#glow)"
                   />
                   
                   <circle
@@ -1168,7 +966,6 @@ export const Canvas: React.FC<CanvasProps> = ({
             </g>
           );
         })}
-        
       </g>
     </svg>
     
@@ -1190,6 +987,6 @@ export const Canvas: React.FC<CanvasProps> = ({
         />
       );
     })()}
-    </div>
+    </>
   );
 };
