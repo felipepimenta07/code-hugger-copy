@@ -21,6 +21,9 @@ import { ProjectManagerPanel } from './ProjectManagerPanel';
 import { AIInsightsPanel } from './AIInsightsPanel';
 import { FlowStarterModal } from './FlowStarterModal';
 import { PathIndicator } from './PathIndicator';
+import { OnboardingTutorial } from './onboarding/OnboardingTutorial';
+import { HelpMenu } from './help/HelpMenu';
+import { ContextualHint } from './hints/ContextualHint';
 import { useNetworkState } from '@/hooks/useNetworkState';
 import { useNetworkHistory } from '@/hooks/useNetworkHistory';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
@@ -66,6 +69,14 @@ export const NetworkMatrix = () => {
   const [showAIInsights, setShowAIInsights] = useState(false);
   const [showFlowStarterModal, setShowFlowStarterModal] = useState(false);
   const [showLinkedInImport, setShowLinkedInImport] = useState(false);
+  
+  // Onboarding and hints states
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showHint, setShowHint] = useState(false);
+  const [userPreferences, setUserPreferences] = useState({
+    has_seen_onboarding: false,
+    show_hints: true
+  });
 
   const { state, updateState } = useNetworkState();
   const svgRef = useRef(null);
@@ -165,6 +176,127 @@ export const NetworkMatrix = () => {
 
     loadData();
   }, [user]);
+
+  // Carregar preferências do usuário
+  useEffect(() => {
+    const loadUserPreferences = async () => {
+      if (!user) return;
+      
+      try {
+        const { data, error } = await (supabase as any)
+          .from('user_preferences')
+          .select('*')
+          .eq('user_id', user.id)
+          .single();
+        
+        if (error && error.code !== 'PGRST116') throw error;
+        
+        if (data) {
+          setUserPreferences(data);
+          if (!data.has_seen_onboarding) {
+            setShowOnboarding(true);
+          }
+        } else {
+          // Criar preferências padrão
+          await (supabase as any)
+            .from('user_preferences')
+            .insert({ user_id: user.id });
+        }
+      } catch (error: any) {
+        console.error('Erro ao carregar preferências:', error);
+      }
+    };
+
+    loadUserPreferences();
+  }, [user]);
+
+  // Sistema de hints contextuais
+  useEffect(() => {
+    if (!userPreferences.show_hints || showOnboarding) return;
+    
+    let timeoutId: NodeJS.Timeout;
+    
+    const resetTimer = () => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        setShowHint(true);
+      }, 10000); // Mostrar hint após 10 segundos de inatividade
+    };
+    
+    const handleActivity = () => {
+      setShowHint(false);
+      resetTimer();
+    };
+    
+    window.addEventListener('mousemove', handleActivity);
+    window.addEventListener('keydown', handleActivity);
+    window.addEventListener('click', handleActivity);
+    
+    resetTimer();
+    
+    return () => {
+      clearTimeout(timeoutId);
+      window.removeEventListener('mousemove', handleActivity);
+      window.removeEventListener('keydown', handleActivity);
+      window.removeEventListener('click', handleActivity);
+    };
+  }, [userPreferences.show_hints, showOnboarding]);
+
+  const handleCompleteOnboarding = async () => {
+    if (!user) return;
+    
+    try {
+      await (supabase as any)
+        .from('user_preferences')
+        .update({ has_seen_onboarding: true })
+        .eq('user_id', user.id);
+      
+      setUserPreferences(prev => ({ ...prev, has_seen_onboarding: true }));
+      setShowOnboarding(false);
+      toast.success('Tutorial concluído!', {
+        description: 'Você pode sempre acessar o menu de ajuda (?) no canto superior direito.'
+      });
+    } catch (error: any) {
+      console.error('Erro ao atualizar preferências:', error);
+    }
+  };
+
+  const handleSkipOnboarding = async () => {
+    if (!user) return;
+    
+    try {
+      await (supabase as any)
+        .from('user_preferences')
+        .update({ has_seen_onboarding: true })
+        .eq('user_id', user.id);
+      
+      setUserPreferences(prev => ({ ...prev, has_seen_onboarding: true }));
+      setShowOnboarding(false);
+    } catch (error: any) {
+      console.error('Erro ao atualizar preferências:', error);
+    }
+  };
+
+  const handleDisableHints = async () => {
+    if (!user) return;
+    
+    try {
+      await (supabase as any)
+        .from('user_preferences')
+        .update({ show_hints: false })
+        .eq('user_id', user.id);
+      
+      setUserPreferences(prev => ({ ...prev, show_hints: false }));
+      setShowHint(false);
+      toast.success('Dicas desabilitadas');
+    } catch (error: any) {
+      console.error('Erro ao atualizar preferências:', error);
+    }
+  };
+
+  const handleShowTutorial = () => {
+    setShowOnboarding(true);
+  };
   
   // Função para salvar design atual
   const saveCurrentDesign = () => {
@@ -1512,6 +1644,10 @@ export const NetworkMatrix = () => {
             
             <div className="w-px h-8 bg-border mx-1"></div>
             
+            <HelpMenu onShowTutorial={handleShowTutorial} />
+            
+            <div className="w-px h-8 bg-border mx-1"></div>
+            
             <DropdownMenu>
               <TooltipProvider>
                 <Tooltip>
@@ -1834,6 +1970,18 @@ export const NetworkMatrix = () => {
             connections={allConnections}
           />
         )}
+
+        <OnboardingTutorial
+          open={showOnboarding}
+          onComplete={handleCompleteOnboarding}
+          onSkip={handleSkipOnboarding}
+        />
+
+        <ContextualHint
+          show={showHint}
+          onDismiss={() => setShowHint(false)}
+          onDisable={handleDisableHints}
+        />
       </div>
     </div>
   );
