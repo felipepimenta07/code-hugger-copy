@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Trash2, ZoomIn, ZoomOut, X, Building2, User, FolderKanban, Undo2, Redo2, LayoutGrid, Maximize2, Info, Layers, BarChart3, Route, Sparkles, Target, Save } from 'lucide-react';
+import { Plus, Trash2, ZoomIn, ZoomOut, X, Building2, User, FolderKanban, Undo2, Redo2, LayoutGrid, Maximize2, Info, Layers, BarChart3, Route, Sparkles, Target, Save, LogOut } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -31,6 +32,8 @@ const CATEGORIES = {
 };
 
 export const NetworkMatrix = () => {
+  const { user, signOut } = useAuth();
+  
   // Nova arquitetura: separar projetos, pessoas e marcas
   const [projects, setProjects] = useState<any[]>(SAMPLE_PROJECTS);
   const [people, setPeople] = useState<any[]>(SAMPLE_PEOPLE);
@@ -1281,6 +1284,38 @@ export const NetworkMatrix = () => {
             
             <div className="w-px h-8 bg-border mx-1"></div>
             
+            <DropdownMenu>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <DropdownMenuTrigger asChild>
+                      <button 
+                        className="p-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-all flex items-center gap-2">
+                        <User size={18} />
+                      </button>
+                    </DropdownMenuTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Conta do usuário</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <DropdownMenuContent align="end" className="w-56">
+                <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                  {user?.email}
+                </div>
+                <DropdownMenuItem 
+                  onClick={signOut}
+                  className="text-destructive focus:text-destructive cursor-pointer"
+                >
+                  <LogOut size={16} className="mr-2" />
+                  Sair
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            
+            <div className="w-px h-8 bg-border mx-1"></div>
+
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
