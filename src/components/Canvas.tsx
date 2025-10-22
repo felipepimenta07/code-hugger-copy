@@ -125,7 +125,12 @@ export const Canvas: React.FC<CanvasProps> = ({
   const handleNodeDoubleClick = (e: React.MouseEvent, nodeId: number) => {
     e.stopPropagation();
     const node = nodes.find(n => n.id === nodeId);
-    if (node && onOpenEditModal) {
+    
+    // Se estiver no master view e for um projeto, vai para o single view
+    if (viewMode === 'master' && node?.type === 'project' && onGoToProject) {
+      onGoToProject(nodeId);
+    } else if (node && onOpenEditModal) {
+      // Caso contrário, abre o modal de edição
       onOpenEditModal(node);
     }
   };
