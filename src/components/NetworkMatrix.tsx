@@ -1342,6 +1342,33 @@ export const NetworkMatrix = () => {
     setEditingProjectName('');
   };
 
+  const handleWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    
+    const rect = svgRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    
+    // Mouse position in screen coordinates
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+    
+    // Mouse position in canvas coordinates (before zoom)
+    const worldX = (mouseX - state.pan.x) / state.zoom;
+    const worldY = (mouseY - state.pan.y) / state.zoom;
+    
+    // Zoom delta (negative = zoom in, positive = zoom out)
+    const delta = e.deltaY > 0 ? -0.1 : 0.1;
+    const newZoom = Math.min(Math.max(state.zoom + delta, 0.1), 3);
+    
+    // Adjust pan to keep mouse at same canvas point
+    const newPan = {
+      x: mouseX - worldX * newZoom,
+      y: mouseY - worldY * newZoom
+    };
+    
+    updateState({ zoom: newZoom, pan: newPan });
+  };
+
   const handleDeleteProject = async (projectId: number, projectName: string) => {
     if (!user) return;
     
@@ -1802,6 +1829,7 @@ export const NetworkMatrix = () => {
             setViewMode('single');
             // useEffect will handle centering automatically
           }}
+          onWheel={handleWheel}
         />
 
         {/* Botões flutuantes de ação */}
