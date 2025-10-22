@@ -965,18 +965,16 @@ export const NetworkMatrix = () => {
   };
 
   const handleDeleteProject = (projectId: number, projectName: string) => {
-    if (window.confirm(`Deletar flow "${projectName}"?`)) {
-      setProjects(prev => prev.filter(p => p.id !== projectId));
-      if (activeProjectId === projectId) {
-        const remainingProjects = projects.filter(p => p.id !== projectId);
-        if (remainingProjects.length > 0) {
-          setActiveProjectId(remainingProjects[0].id);
-        } else {
-          setActiveProjectId(null);
-        }
+    setProjects(prev => prev.filter(p => p.id !== projectId));
+    if (activeProjectId === projectId) {
+      const remainingProjects = projects.filter(p => p.id !== projectId);
+      if (remainingProjects.length > 0) {
+        setActiveProjectId(remainingProjects[0].id);
+      } else {
+        setActiveProjectId(null);
       }
-      toast.success('Flow deletado!');
     }
+    toast.success('Flow deletado!');
   };
 
   return (

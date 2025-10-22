@@ -107,10 +107,8 @@ export const ProjectManagerPanel: React.FC<ProjectManagerPanelProps> = ({
   };
 
   const handleDelete = (id: number, name: string) => {
-    if (window.confirm(`Tem certeza que deseja deletar o flow "${name}"?`)) {
-      onProjectDelete(id);
-      toast.success('Flow deletado');
-    }
+    onProjectDelete(id);
+    toast.success('Flow deletado');
   };
 
   const toggleWorkflow = (workflowId: number) => {
