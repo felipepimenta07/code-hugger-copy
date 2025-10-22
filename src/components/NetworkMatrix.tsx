@@ -1114,26 +1114,31 @@ export const NetworkMatrix = () => {
         
         console.log('✅ Projeto criado com sucesso:', createdProject);
         
-        // Se criado na master view, muda para single view do novo projeto
-        // Se criado dentro de outro projeto (flow filho), mantém na view atual
+        // Comportamento baseado no contexto
         if (viewMode === 'master') {
+          // No master view, permanece no master para ver o flow criado
+          toast.success(`Flow "${createdProject.name}" criado!`);
+          
+          // Centralizar no novo flow após um pequeno delay
+          setTimeout(() => {
+            const newNode = projects.find(p => p.id === createdProject.id);
+            if (newNode && svgRef.current) {
+              const rect = svgRef.current.getBoundingClientRect();
+              const centerX = rect.width / 2;
+              const centerY = rect.height / 2;
+              updateState({
+                pan: {
+                  x: centerX - newNode.x * state.zoom,
+                  y: centerY - newNode.y * state.zoom
+                }
+              });
+            }
+          }, 300);
+        } else {
+          // Se criando dentro de outro flow (flow filho), entra no novo
           setActiveProjectId(createdProject.id);
           setViewMode('single');
-          toast.success(`Flow "${createdProject.name}" criado!`);
-        } else {
-          // Criado como flow filho - apenas mostra mensagem
-          toast.success(`Flow filho "${createdProject.name}" criado!`);
-          
-          // Centraliza a view no novo nó
-          setTimeout(() => {
-            const zoom = state.zoom;
-            updateState({
-              pan: {
-                x: window.innerWidth / 2 - createdProject.x * zoom,
-                y: window.innerHeight / 2 - createdProject.y * zoom
-              }
-            });
-          }, 50);
+          toast.success(`Flow Filho "${createdProject.name}" criado!`);
         }
       } else if (actualType === 'person') {
         const { data, error } = await (supabase as any)
