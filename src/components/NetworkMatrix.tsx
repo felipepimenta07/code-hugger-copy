@@ -2,9 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Plus, Trash2, ZoomIn, ZoomOut, X, Building2, User, FolderKanban, Undo2, Redo2, LayoutGrid, Maximize2, Info, Layers, BarChart3, Route, Sparkles, Target, Save, LogOut } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-
-// Type helpers for Supabase queries
-const supabaseQuery = (table: string) => (supabase as any).from(table);
+import type { ProjectNode, PersonNode, BrandNode, NetworkNode, ConnectionEdge, Workflow } from '@/types/database';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -39,11 +37,11 @@ export const NetworkMatrix = () => {
   const { user, signOut } = useAuth();
   
   // Nova arquitetura: separar flows, pessoas e marcas
-  const [projects, setProjects] = useState<any[]>([]);
-  const [people, setPeople] = useState<any[]>([]);
-  const [brands, setBrands] = useState<any[]>([]);
-  const [allConnections, setAllConnections] = useState<any[]>([]);
-  const [workflows, setWorkflows] = useState<any[]>([]);
+  const [projects, setProjects] = useState<ProjectNode[]>([]);
+  const [people, setPeople] = useState<PersonNode[]>([]);
+  const [brands, setBrands] = useState<BrandNode[]>([]);
+  const [allConnections, setAllConnections] = useState<ConnectionEdge[]>([]);
+  const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const [activeProjectId, setActiveProjectId] = useState<number | null>(null);
@@ -83,7 +81,8 @@ export const NetworkMatrix = () => {
       setIsLoading(true);
       try {
         // Carregar workflows
-        const { data: workflowsData, error: workflowsError } = await supabaseQuery('workflows')
+        const { data: workflowsData, error: workflowsError } = await (supabase as any)
+          .from('workflows')
           .select('*')
           .eq('user_id', user.id);
         
@@ -91,17 +90,18 @@ export const NetworkMatrix = () => {
         setWorkflows(workflowsData || []);
 
         // Carregar projects
-        const { data: projectsData, error: projectsError } = await supabaseQuery('projects')
+        const { data: projectsData, error: projectsError } = await (supabase as any)
+          .from('projects')
           .select('*')
           .eq('user_id', user.id);
         
         if (projectsError) throw projectsError;
-        const loadedProjects = projectsData?.map((p: any) => ({
+        const loadedProjects: ProjectNode[] = (projectsData || []).map((p: any) => ({
           ...p,
-          type: 'project',
+          type: 'project' as const,
           x: Number(p.x) || 0,
           y: Number(p.y) || 0
-        })) || [];
+        }));
         setProjects(loadedProjects);
         
         // Set first project as active
@@ -110,43 +110,49 @@ export const NetworkMatrix = () => {
         }
 
         // Carregar people
-        const { data: peopleData, error: peopleError } = await supabaseQuery('people')
+        const { data: peopleData, error: peopleError } = await (supabase as any)
+          .from('people')
           .select('*')
           .eq('user_id', user.id);
         
         if (peopleError) throw peopleError;
-        setPeople(peopleData?.map((p: any) => ({
+        const loadedPeople: PersonNode[] = (peopleData || []).map((p: any) => ({
           ...p,
-          type: 'person',
+          type: 'person' as const,
           x: Number(p.x) || 0,
           y: Number(p.y) || 0
-        })) || []);
+        }));
+        setPeople(loadedPeople);
 
         // Carregar brands
-        const { data: brandsData, error: brandsError } = await supabaseQuery('brands')
+        const { data: brandsData, error: brandsError} = await (supabase as any)
+          .from('brands')
           .select('*')
           .eq('user_id', user.id);
         
         if (brandsError) throw brandsError;
-        setBrands(brandsData?.map((b: any) => ({
+        const loadedBrands: BrandNode[] = (brandsData || []).map((b: any) => ({
           ...b,
-          type: 'brand',
+          type: 'brand' as const,
           x: Number(b.x) || 0,
           y: Number(b.y) || 0
-        })) || []);
+        }));
+        setBrands(loadedBrands);
 
         // Carregar connections
-        const { data: connectionsData, error: connectionsError } = await supabaseQuery('connections')
+        const { data: connectionsData, error: connectionsError } = await (supabase as any)
+          .from('connections')
           .select('*')
           .eq('user_id', user.id);
         
         if (connectionsError) throw connectionsError;
-        setAllConnections(connectionsData?.map((c: any) => ({
+        const loadedConnections: ConnectionEdge[] = (connectionsData || []).map((c: any) => ({
           from: c.from_id,
           to: c.to_id,
           type: c.connection_type || 'strong',
           id: c.id
-        })) || []);
+        }));
+        setAllConnections(loadedConnections);
 
         toast.success('Dados carregados!');
       } catch (error: any) {
@@ -195,20 +201,25 @@ export const NetworkMatrix = () => {
       // Create brands from unique companies if option is enabled
       if (options.createBrands) {
         for (const company of data.uniqueCompanies) {
-          const { data: brandData, error } = await supabase
-            .from('brands' as any)
+          const { data: brandData, error } = await (supabase as any)
+            .from('brands')
             .insert([{
               name: company,
               user_id: user.id,
               x: Math.random() * 400 + 100,
               y: Math.random() * 400 + 100,
               category: 'A'
-            }])
+            }] as any)
             .select()
             .single();
           
-          if (error) throw error;
-          const brand = { ...brandData, type: 'brand', x: Number(brandData.x), y: Number(brandData.y) };
+          if (error || !brandData) throw error || new Error('No data returned');
+          const brand: BrandNode = { 
+            ...brandData, 
+            type: 'brand' as const, 
+            x: Number(brandData.x), 
+            y: Number(brandData.y) 
+          };
           newBrands.push(brand);
         }
       }
@@ -217,8 +228,8 @@ export const NetworkMatrix = () => {
       for (const contact of data.contacts) {
         const fullName = `${contact.firstName} ${contact.lastName}`.trim();
         
-        const { data: personData, error } = await supabase
-          .from('people' as any)
+        const { data: personData, error } = await (supabase as any)
+          .from('people')
           .insert([{
             name: fullName || `Contato LinkedIn`,
             user_id: user.id,
@@ -227,12 +238,17 @@ export const NetworkMatrix = () => {
             company: contact.company,
             email: contact.email,
             category: options.defaultCategory
-          }])
+          }] as any)
           .select()
           .single();
         
-        if (error) throw error;
-        const person = { ...personData, type: 'person', x: Number(personData.x), y: Number(personData.y) };
+        if (error || !personData) throw error || new Error('No data returned');
+        const person: PersonNode = { 
+          ...personData, 
+          type: 'person' as const, 
+          x: Number(personData.x), 
+          y: Number(personData.y) 
+        };
         newPeople.push(person);
       }
       
@@ -476,8 +492,8 @@ export const NetworkMatrix = () => {
       
       // Debounce database update
       setTimeout(async () => {
-        await supabase
-          .from('projects' as any)
+        await (supabase as any)
+          .from('projects')
           .update({ x: newX, y: newY } as any)
           .eq('id', nodeId)
           .eq('user_id', user.id);
@@ -491,8 +507,8 @@ export const NetworkMatrix = () => {
       
       // Debounce database update
       setTimeout(async () => {
-        await supabase
-          .from('people' as any)
+        await (supabase as any)
+          .from('people')
           .update({ x: newX, y: newY } as any)
           .eq('id', nodeId)
           .eq('user_id', user.id);
@@ -506,8 +522,8 @@ export const NetworkMatrix = () => {
       
       // Debounce database update
       setTimeout(async () => {
-        await supabase
-          .from('brands' as any)
+        await (supabase as any)
+          .from('brands')
           .update({ x: newX, y: newY } as any)
           .eq('id', nodeId)
           .eq('user_id', user.id);
@@ -837,16 +853,16 @@ export const NetworkMatrix = () => {
     try {
       // Delete from appropriate table
       if (node.type === 'project') {
-        await supabase.from('projects' as any).delete().eq('id', nodeId).eq('user_id', user.id);
+        await (supabase as any).from('projects').delete().eq('id', nodeId).eq('user_id', user.id);
       } else if (node.type === 'person') {
-        await supabase.from('people' as any).delete().eq('id', nodeId).eq('user_id', user.id);
+        await (supabase as any).from('people').delete().eq('id', nodeId).eq('user_id', user.id);
       } else if (node.type === 'brand') {
-        await supabase.from('brands' as any).delete().eq('id', nodeId).eq('user_id', user.id);
+        await (supabase as any).from('brands').delete().eq('id', nodeId).eq('user_id', user.id);
       }
       
       // Delete all connections involving this node
-      await supabase
-        .from('connections' as any)
+      await (supabase as any)
+        .from('connections')
         .delete()
         .or(`from_id.eq.${nodeId},to_id.eq.${nodeId}`)
         .eq('user_id', user.id);
@@ -935,8 +951,8 @@ export const NetworkMatrix = () => {
         newNode.deadline = nodeData.startDate || nodeData.deadline || null;
         newNode.category = nodeData.category || 'M';
         
-        const { data, error } = await supabase
-          .from('projects' as any)
+        const { data, error } = await (supabase as any)
+          .from('projects')
           .insert([{
             name: newNode.name,
             user_id: user.id,
@@ -949,9 +965,14 @@ export const NetworkMatrix = () => {
           .select()
           .single();
         
-        if (error) throw error;
+        if (error || !data) throw error || new Error('No data returned');
         
-        const createdProject = { ...data, type: 'project', x: Number(data!.x), y: Number(data!.y) };
+        const createdProject: ProjectNode = { 
+          ...data, 
+          type: 'project' as const, 
+          x: Number(data.x), 
+          y: Number(data.y) 
+        };
         setProjects(prev => [...prev, createdProject]);
         setShowNodeCreationModal(false);
         
@@ -960,8 +981,8 @@ export const NetworkMatrix = () => {
         setViewMode('single');
         toast.success(`Flow "${createdProject.name}" criado!`);
       } else if (nodeCreationType === 'person') {
-        const { data, error } = await supabase
-          .from('people' as any)
+        const { data, error } = await (supabase as any)
+          .from('people')
           .insert([{
             name: newNode.name,
             user_id: user.id,
@@ -975,9 +996,14 @@ export const NetworkMatrix = () => {
           .select()
           .single();
         
-        if (error) throw error;
+        if (error || !data) throw error || new Error('No data returned');
         
-        const createdPerson = { ...data, type: 'person', x: Number(data!.x), y: Number(data!.y) };
+        const createdPerson: PersonNode = { 
+          ...data, 
+          type: 'person' as const, 
+          x: Number(data.x), 
+          y: Number(data.y) 
+        };
         setPeople(prev => [...prev, createdPerson]);
         setShowNodeCreationModal(false);
         toast.success(`${createdPerson.name} criado!`);
@@ -993,8 +1019,8 @@ export const NetworkMatrix = () => {
           });
         }, 50);
       } else if (nodeCreationType === 'brand') {
-        const { data, error } = await supabase
-          .from('brands' as any)
+        const { data, error } = await (supabase as any)
+          .from('brands')
           .insert([{
             name: newNode.name,
             user_id: user.id,
@@ -1006,9 +1032,14 @@ export const NetworkMatrix = () => {
           .select()
           .single();
         
-        if (error) throw error;
+        if (error || !data) throw error || new Error('No data returned');
         
-        const createdBrand = { ...data, type: 'brand', x: Number(data!.x), y: Number(data!.y) };
+        const createdBrand: BrandNode = { 
+          ...data, 
+          type: 'brand' as const, 
+          x: Number(data.x), 
+          y: Number(data.y) 
+        };
         setBrands(prev => [...prev, createdBrand]);
         setShowNodeCreationModal(false);
         toast.success(`${createdBrand.name} criado!`);
@@ -1034,8 +1065,8 @@ export const NetworkMatrix = () => {
     if (!user) return;
     
     try {
-      const { data, error } = await supabase
-        .from('workflows' as any)
+      const { data, error } = await (supabase as any)
+        .from('workflows')
         .insert([{
           name,
           color,
@@ -1063,8 +1094,8 @@ export const NetworkMatrix = () => {
     try {
       // Update the correct array based on node type
       if (editingNodeInModal.type === 'project') {
-        await supabase
-          .from('projects' as any)
+        await (supabase as any)
+          .from('projects')
           .update({
             name: updatedData.name,
             status: updatedData.status,
@@ -1076,8 +1107,8 @@ export const NetworkMatrix = () => {
         
         setProjects(prev => prev.map(n => n.id === editingNodeInModal.id ? { ...n, ...updatedData } : n));
       } else if (editingNodeInModal.type === 'person') {
-        await supabase
-          .from('people' as any)
+        await (supabase as any)
+          .from('people')
           .update({
             name: updatedData.name,
             email: updatedData.email || null,
@@ -1090,8 +1121,8 @@ export const NetworkMatrix = () => {
         
         setPeople(prev => prev.map(n => n.id === editingNodeInModal.id ? { ...n, ...updatedData } : n));
       } else if (editingNodeInModal.type === 'brand') {
-        await supabase
-          .from('brands' as any)
+        await (supabase as any)
+          .from('brands')
           .update({
             name: updatedData.name,
             category: updatedData.category,
@@ -1114,13 +1145,16 @@ export const NetworkMatrix = () => {
   };
 
   const handleCreateNewProject = () => {
-    const newProject = {
+    if (!user) return;
+    
+    const newProject: ProjectNode = {
       id: Date.now(),
+      user_id: user.id,
       name: `Flow ${projects.length + 1}`,
       type: 'project' as const,
       workflows: workflows.length > 0 ? [workflows[0].id] : [],
-      category: 'P' as const,
-      status: 'Ativo' as const,
+      category: 'P',
+      status: 'Ativo',
       deadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       x: 500,
       y: 400
@@ -1151,8 +1185,8 @@ export const NetworkMatrix = () => {
     if (!user) return;
     
     try {
-      await supabase
-        .from('projects' as any)
+      await (supabase as any)
+        .from('projects')
         .delete()
         .eq('id', projectId)
         .eq('user_id', user.id);
@@ -1727,7 +1761,7 @@ export const NetworkMatrix = () => {
 
         {showProjectManager && (
           <ProjectManagerPanel
-            projects={projects}
+            projects={projects as any}
             workflows={workflows}
             people={people}
             brands={brands}
