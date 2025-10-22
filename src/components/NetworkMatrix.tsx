@@ -1175,6 +1175,30 @@ export const NetworkMatrix = () => {
         }
         
         setPeople(prev => [...prev, createdPersonWithHome]);
+        
+        // Se estiver dentro de um flow, conectar automaticamente ao projeto ativo
+        if (viewMode === 'single' && activeProjectId) {
+          try {
+            const { data: conn, error: connError } = await (supabase as any)
+              .from('connections')
+              .insert([{
+                user_id: user.id,
+                from_id: createdPersonWithHome.id,
+                from_type: 'person',
+                to_id: activeProjectId,
+                to_type: 'project',
+                connection_type: 'strong'
+              }] as any)
+              .select()
+              .single();
+            if (!connError && conn) {
+              setAllConnections(prev => [...prev, { id: conn.id, from: conn.from_id, to: conn.to_id, type: conn.connection_type || 'strong' }]);
+            }
+          } catch (e) {
+            console.error('Erro ao conectar pessoa ao flow:', e);
+          }
+        }
+        
         setShowNodeCreationModal(false);
         
         console.log('✅ Pessoa criada com sucesso:', createdPersonWithHome);
@@ -1221,6 +1245,30 @@ export const NetworkMatrix = () => {
         }
         
         setBrands(prev => [...prev, createdBrandWithHome]);
+        
+        // Se estiver dentro de um flow, conectar automaticamente ao projeto ativo
+        if (viewMode === 'single' && activeProjectId) {
+          try {
+            const { data: conn, error: connError } = await (supabase as any)
+              .from('connections')
+              .insert([{
+                user_id: user.id,
+                from_id: createdBrandWithHome.id,
+                from_type: 'brand',
+                to_id: activeProjectId,
+                to_type: 'project',
+                connection_type: 'strong'
+              }] as any)
+              .select()
+              .single();
+            if (!connError && conn) {
+              setAllConnections(prev => [...prev, { id: conn.id, from: conn.from_id, to: conn.to_id, type: conn.connection_type || 'strong' }]);
+            }
+          } catch (e) {
+            console.error('Erro ao conectar marca ao flow:', e);
+          }
+        }
+        
         setShowNodeCreationModal(false);
         
         console.log('✅ Marca criada com sucesso:', createdBrandWithHome);
