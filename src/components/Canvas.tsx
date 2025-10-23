@@ -26,7 +26,7 @@ interface CanvasProps {
   onGoToProject?: (id: number) => void;
   onGoToCenter?: (center: { id: number; type: 'project' | 'person' | 'brand' }) => void;
   onWheel?: (e: React.WheelEvent) => void;
-  onDeleteConnection?: (index: number) => void;
+  onDeleteConnection?: (connectionId: number | { from: number; to: number }) => void;
 }
 
 const nodeColors = {
@@ -589,14 +589,22 @@ export const Canvas: React.FC<CanvasProps> = ({
                     strokeWidth="20"
                     fill="none"
                     className="cursor-pointer"
-                    onClick={(e) => { 
-                      e.stopPropagation(); 
-                      setSelectedConnection(selectedConnection === globalIdx ? null : globalIdx);
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const conn = allConnections[globalIdx];
+                      setSelectedConnection(conn?.id || globalIdx);
                       setSelectedNodes([]);
                     }}
                     onDoubleClick={(e) => {
                       e.stopPropagation();
-                      if (onDeleteConnection && globalIdx >= 0) onDeleteConnection(globalIdx);
+                      if (onDeleteConnection) {
+                        const conn = allConnections[globalIdx];
+                        if (conn?.id) {
+                          onDeleteConnection(conn.id);
+                        } else if (conn) {
+                          onDeleteConnection({ from: conn.from, to: conn.to });
+                        }
+                      }
                     }}
                     onMouseEnter={(e) => {
                       const rect = svgRef.current!.getBoundingClientRect();
@@ -626,14 +634,22 @@ export const Canvas: React.FC<CanvasProps> = ({
                     strokeWidth="15"
                     fill="none"
                     className="cursor-pointer"
-                    onClick={(e) => { 
+                    onClick={(e) => {
                       e.stopPropagation(); 
-                      setSelectedConnection(selectedConnection === globalIdx ? null : globalIdx);
+                      const conn = allConnections[globalIdx];
+                      setSelectedConnection(conn?.id || globalIdx);
                       setSelectedNodes([]);
                     }}
                     onDoubleClick={(e) => {
                       e.stopPropagation();
-                      if (onDeleteConnection && globalIdx >= 0) onDeleteConnection(globalIdx);
+                      if (onDeleteConnection) {
+                        const conn = allConnections[globalIdx];
+                        if (conn?.id) {
+                          onDeleteConnection(conn.id);
+                        } else if (conn) {
+                          onDeleteConnection({ from: conn.from, to: conn.to });
+                        }
+                      }
                     }}
                     onMouseEnter={(e) => {
                       const rect = svgRef.current!.getBoundingClientRect();
