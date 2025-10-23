@@ -2044,6 +2044,7 @@ export const NetworkMatrix = () => {
             }, 200);
           }}
           onWheel={handleWheel}
+          onDeleteConnection={deleteConnection}
         />
 
         {/* Botões flutuantes de ação */}

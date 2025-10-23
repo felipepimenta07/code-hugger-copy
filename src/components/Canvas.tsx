@@ -26,6 +26,7 @@ interface CanvasProps {
   onGoToProject?: (id: number) => void;
   onGoToCenter?: (center: { id: number; type: 'project' | 'person' | 'brand' }) => void;
   onWheel?: (e: React.WheelEvent) => void;
+  onDeleteConnection?: (index: number) => void;
 }
 
 const nodeColors = {
@@ -57,7 +58,8 @@ export const Canvas: React.FC<CanvasProps> = ({
   allConnections = [],
   onGoToProject,
   onGoToCenter,
-  onWheel
+  onWheel,
+  onDeleteConnection
 }) => {
   const [hoveredConnection, setHoveredConnection] = useState<{
     index: number;
@@ -592,6 +594,10 @@ export const Canvas: React.FC<CanvasProps> = ({
                       setSelectedConnection(selectedConnection === globalIdx ? null : globalIdx);
                       setSelectedNodes([]);
                     }}
+                    onDoubleClick={(e) => {
+                      e.stopPropagation();
+                      if (onDeleteConnection && globalIdx >= 0) onDeleteConnection(globalIdx);
+                    }}
                     onMouseEnter={(e) => {
                       const rect = svgRef.current!.getBoundingClientRect();
                       const midX = ((from.x + to.x) / 2) * state.zoom + state.pan.x + rect.left;
@@ -624,6 +630,10 @@ export const Canvas: React.FC<CanvasProps> = ({
                       e.stopPropagation(); 
                       setSelectedConnection(selectedConnection === globalIdx ? null : globalIdx);
                       setSelectedNodes([]);
+                    }}
+                    onDoubleClick={(e) => {
+                      e.stopPropagation();
+                      if (onDeleteConnection && globalIdx >= 0) onDeleteConnection(globalIdx);
                     }}
                     onMouseEnter={(e) => {
                       const rect = svgRef.current!.getBoundingClientRect();
