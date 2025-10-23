@@ -110,6 +110,33 @@ export type Database = {
         }
         Relationships: []
       }
+      flows: {
+        Row: {
+          center_id: number
+          center_type: string
+          created_at: string
+          id: number
+          name: string
+          user_id: string
+        }
+        Insert: {
+          center_id: number
+          center_type: string
+          created_at?: string
+          id?: never
+          name: string
+          user_id: string
+        }
+        Update: {
+          center_id?: number
+          center_type?: string
+          created_at?: string
+          id?: never
+          name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       people: {
         Row: {
           category: string | null

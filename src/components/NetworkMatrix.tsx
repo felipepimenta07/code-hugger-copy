@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Plus, Trash2, ZoomIn, ZoomOut, X, Building2, User, FolderKanban, Undo2, Redo2, LayoutGrid, Maximize2, Info, Layers, BarChart3, Route, Sparkles, Target, Save, LogOut } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import type { ProjectNode, PersonNode, BrandNode, NetworkNode, ConnectionEdge, Workflow } from '@/types/database';
+import type { ProjectNode, PersonNode, BrandNode, NetworkNode, ConnectionEdge, Workflow, Flow } from '@/types/database';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -45,9 +45,12 @@ export const NetworkMatrix = () => {
   const [brands, setBrands] = useState<BrandNode[]>([]);
   const [allConnections, setAllConnections] = useState<ConnectionEdge[]>([]);
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
+  const [flows, setFlows] = useState<Flow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const [activeProjectId, setActiveProjectId] = useState<number | null>(null);
+  const [activeCenter, setActiveCenter] = useState<{ id: number; type: 'project' | 'person' | 'brand' } | null>(null);
+  const didInitialFit = React.useRef(false);
   const [viewMode, setViewMode] = useState('master');
   const [showLegend, setShowLegend] = useState(false);
   const [selectedNodes, setSelectedNodes] = useState([]);
@@ -99,6 +102,15 @@ export const NetworkMatrix = () => {
         
         if (workflowsError) throw workflowsError;
         setWorkflows(workflowsData || []);
+
+        // Carregar flows
+        const { data: flowsData, error: flowsError } = await (supabase as any)
+          .from('flows')
+          .select('*')
+          .eq('user_id', user.id);
+        
+        if (flowsError) throw flowsError;
+        setFlows(flowsData || []);
 
         // Carregar projects
         const { data: projectsData, error: projectsError } = await (supabase as any)
@@ -521,6 +533,56 @@ export const NetworkMatrix = () => {
     return [projectNode, ...Array.from(included).filter(id => id !== projectId).map(id => byId.get(id)!).filter(Boolean)];
   };
 
+  // Helper: get nodes for ANY center type (person, brand, or project)
+  const getNodesForCenter = (centerId: number, centerType: 'project' | 'person' | 'brand') => {
+    const byId = new Map(allNodesWithAnchors.map(n => [n.id, n]));
+    const centerNode = byId.get(centerId);
+    if (!centerNode) return [];
+    
+    const included = new Set<number>([centerId]);
+    
+    // 1. Add all nodes directly connected to the center (1st degree)
+    allConnections.forEach(c => {
+      if (c.from === centerId) {
+        const node = byId.get(c.to);
+        if (node) included.add(c.to);
+      }
+      if (c.to === centerId) {
+        const node = byId.get(c.from);
+        if (node) included.add(c.from);
+      }
+    });
+    
+    // 2. Add connections between already included nodes (2nd degree - limited)
+    let changed = true;
+    let iterations = 0;
+    const maxIterations = 2;
+    
+    while (changed && iterations < maxIterations) {
+      changed = false;
+      iterations++;
+      
+      allConnections.forEach(c => {
+        const fromNode = byId.get(c.from);
+        const toNode = byId.get(c.to);
+        
+        if (fromNode && toNode) {
+          if (included.has(c.from) && !included.has(c.to)) {
+            included.add(c.to);
+            changed = true;
+          }
+          if (included.has(c.to) && !included.has(c.from)) {
+            included.add(c.from);
+            changed = true;
+          }
+        }
+      });
+    }
+    
+    // Return nodes: center first (for radial layout), then others
+    return [centerNode, ...Array.from(included).filter(id => id !== centerId).map(id => byId.get(id)!).filter(Boolean)];
+  };
+
   // Filtrar nós e conexões por flow/modo
   const nodes = viewMode === 'master'
     ? allNodesWithAnchors
@@ -529,7 +591,11 @@ export const NetworkMatrix = () => {
           const project = projects.find(p => p.id === n.anchorProjectId);
           return { ...n, projectId: project?.id, projectColor: project ? '#8b5cf6' : '#6366f1' };
         })
-    : (activeProjectId ? getNodesForSingleView(activeProjectId) : []);
+    : (activeCenter 
+        ? (activeCenter.type === 'project' 
+            ? getNodesForSingleView(activeCenter.id) 
+            : getNodesForCenter(activeCenter.id, activeCenter.type))
+        : []);
   
   // Debug: Log dos nodes no Single View
   React.useEffect(() => {
@@ -826,6 +892,21 @@ export const NetworkMatrix = () => {
     return () => clearTimeout(timer);
   }, []);
 
+  // Fit-to-screen inicial após carregar os dados
+  useEffect(() => {
+    if (!isLoading && !didInitialFit.current && viewMode === 'master' && allNodes.length > 0 && svgRef.current) {
+      const timer = setTimeout(() => {
+        const rect = svgRef.current!.getBoundingClientRect();
+        const bounds = calculateBounds(allNodes);
+        const optimalZoom = calculateOptimalZoom(bounds, rect.width, rect.height);
+        const centerPan = calculateCenterPan(bounds, optimalZoom, rect.width, rect.height);
+        updateState({ zoom: optimalZoom, pan: centerPan });
+        didInitialFit.current = true;
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [isLoading, viewMode, allNodes.length]);
+
   // Auto-centralizar quando voltar para Master View
   useEffect(() => {
     if (viewMode === 'master' && projects.length > 0 && allNodes.length > 0) {
@@ -1113,32 +1194,43 @@ export const NetworkMatrix = () => {
           y: Number(data.y) 
         };
         setProjects(prev => [...prev, createdProject]);
+        
+        // Criar registro na tabela flows se estiver no Master View
+        if (viewMode === 'master') {
+          try {
+            const { data: flowData, error: flowError } = await (supabase as any)
+              .from('flows')
+              .insert([{
+                user_id: user.id,
+                name: createdProject.name,
+                center_type: 'project',
+                center_id: createdProject.id
+              }] as any)
+              .select()
+              .single();
+            
+            if (!flowError && flowData) {
+              setFlows(prev => [...prev, flowData]);
+            }
+          } catch (e) {
+            console.error('Erro ao criar flow:', e);
+          }
+        }
+        
         setShowNodeCreationModal(false);
         
         console.log('✅ Projeto criado com sucesso:', createdProject);
         
         // Comportamento baseado no contexto
         if (viewMode === 'master') {
-          // No master view, permanece no master para ver o flow criado
+          // No master view, entra no novo flow imediatamente
+          setActiveCenter({ id: createdProject.id, type: 'project' });
+          setActiveProjectId(createdProject.id);
+          setViewMode('single');
           toast.success(`Flow "${createdProject.name}" criado!`);
-          
-          // Centralizar no novo flow após um pequeno delay
-          setTimeout(() => {
-            const newNode = projects.find(p => p.id === createdProject.id);
-            if (newNode && svgRef.current) {
-              const rect = svgRef.current.getBoundingClientRect();
-              const centerX = rect.width / 2;
-              const centerY = rect.height / 2;
-              updateState({
-                pan: {
-                  x: centerX - newNode.x * state.zoom,
-                  y: centerY - newNode.y * state.zoom
-                }
-              });
-            }
-          }, 300);
         } else {
           // Se criando dentro de outro flow (flow filho), entra no novo
+          setActiveCenter({ id: createdProject.id, type: 'project' });
           setActiveProjectId(createdProject.id);
           setViewMode('single');
           toast.success(`Flow Filho "${createdProject.name}" criado!`);
@@ -1176,34 +1268,59 @@ export const NetworkMatrix = () => {
         
         setPeople(prev => [...prev, createdPersonWithHome]);
         
-        // Se estiver dentro de um flow, conectar automaticamente ao projeto ativo
-        if (viewMode === 'single' && activeProjectId) {
+        // Criar flow se estiver no Master View
+        if (viewMode === 'master') {
           try {
-            const { data: conn, error: connError } = await (supabase as any)
-              .from('connections')
+            const { data: flowData, error: flowError } = await (supabase as any)
+              .from('flows')
               .insert([{
                 user_id: user.id,
-                from_id: createdPersonWithHome.id,
-                from_type: 'person',
-                to_id: activeProjectId,
-                to_type: 'project',
-                connection_type: 'strong'
+                name: createdPerson.name,
+                center_type: 'person',
+                center_id: createdPerson.id
               }] as any)
               .select()
               .single();
-            if (!connError && conn) {
-              setAllConnections(prev => [...prev, { id: conn.id, from: conn.from_id, to: conn.to_id, type: conn.connection_type || 'strong' }]);
+            
+            if (!flowError && flowData) {
+              setFlows(prev => [...prev, flowData]);
             }
           } catch (e) {
-            console.error('Erro ao conectar pessoa ao flow:', e);
+            console.error('Erro ao criar flow:', e);
           }
+          
+          // Entrar no Single View do novo flow
+          setActiveCenter({ id: createdPerson.id, type: 'person' });
+          setViewMode('single');
+          toast.success(`Flow "${createdPerson.name}" criado!`);
+        } else {
+          // Se estiver dentro de um flow, conectar automaticamente ao projeto ativo
+          if (activeProjectId) {
+            try {
+              const { data: conn, error: connError } = await (supabase as any)
+                .from('connections')
+                .insert([{
+                  user_id: user.id,
+                  from_id: createdPersonWithHome.id,
+                  from_type: 'person',
+                  to_id: activeProjectId,
+                  to_type: 'project',
+                  connection_type: 'strong'
+                }] as any)
+                .select()
+                .single();
+              if (!connError && conn) {
+                setAllConnections(prev => [...prev, { id: conn.id, from: conn.from_id, to: conn.to_id, type: conn.connection_type || 'strong' }]);
+              }
+            } catch (e) {
+              console.error('Erro ao conectar pessoa ao flow:', e);
+            }
+          }
+          toast.success(`${createdPersonWithHome.name} criado!`);
         }
         
         setShowNodeCreationModal(false);
-        
         console.log('✅ Pessoa criada com sucesso:', createdPersonWithHome);
-        
-        toast.success(`${createdPersonWithHome.name} criado!`);
         
         // Center view on the new node
         setTimeout(() => {
@@ -1216,6 +1333,86 @@ export const NetworkMatrix = () => {
           });
         }, 50);
       } else if (actualType === 'brand') {
+        const { data, error } = await (supabase as any)
+          .from('brands')
+          .insert([{
+            name: newNode.name,
+            user_id: user.id,
+            x: newNode.x,
+            y: newNode.y,
+            category: newNode.category || null,
+            website: newNode.website || null
+          }] as any)
+          .select()
+          .single();
+        
+        if (error || !data) throw error || new Error('No data returned');
+        
+        const createdBrand: BrandNode = { 
+          ...data, 
+          type: 'brand' as const, 
+          x: Number(data.x), 
+          y: Number(data.y) 
+        };
+        
+        const createdBrandWithHome: any = { ...createdBrand };
+        if (viewMode === 'single' && activeProjectId) {
+          createdBrandWithHome.homeProjectId = activeProjectId;
+        }
+        
+        setBrands(prev => [...prev, createdBrandWithHome]);
+        
+        // Criar flow se estiver no Master View
+        if (viewMode === 'master') {
+          try {
+            const { data: flowData, error: flowError } = await (supabase as any)
+              .from('flows')
+              .insert([{
+                user_id: user.id,
+                name: createdBrand.name,
+                center_type: 'brand',
+                center_id: createdBrand.id
+              }] as any)
+              .select()
+              .single();
+            
+            if (!flowError && flowData) {
+              setFlows(prev => [...prev, flowData]);
+            }
+          } catch (e) {
+            console.error('Erro ao criar flow:', e);
+          }
+          
+          setActiveCenter({ id: createdBrand.id, type: 'brand' });
+          setViewMode('single');
+          toast.success(`Flow "${createdBrand.name}" criado!`);
+        } else {
+          if (activeProjectId) {
+            try {
+              const { data: conn, error: connError } = await (supabase as any)
+                .from('connections')
+                .insert([{
+                  user_id: user.id,
+                  from_id: createdBrandWithHome.id,
+                  from_type: 'brand',
+                  to_id: activeProjectId,
+                  to_type: 'project',
+                  connection_type: 'strong'
+                }] as any)
+                .select()
+                .single();
+              if (!connError && conn) {
+                setAllConnections(prev => [...prev, { id: conn.id, from: conn.from_id, to: conn.to_id, type: conn.connection_type || 'strong' }]);
+              }
+            } catch (e) {
+              console.error('Erro ao conectar marca ao flow:', e);
+            }
+          }
+          toast.success(`${createdBrandWithHome.name} criado!`);
+        }
+        
+        setShowNodeCreationModal(false);
+        console.log('✅ Marca criada com sucesso:', createdBrandWithHome);
         const { data, error } = await (supabase as any)
           .from('brands')
           .insert([{

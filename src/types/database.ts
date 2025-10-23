@@ -56,6 +56,15 @@ export interface Workflow {
   created_at?: string;
 }
 
+export interface Flow {
+  id: number;
+  user_id: string;
+  name: string;
+  center_type: 'project' | 'person' | 'brand';
+  center_id: number;
+  created_at?: string;
+}
+
 // Extended types with computed fields for UI
 export interface ProjectNode extends Project {
   type: 'project';
