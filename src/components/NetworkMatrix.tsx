@@ -609,7 +609,12 @@ export const NetworkMatrix = () => {
     : null;
 
   const connections = viewMode === 'master'
-    ? allConnections
+    ? allConnections.filter(c => {
+        // No master view, apenas mostrar conexões onde ambos os nós existem e são visíveis
+        const fromNode = nodes.find(n => n.id === c.from);
+        const toNode = nodes.find(n => n.id === c.to);
+        return fromNode && toNode;
+      })
     : allConnections.filter(c => {
         const fromNode = nodes.find(n => n.id === c.from);
         const toNode = nodes.find(n => n.id === c.to);
@@ -617,9 +622,11 @@ export const NetworkMatrix = () => {
         // Both nodes must be in the filtered list
         if (!fromNode || !toNode) return false;
         
-        // If connection involves another project (not the active one), exclude it
-        if (fromNode.type === 'project' && fromNode.id !== activeProjectId) return false;
-        if (toNode.type === 'project' && toNode.id !== activeProjectId) return false;
+        // If connection involves another center node (not the active one), exclude it
+        if (activeCenter) {
+          if (fromNode.type === activeCenter.type && fromNode.id !== activeCenter.id) return false;
+          if (toNode.type === activeCenter.type && toNode.id !== activeCenter.id) return false;
+        }
         
         return true;
       });

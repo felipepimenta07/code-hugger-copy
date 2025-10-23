@@ -138,9 +138,11 @@ export const Canvas: React.FC<CanvasProps> = ({
   };
 
   const handleConnectionDotMouseDown = (e: React.MouseEvent, nodeId: number) => {
-    if (viewMode === 'master') return;
     e.stopPropagation();
+    e.preventDefault();
     const node = nodes.find(n => n.id === nodeId);
+    if (!node) return;
+    
     updateState({ 
       isDraggingConnection: true, 
       connectionStart: { id: nodeId, x: node.x, y: node.y }, 
