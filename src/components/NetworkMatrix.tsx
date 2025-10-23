@@ -477,7 +477,8 @@ export const NetworkMatrix = () => {
   // Helper to get nodes for Single View (isolated per project, no cross-project traversal)
   const getNodesForSingleView = (projectId: number) => {
     const byId = new Map(allNodesWithAnchors.map(n => [n.id, n]));
-    const projectNode = byId.get(projectId);
+    // Garantir que o nó central é o projeto (evita colisão de IDs entre tipos)
+    const projectNode = allNodesWithAnchors.find(n => n.type === 'project' && n.id === projectId);
     if (!projectNode) return [];
     
     // Start with the active project
@@ -600,10 +601,11 @@ export const NetworkMatrix = () => {
   // Debug: Log dos nodes no Single View
   React.useEffect(() => {
     if (viewMode === 'single') {
-      console.log('🔍 Single View - activeProjectId:', activeProjectId);
+      console.log('🔍 Single View - activeCenter:', activeCenter);
       console.log('🔍 Nodes filtrados:', nodes.map(n => ({ id: n.id, name: n.name, type: n.type })));
     }
-  }, [viewMode, activeProjectId, nodes]);
+  }, [viewMode, activeCenter, nodes]);
+  
 
   // Para o PathIndicator
   const selectedNode = selectedNodes.length === 1 
