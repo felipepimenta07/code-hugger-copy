@@ -945,14 +945,18 @@ export const NetworkMatrix = () => {
 
   // Auto-centralizar quando entrar em Single View
   useEffect(() => {
-    if (viewMode === 'single' && activeProjectId && allNodes.length > 0) {
+    if (viewMode === 'single' && activeCenter && allNodes.length > 0) {
       const timer = setTimeout(() => {
-        // First organize single view
-        autoOrganizeSingle(activeProjectId);
+        // First organize single view based on center type
+        if (activeCenter.type === 'project') {
+          autoOrganizeSingle(activeCenter.id);
+        }
         
         // Then center after organization completes
         setTimeout(() => {
-          const nodesToCenter = getNodesForSingleView(activeProjectId);
+          const nodesToCenter = activeCenter.type === 'project' 
+            ? getNodesForSingleView(activeCenter.id) 
+            : getNodesForCenter(activeCenter.id, activeCenter.type);
           if (nodesToCenter.length > 0 && svgRef.current) {
             const rect = svgRef.current.getBoundingClientRect();
             const bounds = calculateBounds(nodesToCenter);
@@ -963,7 +967,14 @@ export const NetworkMatrix = () => {
       }, 100);
       return () => clearTimeout(timer);
     }
-  }, [viewMode, activeProjectId]);
+  }, [viewMode, activeCenter]);
+
+  // Sincronizar activeCenter com activeProjectId para evitar estados inconsistentes
+  useEffect(() => {
+    if (activeProjectId != null && (!activeCenter || activeCenter.id !== activeProjectId || activeCenter.type !== 'project')) {
+      setActiveCenter({ id: activeProjectId, type: 'project' });
+    }
+  }, [activeProjectId]);
 
   useKeyboardShortcuts({
     selectedNodes,
@@ -1722,9 +1733,18 @@ export const NetworkMatrix = () => {
                       onClick={() => {
                         setViewMode('single');
                         
+                        // Garantir que activeCenter está setado
+                        if (activeProjectId && (!activeCenter || activeCenter.id !== activeProjectId)) {
+                          setActiveCenter({ id: activeProjectId, type: 'project' });
+                        }
+                        
                         // Centralizar quando mudar para single view
                         setTimeout(() => {
-                          if (activeProjectId) {
+                          if (activeCenter) {
+                            if (activeCenter.type === 'project') {
+                              autoOrganizeSingle(activeCenter.id);
+                            }
+                          } else if (activeProjectId) {
                             autoOrganizeSingle(activeProjectId);
                           }
                         }, 50);
@@ -1732,7 +1752,11 @@ export const NetworkMatrix = () => {
                         setTimeout(() => {
                           const width = window.innerWidth;
                           const height = window.innerHeight - 100;
-                          const currentNodes = getNodesForSingleView(activeProjectId);
+                          const currentNodes = activeCenter 
+                            ? (activeCenter.type === 'project' 
+                                ? getNodesForSingleView(activeCenter.id) 
+                                : getNodesForCenter(activeCenter.id, activeCenter.type))
+                            : getNodesForSingleView(activeProjectId);
                           
                           if (currentNodes.length > 0 && svgRef.current) {
                             const bounds = calculateBounds(currentNodes);
@@ -2026,9 +2050,28 @@ export const NetworkMatrix = () => {
             setShowNodeCreationModal(true);
           }}
           onGoToProject={(id) => {
+            setActiveCenter({ id, type: 'project' });
             setActiveProjectId(id);
             setViewMode('single');
             // useEffect will handle centering automatically
+          }}
+          onGoToCenter={({ id, type }) => {
+            setActiveCenter({ id, type });
+            if (type === 'project') setActiveProjectId(id);
+            setViewMode('single');
+            
+            // Centralizar após mudar de view
+            setTimeout(() => {
+              const rect = svgRef.current?.getBoundingClientRect();
+              if (!rect) return;
+              const nodesToCenter = type === 'project' ? getNodesForSingleView(id) : getNodesForCenter(id, type);
+              if (nodesToCenter.length > 0) {
+                const bounds = calculateBounds(nodesToCenter);
+                const zoom = calculateOptimalZoom(bounds, rect.width, rect.height);
+                const pan = calculateCenterPan(bounds, zoom, rect.width, rect.height);
+                updateState({ zoom, pan });
+              }
+            }, 200);
           }}
           onWheel={handleWheel}
         />
@@ -2170,6 +2213,7 @@ export const NetworkMatrix = () => {
               console.log('📊 Projetos disponíveis:', projects.map(p => ({ id: p.id, name: p.name })));
               
               setShowProjectManager(false);
+              setActiveCenter({ id: projectId, type: 'project' });
               setActiveProjectId(projectId);
               setViewMode('single');
               

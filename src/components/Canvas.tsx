@@ -24,6 +24,7 @@ interface CanvasProps {
   projects?: any[];
   allConnections?: any[];
   onGoToProject?: (id: number) => void;
+  onGoToCenter?: (center: { id: number; type: 'project' | 'person' | 'brand' }) => void;
   onWheel?: (e: React.WheelEvent) => void;
 }
 
@@ -55,6 +56,7 @@ export const Canvas: React.FC<CanvasProps> = ({
   projects = [],
   allConnections = [],
   onGoToProject,
+  onGoToCenter,
   onWheel
 }) => {
   const [hoveredConnection, setHoveredConnection] = useState<{
@@ -126,9 +128,9 @@ export const Canvas: React.FC<CanvasProps> = ({
     e.stopPropagation();
     const node = nodes.find(n => n.id === nodeId);
     
-    // Se estiver no master view e for um projeto, vai para o single view
-    if (viewMode === 'master' && node?.type === 'project' && onGoToProject) {
-      onGoToProject(nodeId);
+    // Se estiver no master view, double click vai para single view do nó
+    if (viewMode === 'master' && node && onGoToCenter) {
+      onGoToCenter({ id: nodeId, type: node.type as 'project' | 'person' | 'brand' });
     } else if (node && onOpenEditModal) {
       // Caso contrário, abre o modal de edição
       onOpenEditModal(node);
