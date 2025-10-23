@@ -1022,6 +1022,31 @@ export const NetworkMatrix = () => {
     }
   }, [activeProjectId]);
 
+  const deleteConnection = (connectionIndex: number) => {
+    saveToHistory();
+    
+    // Delete connection from database
+    const conn = allConnections[connectionIndex];
+    if (conn && conn.id && user) {
+      (supabase as any)
+        .from('connections')
+        .delete()
+        .eq('id', conn.id)
+        .eq('user_id', user.id)
+        .then(({ error }) => {
+          if (error) {
+            console.error('Erro ao deletar conexão do banco:', error);
+          } else {
+            console.log('✅ Conexão deletada do banco');
+          }
+        });
+    }
+    
+    // Delete connection from state
+    setConnections(prev => prev.filter((_, idx) => idx !== connectionIndex));
+    setSelectedConnection(null);
+  };
+
   useKeyboardShortcuts({
     selectedNodes,
     setSelectedNodes,
@@ -1035,6 +1060,7 @@ export const NetworkMatrix = () => {
     saveToHistory,
     selectedConnection,
     setSelectedConnection,
+    deleteConnection,
     setShowPathFinder,
     setHighlightedPath,
     nodes,
@@ -1066,31 +1092,6 @@ export const NetworkMatrix = () => {
       updateState({ newNodeName: '', editingNode: newNode, showSidebar: true, showAnalytics: false });
       toast.success(`${newNode.name} criado!`);
     }
-  };
-
-  const deleteConnection = (connectionIndex: number) => {
-    saveToHistory();
-    
-    // Delete connection from database
-    const conn = allConnections[connectionIndex];
-    if (conn && conn.id && user) {
-      (supabase as any)
-        .from('connections')
-        .delete()
-        .eq('id', conn.id)
-        .eq('user_id', user.id)
-        .then(({ error }) => {
-          if (error) {
-            console.error('Erro ao deletar conexão do banco:', error);
-          } else {
-            console.log('✅ Conexão deletada do banco');
-          }
-        });
-    }
-    
-    // Delete connection from state
-    setConnections(prev => prev.filter((_, idx) => idx !== connectionIndex));
-    setSelectedConnection(null);
   };
 
   const deleteNode = async (nodeId) => {
@@ -1322,29 +1323,6 @@ export const NetworkMatrix = () => {
           setViewMode('single');
           toast.success(`Flow "${createdPerson.name}" criado!`);
         } else {
-          // Se estiver dentro de um flow, conectar automaticamente ao centro do flow
-          if (activeCenter) {
-            try {
-              const { data: conn, error: connError } = await (supabase as any)
-                .from('connections')
-                .insert([{
-                  user_id: user.id,
-                  from_id: createdPerson.id,
-                  from_type: 'person',
-                  to_id: activeCenter.id,
-                  to_type: activeCenter.type,
-                  connection_type: 'strong'
-                }] as any)
-                .select()
-                .single();
-              if (!connError && conn) {
-                setAllConnections(prev => [...prev, { id: conn.id, from: conn.from_id, to: conn.to_id, type: conn.connection_type || 'strong' }]);
-                console.log('✅ Pessoa conectada ao flow:', conn);
-              }
-            } catch (e) {
-              console.error('Erro ao conectar pessoa ao flow:', e);
-            }
-          }
           toast.success(`${createdPerson.name} criado!`);
         }
         
@@ -1411,29 +1389,6 @@ export const NetworkMatrix = () => {
           setViewMode('single');
           toast.success(`Flow "${createdBrand.name}" criado!`);
         } else {
-          // Se estiver dentro de um flow, conectar automaticamente ao centro do flow
-          if (activeCenter) {
-            try {
-              const { data: conn, error: connError } = await (supabase as any)
-                .from('connections')
-                .insert([{
-                  user_id: user.id,
-                  from_id: createdBrand.id,
-                  from_type: 'brand',
-                  to_id: activeCenter.id,
-                  to_type: activeCenter.type,
-                  connection_type: 'strong'
-                }] as any)
-                .select()
-                .single();
-              if (!connError && conn) {
-                setAllConnections(prev => [...prev, { id: conn.id, from: conn.from_id, to: conn.to_id, type: conn.connection_type || 'strong' }]);
-                console.log('✅ Marca conectada ao flow:', conn);
-              }
-            } catch (e) {
-              console.error('Erro ao conectar marca ao flow:', e);
-            }
-          }
           toast.success(`${createdBrand.name} criado!`);
         }
         

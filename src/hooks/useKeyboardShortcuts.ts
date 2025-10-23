@@ -13,6 +13,7 @@ interface KeyboardShortcutsProps {
   saveToHistory: () => void;
   selectedConnection: number | null;
   setSelectedConnection: (connection: any) => void;
+  deleteConnection: (connectionIndex: number) => void;
   setShowPathFinder: (show: boolean) => void;
   setHighlightedPath: (path: number[]) => void;
   nodes?: any[];
@@ -34,6 +35,7 @@ export const useKeyboardShortcuts = ({
   saveToHistory,
   selectedConnection,
   setSelectedConnection,
+  deleteConnection,
   setShowPathFinder,
   setHighlightedPath,
   nodes,
@@ -52,9 +54,7 @@ export const useKeyboardShortcuts = ({
       if (e.key === 'Delete' || e.key === 'Backspace') {
         e.preventDefault();
         if (selectedConnection !== null) {
-          saveToHistory();
-          setConnections((prev: any[]) => prev.filter((_, idx) => idx !== selectedConnection));
-          setSelectedConnection(null);
+          deleteConnection(selectedConnection);
         } else if (selectedNodes.length > 0) {
           saveToHistory();
           const idsToDelete = new Set(selectedNodes);
@@ -136,6 +136,7 @@ export const useKeyboardShortcuts = ({
     saveToHistory,
     selectedConnection,
     setSelectedConnection,
+    deleteConnection,
     setShowPathFinder,
     setHighlightedPath,
     nodes,
