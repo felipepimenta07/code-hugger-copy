@@ -469,7 +469,6 @@ export const NetworkMatrix = () => {
   // Helper: determine if a non-project node belongs to a project (strict isolation)
   const belongsToProject = (n: any, pid: number) =>
     n?.type !== 'project' && (
-      (n as any).homeProjectId === pid ||
       (n as any).anchorProjectId === pid ||
       allConnections.some(c => (c.from === n.id && c.to === pid) || (c.to === n.id && c.from === pid))
     );
@@ -522,13 +521,6 @@ export const NetworkMatrix = () => {
         }
       });
     }
-    
-    // 3. Include "orphan" nodes with homeProjectId (nodes created in project without connection)
-    allNodesWithAnchors.forEach(n => {
-      if ((n as any).homeProjectId === projectId && n.type !== 'project') {
-        included.add(n.id);
-      }
-    });
     
     // Return nodes: project first, then others
     return [projectNode, ...Array.from(included).filter(id => id !== projectId).map(id => byId.get(id)!).filter(Boolean)];
@@ -746,9 +738,54 @@ export const NetworkMatrix = () => {
     setBrands(newBrands);
   };
 
-  const setConnections = (updater) => {
-    setAllConnections(typeof updater === 'function' ? updater(allConnections) : updater);
+
+  const setConnections = async (updater) => {
+    const newConnections = typeof updater === 'function' ? updater(allConnections) : updater;
+    
+    // Identificar novas conexões que foram adicionadas
+    if (user && Array.isArray(newConnections)) {
+      const newlyAdded = newConnections.filter(nc => 
+        !allConnections.some(oc => oc.from === nc.from && oc.to === nc.to)
+      );
+      
+      // Salvar cada nova conexão no banco
+      for (const conn of newlyAdded) {
+        try {
+          // Buscar os tipos dos nós
+          const fromNode = allNodes.find(n => n.id === conn.from);
+          const toNode = allNodes.find(n => n.id === conn.to);
+          
+          if (!fromNode || !toNode) continue;
+          
+          const { data, error } = await (supabase as any)
+            .from('connections')
+            .insert([{
+              user_id: user.id,
+              from_id: conn.from,
+              from_type: fromNode.type,
+              to_id: conn.to,
+              to_type: toNode.type,
+              connection_type: conn.type || 'strong'
+            }] as any)
+            .select()
+            .single();
+          
+          if (!error && data) {
+            // Atualizar a conexão com o ID do banco
+            conn.id = data.id;
+            console.log('✅ Conexão salva no banco:', conn);
+            toast.success('Conexão criada!');
+          }
+        } catch (e) {
+          console.error('Erro ao salvar conexão:', e);
+          toast.error('Erro ao criar conexão');
+        }
+      }
+    }
+    
+    setAllConnections(newConnections);
   };
+
 
   // Helper: Contar conexões
   const getConnectionCount = (node: any) => {
@@ -1011,11 +1048,6 @@ export const NetworkMatrix = () => {
         isNewHighlight: true
       };
 
-      // Set homeProjectId for person/brand nodes created in single view
-      if (activeProjectId && (state.newNodeType === 'person' || state.newNodeType === 'brand')) {
-        newNode.homeProjectId = activeProjectId;
-      }
-
       // Set default fields for projects
       if (state.newNodeType === 'project') {
         newNode.workflows = workflows.length > 0 ? [workflows[0].id] : [];
@@ -1032,42 +1064,24 @@ export const NetworkMatrix = () => {
   const deleteConnection = (connectionIndex: number) => {
     saveToHistory();
     
-    // Before deleting, check if we need to set homeProjectId to keep nodes visible in Single View
-    if (viewMode === 'single' && activeProjectId) {
-      const conn = allConnections[connectionIndex];
-      if (conn) {
-        const fromNode = allNodesWithAnchors.find(n => n.id === conn.from);
-        const toNode = allNodesWithAnchors.find(n => n.id === conn.to);
-        
-        // If connection involves the active project, set homeProjectId on the other node BEFORE deleting connection
-        [fromNode, toNode].forEach(node => {
-          if (node && (node.type === 'person' || node.type === 'brand' || node.type === 'project')) {
-            const otherNodeId = node.id === conn.from ? conn.to : conn.from;
-            // Check if this node is connected to the active project and will become orphaned
-            if (otherNodeId === activeProjectId) {
-              // Check if node will have any other connections to the project after this deletion
-              const otherConnectionsToProject = allConnections.filter(
-                (c, idx) => idx !== connectionIndex && 
-                ((c.from === node.id && c.to === activeProjectId) || (c.to === node.id && c.from === activeProjectId))
-              );
-              
-              // Only set homeProjectId if this is the last connection to the project
-              if (otherConnectionsToProject.length === 0 && !(node as any).homeProjectId) {
-                if (node.type === 'person') {
-                  setPeople(prev => prev.map(p => p.id === node.id ? { ...p, homeProjectId: activeProjectId } : p));
-                } else if (node.type === 'brand') {
-                  setBrands(prev => prev.map(b => b.id === node.id ? { ...b, homeProjectId: activeProjectId } : b));
-                } else if (node.type === 'project') {
-                  setProjects(prev => prev.map(p => p.id === node.id ? { ...p, homeProjectId: activeProjectId } : p));
-                }
-              }
-            }
+    // Delete connection from database
+    const conn = allConnections[connectionIndex];
+    if (conn && conn.id && user) {
+      (supabase as any)
+        .from('connections')
+        .delete()
+        .eq('id', conn.id)
+        .eq('user_id', user.id)
+        .then(({ error }) => {
+          if (error) {
+            console.error('Erro ao deletar conexão do banco:', error);
+          } else {
+            console.log('✅ Conexão deletada do banco');
           }
         });
-      }
     }
     
-    // Delete connection after homeProjectId is set
+    // Delete connection from state
     setConnections(prev => prev.filter((_, idx) => idx !== connectionIndex));
     setSelectedConnection(null);
   };
@@ -1273,13 +1287,7 @@ export const NetworkMatrix = () => {
           y: Number(data.y) 
         };
         
-        // Preserve homeProjectId for Single View visibility if created inside a flow
-        const createdPersonWithHome: any = { ...createdPerson };
-        if (viewMode === 'single' && activeProjectId) {
-          createdPersonWithHome.homeProjectId = activeProjectId;
-        }
-        
-        setPeople(prev => [...prev, createdPersonWithHome]);
+        setPeople(prev => [...prev, createdPerson]);
         
         // Criar flow se estiver no Master View
         if (viewMode === 'master') {
@@ -1307,41 +1315,42 @@ export const NetworkMatrix = () => {
           setViewMode('single');
           toast.success(`Flow "${createdPerson.name}" criado!`);
         } else {
-          // Se estiver dentro de um flow, conectar automaticamente ao projeto ativo
-          if (activeProjectId) {
+          // Se estiver dentro de um flow, conectar automaticamente ao centro do flow
+          if (activeCenter) {
             try {
               const { data: conn, error: connError } = await (supabase as any)
                 .from('connections')
                 .insert([{
                   user_id: user.id,
-                  from_id: createdPersonWithHome.id,
+                  from_id: createdPerson.id,
                   from_type: 'person',
-                  to_id: activeProjectId,
-                  to_type: 'project',
+                  to_id: activeCenter.id,
+                  to_type: activeCenter.type,
                   connection_type: 'strong'
                 }] as any)
                 .select()
                 .single();
               if (!connError && conn) {
                 setAllConnections(prev => [...prev, { id: conn.id, from: conn.from_id, to: conn.to_id, type: conn.connection_type || 'strong' }]);
+                console.log('✅ Pessoa conectada ao flow:', conn);
               }
             } catch (e) {
               console.error('Erro ao conectar pessoa ao flow:', e);
             }
           }
-          toast.success(`${createdPersonWithHome.name} criado!`);
+          toast.success(`${createdPerson.name} criado!`);
         }
         
         setShowNodeCreationModal(false);
-        console.log('✅ Pessoa criada com sucesso:', createdPersonWithHome);
+        console.log('✅ Pessoa criada com sucesso:', createdPerson);
         
         // Center view on the new node
         setTimeout(() => {
           const zoom = state.zoom;
           updateState({
             pan: {
-              x: window.innerWidth / 2 - createdPersonWithHome.x * zoom,
-              y: window.innerHeight / 2 - createdPersonWithHome.y * zoom
+              x: window.innerWidth / 2 - createdPerson.x * zoom,
+              y: window.innerHeight / 2 - createdPerson.y * zoom
             }
           });
         }, 50);
@@ -1368,12 +1377,7 @@ export const NetworkMatrix = () => {
           y: Number(data.y) 
         };
         
-        const createdBrandWithHome: any = { ...createdBrand };
-        if (viewMode === 'single' && activeProjectId) {
-          createdBrandWithHome.homeProjectId = activeProjectId;
-        }
-        
-        setBrands(prev => [...prev, createdBrandWithHome]);
+        setBrands(prev => [...prev, createdBrand]);
         
         // Criar flow se estiver no Master View
         if (viewMode === 'master') {
@@ -1400,32 +1404,34 @@ export const NetworkMatrix = () => {
           setViewMode('single');
           toast.success(`Flow "${createdBrand.name}" criado!`);
         } else {
-          if (activeProjectId) {
+          // Se estiver dentro de um flow, conectar automaticamente ao centro do flow
+          if (activeCenter) {
             try {
               const { data: conn, error: connError } = await (supabase as any)
                 .from('connections')
                 .insert([{
                   user_id: user.id,
-                  from_id: createdBrandWithHome.id,
+                  from_id: createdBrand.id,
                   from_type: 'brand',
-                  to_id: activeProjectId,
-                  to_type: 'project',
+                  to_id: activeCenter.id,
+                  to_type: activeCenter.type,
                   connection_type: 'strong'
                 }] as any)
                 .select()
                 .single();
               if (!connError && conn) {
                 setAllConnections(prev => [...prev, { id: conn.id, from: conn.from_id, to: conn.to_id, type: conn.connection_type || 'strong' }]);
+                console.log('✅ Marca conectada ao flow:', conn);
               }
             } catch (e) {
               console.error('Erro ao conectar marca ao flow:', e);
             }
           }
-          toast.success(`${createdBrandWithHome.name} criado!`);
+          toast.success(`${createdBrand.name} criado!`);
         }
         
         setShowNodeCreationModal(false);
-        console.log('✅ Marca criada com sucesso:', createdBrandWithHome);
+        console.log('✅ Marca criada com sucesso:', createdBrand);
       }
     } catch (error: any) {
       console.error('Erro ao criar nó:', error);
