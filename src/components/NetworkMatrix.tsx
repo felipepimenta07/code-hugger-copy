@@ -83,9 +83,16 @@ export const NetworkMatrix = () => {
         const connectionsRes = await sb.from('connections').select('*').eq('user_id', user.id);
         const workflowsRes = await sb.from('workflows').select('*').eq('user_id', user.id);
 
-        if (projectsRes.data) setProjects(projectsRes.data);
-        if (peopleRes.data) setPeople(peopleRes.data);
-        if (brandsRes.data) setBrands(brandsRes.data);
+        // Adicionar propriedade 'type' aos dados carregados
+        if (projectsRes.data) {
+          setProjects(projectsRes.data.map((p: any) => ({ ...p, type: 'project' })));
+        }
+        if (peopleRes.data) {
+          setPeople(peopleRes.data.map((p: any) => ({ ...p, type: 'person' })));
+        }
+        if (brandsRes.data) {
+          setBrands(brandsRes.data.map((b: any) => ({ ...b, type: 'brand' })));
+        }
         if (connectionsRes.data) setAllConnections(connectionsRes.data);
         if (workflowsRes.data) setWorkflows(workflowsRes.data);
         

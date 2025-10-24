@@ -655,7 +655,9 @@ export const Canvas: React.FC<CanvasProps> = ({
         
         {/* Nós */}
         {nodes.map(node => {
-          const colors = nodeColors[node.type as keyof typeof nodeColors];
+          // Garantir que node.type existe e é válido
+          const nodeType = (node.type as keyof typeof nodeColors) || 'person';
+          const colors = nodeColors[nodeType] || nodeColors.person;
           const isSelected = selectedNodes.includes(node.id);
           const isInPath = highlightedPath.includes(node.id);
           const connectionCount = connections.filter(c => c.from === node.id || c.to === node.id).length;
