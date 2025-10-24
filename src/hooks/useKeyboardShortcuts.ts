@@ -53,8 +53,10 @@ export const useKeyboardShortcuts = ({
         e.preventDefault();
         if (selectedConnection !== null) {
           saveToHistory();
+          setSelectedNodes([]); // Limpar selectedNodes primeiro
           setConnections((prev: any[]) => prev.filter((_, idx) => idx !== selectedConnection));
           setSelectedConnection(null);
+          return; // IMPORTANTE: Não executar o bloco de deletar nós
         } else if (selectedNodes.length > 0) {
           saveToHistory();
           const idsToDelete = new Set(selectedNodes);

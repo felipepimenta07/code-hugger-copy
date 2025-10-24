@@ -125,6 +125,13 @@ export const NetworkMatrix = () => {
     loadData();
   }, [user]);
 
+  // Garantir que selecionar uma conexão limpa a seleção de nós
+  useEffect(() => {
+    if (selectedConnection !== null) {
+      setSelectedNodes([]);
+    }
+  }, [selectedConnection]);
+
   // Combinar todos os nós
   const allNodes = [...projects, ...people, ...brands];
   
@@ -825,47 +832,61 @@ export const NetworkMatrix = () => {
     }
   };
 
-  const deleteConnection = (connectionIndex: number) => {
+  const deleteConnection = async (connectionIndex: number) => {
     saveToHistory();
     
-    // Before deleting, check if we need to set homeProjectId to keep nodes visible in Single View
-    if (viewMode === 'single' && activeProjectId) {
-      const conn = allConnections[connectionIndex];
-      if (conn) {
-        const fromNode = allNodesWithAnchors.find(n => n.id === conn.from);
-        const toNode = allNodesWithAnchors.find(n => n.id === conn.to);
-        
-        // If connection involves the active project, set homeProjectId on the other node BEFORE deleting connection
-        [fromNode, toNode].forEach(node => {
-          if (node && (node.type === 'person' || node.type === 'brand' || node.type === 'project')) {
-            const otherNodeId = node.id === conn.from ? conn.to : conn.from;
-            // Check if this node is connected to the active project and will become orphaned
-            if (otherNodeId === activeProjectId) {
-              // Check if node will have any other connections to the project after this deletion
-              const otherConnectionsToProject = allConnections.filter(
-                (c, idx) => idx !== connectionIndex && 
-                ((c.from === node.id && c.to === activeProjectId) || (c.to === node.id && c.from === activeProjectId))
-              );
-              
-              // Only set homeProjectId if this is the last connection to the project
-              if (otherConnectionsToProject.length === 0 && !(node as any).homeProjectId) {
-                if (node.type === 'person') {
-                  setPeople(prev => prev.map(p => p.id === node.id ? { ...p, homeProjectId: activeProjectId } : p));
-                } else if (node.type === 'brand') {
-                  setBrands(prev => prev.map(b => b.id === node.id ? { ...b, homeProjectId: activeProjectId } : b));
-                } else if (node.type === 'project') {
-                  setProjects(prev => prev.map(p => p.id === node.id ? { ...p, homeProjectId: activeProjectId } : p));
-                }
-              }
-            }
-          }
-        });
+    const conn = allConnections[connectionIndex];
+    if (!conn) return;
+    
+    // 1. Limpar seleção de nós antes de deletar
+    setSelectedNodes([]);
+    
+    // 2. Deletar do Supabase
+    if (conn.id) {
+      const { error } = await (supabase as any)
+        .from('connections')
+        .delete()
+        .eq('id', conn.id);
+      
+      if (error) {
+        toast.error('Erro ao deletar conexão');
+        return;
       }
     }
     
-    // Delete connection after homeProjectId is set
-    setConnections(prev => prev.filter((_, idx) => idx !== connectionIndex));
+    // 3. Lógica existente de homeProjectId (MANTER COMO ESTÁ)
+    if (viewMode === 'single' && activeProjectId) {
+      const fromNode = allNodesWithAnchors.find(n => n.id === conn.from);
+      const toNode = allNodesWithAnchors.find(n => n.id === conn.to);
+      
+      [fromNode, toNode].forEach(node => {
+        if (node && (node.type === 'person' || node.type === 'brand' || node.type === 'project')) {
+          const otherNodeId = node.id === conn.from ? conn.to : conn.from;
+          if (otherNodeId === activeProjectId) {
+            const otherConnectionsToProject = allConnections.filter(
+              (c, idx) => idx !== connectionIndex && 
+              ((c.from === node.id && c.to === activeProjectId) || (c.to === node.id && c.from === activeProjectId))
+            );
+            
+            if (otherConnectionsToProject.length === 0 && !(node as any).homeProjectId) {
+              if (node.type === 'person') {
+                setPeople(prev => prev.map(p => p.id === node.id ? { ...p, homeProjectId: activeProjectId } : p));
+              } else if (node.type === 'brand') {
+                setBrands(prev => prev.map(b => b.id === node.id ? { ...b, homeProjectId: activeProjectId } : b));
+              } else if (node.type === 'project') {
+                setProjects(prev => prev.map(p => p.id === node.id ? { ...p, homeProjectId: activeProjectId } : p));
+              }
+            }
+          }
+        }
+      });
+    }
+    
+    // 4. Deletar do estado local
+    setAllConnections(prev => prev.filter((_, idx) => idx !== connectionIndex));
     setSelectedConnection(null);
+    
+    toast.success('Conexão deletada!');
   };
 
   const deleteNode = (nodeId) => {
