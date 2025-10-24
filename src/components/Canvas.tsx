@@ -435,8 +435,15 @@ export const Canvas: React.FC<CanvasProps> = ({
           const from = nodes.find(n => n.id === conn.from);
           const to = nodes.find(n => n.id === conn.to);
           if (!from || !to) return null;
-          // Não renderizar conexões projeto↔projeto
-          if (from.type === 'project' && to.type === 'project') return null;
+          
+          // Allow project-to-project connections in single view when one is the center
+          if (from.type === 'project' && to.type === 'project') {
+            const centerId = viewMode === 'single' && nodes.length > 0 ? nodes[0].id : null;
+            // Only render if in single view and one of them is the center project
+            if (!(viewMode === 'single' && centerId && (from.id === centerId || to.id === centerId))) {
+              return null;
+            }
+          }
           
           // Encontrar índice correto em allConnections
           const globalIdx = allConnections.findIndex(c => 

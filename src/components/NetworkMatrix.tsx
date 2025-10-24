@@ -95,7 +95,19 @@ export const NetworkMatrix = () => {
         if (brandsRes.data) {
           setBrands(brandsRes.data.map((b: any) => ({ ...b, type: 'brand' })));
         }
-        if (connectionsRes.data) setAllConnections(connectionsRes.data);
+        if (connectionsRes.data) {
+          // Normalizar conexões do backend (from_id/to_id) para formato interno (from/to)
+          const normalized = connectionsRes.data.map((c: any) => ({
+            id: c.id,
+            from: c.from_id,
+            to: c.to_id,
+            from_type: c.from_type,
+            to_type: c.to_type,
+            type: c.connection_type || 'related',
+            connection_type: c.connection_type
+          }));
+          setAllConnections(normalized);
+        }
         if (workflowsRes.data) setWorkflows(workflowsRes.data);
         if (flowsRes.data) setFlows(flowsRes.data);
         
@@ -359,15 +371,15 @@ export const NetworkMatrix = () => {
     // Start with the active project
     const included = new Set<number>([projectId]);
     
-    // 1. Add people/brands directly connected to the project
+    // 1. Add people/brands AND projects directly connected to the project
     allConnections.forEach(c => {
       if (c.from === projectId) {
         const node = byId.get(c.to);
-        if (node && node.type !== 'project') included.add(c.to);
+        if (node) included.add(c.to); // Include all types, including projects
       }
       if (c.to === projectId) {
         const node = byId.get(c.from);
-        if (node && node.type !== 'project') included.add(c.from);
+        if (node) included.add(c.from); // Include all types, including projects
       }
     });
     
@@ -436,6 +448,12 @@ export const NetworkMatrix = () => {
         
         // Both nodes must be in the filtered list
         if (!fromNode || !toNode) return false;
+        
+        // Allow project-to-project connections only when one is the active center
+        if (fromNode.type === 'project' && toNode.type === 'project') {
+          // Only show if one of them is the active project (center)
+          return fromNode.id === activeProjectId || toNode.id === activeProjectId;
+        }
         
         // If connection involves another project (not the active one), exclude it
         if (fromNode.type === 'project' && fromNode.id !== activeProjectId) return false;
@@ -969,11 +987,14 @@ export const NetworkMatrix = () => {
             }]));
           
           if (!connError) {
-            // Atualizar conexões locais
+            // Atualizar conexões locais com formato normalizado
             const newConnection = {
               from: centerNode.id,
               to: insertedProject.id,
-              type: 'related'
+              from_type: centerNode.type,
+              to_type: 'project',
+              type: 'related',
+              connection_type: 'strong'
             };
             setAllConnections(prev => [...prev, newConnection]);
           }
@@ -1054,7 +1075,10 @@ export const NetworkMatrix = () => {
             const newConnection = {
               from: centerNode.id,
               to: insertedPerson.id,
-              type: 'related'
+              from_type: centerNode.type,
+              to_type: 'person',
+              type: 'related',
+              connection_type: 'strong'
             };
             setAllConnections(prev => [...prev, newConnection]);
           }
@@ -1125,7 +1149,10 @@ export const NetworkMatrix = () => {
             const newConnection = {
               from: centerNode.id,
               to: insertedBrand.id,
-              type: 'related'
+              from_type: centerNode.type,
+              to_type: 'brand',
+              type: 'related',
+              connection_type: 'strong'
             };
             setAllConnections(prev => [...prev, newConnection]);
           }
