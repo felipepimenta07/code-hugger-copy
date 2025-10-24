@@ -61,7 +61,8 @@ export const NetworkMatrix = () => {
   const [editingNodeInModal, setEditingNodeInModal] = useState<any>(null);
   const [editingProjectId, setEditingProjectId] = useState<number | null>(null);
   const [editingProjectName, setEditingProjectName] = useState('');
-  const [showProjectManager, setShowProjectManager] = useState(false);
+  const [showFlowsManager, setShowFlowsManager] = useState(false);
+  const [flows, setFlows] = useState<any[]>([]);
   const [showAIInsights, setShowAIInsights] = useState(false);
   const [showFlowStarterModal, setShowFlowStarterModal] = useState(false);
   const [showLinkedInImport, setShowLinkedInImport] = useState(false);
@@ -82,6 +83,7 @@ export const NetworkMatrix = () => {
         const brandsRes = await sb.from('brands').select('*').eq('user_id', user.id);
         const connectionsRes = await sb.from('connections').select('*').eq('user_id', user.id);
         const workflowsRes = await sb.from('workflows').select('*').eq('user_id', user.id);
+        const flowsRes = await sb.from('flows').select('*').eq('user_id', user.id);
 
         // Adicionar propriedade 'type' aos dados carregados
         if (projectsRes.data) {
@@ -95,6 +97,7 @@ export const NetworkMatrix = () => {
         }
         if (connectionsRes.data) setAllConnections(connectionsRes.data);
         if (workflowsRes.data) setWorkflows(workflowsRes.data);
+        if (flowsRes.data) setFlows(flowsRes.data);
         
         if (projectsRes.data && projectsRes.data.length > 0) {
           setActiveProjectId(projectsRes.data[0].id);
@@ -901,7 +904,7 @@ export const NetworkMatrix = () => {
     return false;
   };
 
-  const handleNodeCreation = (nodeData: any) => {
+  const handleNodeCreation = async (nodeData: any) => {
     saveToHistory();
     const newNode: any = {
       id: Date.now(),
@@ -930,10 +933,27 @@ export const NetworkMatrix = () => {
       setProjects(prev => [...prev, newNode]);
       setShowNodeCreationModal(false);
       
-      // Switch to Single View and center on the new project
-      setActiveProjectId(newNode.id);
-      setViewMode('single');
-      toast.success(`Projeto "${newNode.name}" criado!`);
+      // Se estamos em Single View, NÃO criar um novo flow
+      // O projeto fica dentro do flow atual
+      if (viewMode === 'single' && activeProjectId) {
+        toast.success(`Projeto "${newNode.name}" adicionado ao flow atual!`);
+        
+        // Conectar o novo projeto ao nó central do flow atual
+        const centerNode = projects.find(p => p.id === activeProjectId);
+        if (centerNode) {
+          const newConnection = {
+            from: activeProjectId,
+            to: newNode.id,
+            type: 'related'
+          };
+          setAllConnections(prev => [...prev, newConnection]);
+        }
+      } else {
+        // Se estamos em Master View, criar um novo flow E mudar para Single View
+        setActiveProjectId(newNode.id);
+        setViewMode('single');
+        toast.success(`Projeto "${newNode.name}" criado!`);
+      }
       // useEffect will handle organization and centering automatically
     } else if (nodeCreationType === 'person') {
       // Add to people array
@@ -1358,13 +1378,13 @@ export const NetworkMatrix = () => {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button 
-                    onClick={() => setShowProjectManager(!showProjectManager)}
-                    className={`p-2 rounded-lg transition-all ${showProjectManager ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'}`}>
-                    <FolderKanban size={18} />
+                    onClick={() => setShowFlowsManager(!showFlowsManager)}
+                    className={`p-2 rounded-lg transition-all ${showFlowsManager ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'}`}>
+                    <Layers size={18} />
                   </button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Gerenciar Projetos</p>
+                  <p>Gerenciar Flows</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -1570,22 +1590,23 @@ export const NetworkMatrix = () => {
           />
         )}
 
-        {showProjectManager && (
+        {showFlowsManager && (
           <ProjectManagerPanel
+            flows={flows}
             projects={projects}
             workflows={workflows}
             people={people}
             brands={brands}
             connections={allConnections}
-            onClose={() => setShowProjectManager(false)}
-            onFocusProject={(projectId) => {
-              setActiveProjectId(projectId);
+            onClose={() => setShowFlowsManager(false)}
+            onFlowFocus={(centerId) => {
+              setActiveProjectId(centerId);
               setViewMode('single');
-              setShowProjectManager(false);
+              setShowFlowsManager(false);
               
               // First timeout: let React recalculate nodes
               setTimeout(() => {
-                autoOrganizeSingle(projectId);
+                autoOrganizeSingle(centerId);
               }, 50);
               
               // Second timeout: center view after layout is done
@@ -1594,7 +1615,7 @@ export const NetworkMatrix = () => {
                 const height = window.innerHeight - 100;
                 
                 // Get the actual nodes after layout (recalculated by React)
-                const currentNodes = getNodesForSingleView(projectId);
+                const currentNodes = getNodesForSingleView(centerId);
                 
                 if (currentNodes.length > 0) {
                   const bounds = calculateBounds(currentNodes);
@@ -1603,27 +1624,6 @@ export const NetworkMatrix = () => {
                   updateState({ zoom, pan });
                 }
               }, 300);
-            }}
-            onProjectCreate={(data) => {
-              const newProject = {
-                id: Date.now(),
-                type: 'project' as const,
-                x: 500,
-                y: 400,
-                ...data,
-              };
-              setProjects([...projects, newProject as any]);
-              setActiveProjectId(newProject.id);
-              setViewMode('single');
-              setTimeout(() => autoOrganizeSingle(newProject.id), 100);
-              toast.success('Projeto criado com sucesso!');
-            }}
-            onProjectUpdate={(id, updates) => {
-              setProjects(prev => prev.map(p => p.id === id ? { ...p, ...updates as any } : p));
-            }}
-            onProjectDelete={(id) => {
-              const project = projects.find(p => p.id === id);
-              if (project) handleDeleteProject(id, project.name);
             }}
           />
         )}
