@@ -953,9 +953,9 @@ export const NetworkMatrix = () => {
     }
   }, [isLoading, viewMode, allNodes.length]);
 
-  // Auto-centralizar quando voltar para Master View
+  // Auto-centralizar quando voltar para Master View ou após carregar dados
   useEffect(() => {
-    if (viewMode === 'master' && projects.length > 0 && allNodes.length > 0) {
+    if (!isLoading && viewMode === 'master' && projects.length > 0 && allNodes.length > 0) {
       const timer = setTimeout(() => {
         // First organize master view
         const cols = Math.max(2, Math.ceil(Math.sqrt(projects.length)));
@@ -981,13 +981,13 @@ export const NetworkMatrix = () => {
             const optimalZoom = calculateOptimalZoom(bounds, rect.width, rect.height);
             const centerPan = calculateCenterPan(bounds, optimalZoom, rect.width, rect.height);
             updateState({ zoom: optimalZoom, pan: centerPan });
-            toast.success('Nós organizados e centralizados!');
+            toast.success('Flows organizados e centralizados!');
           }
         }, 150);
       }, 100);
       return () => clearTimeout(timer);
     }
-  }, [viewMode]);
+  }, [viewMode, isLoading, projects.length, allNodes.length]);
 
   // Auto-centralizar quando entrar em Single View
   useEffect(() => {
