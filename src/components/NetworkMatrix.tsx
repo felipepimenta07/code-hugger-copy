@@ -92,9 +92,6 @@ export const NetworkMatrix = () => {
     const loadData = async () => {
       if (!user) return;
       
-      // Limpar cache local para garantir dados frescos
-      localStorage.clear();
-      
       setIsLoading(true);
       try {
         // Carregar workflows
