@@ -2197,26 +2197,28 @@ export const NetworkMatrix = () => {
 
         {showProjectManager && (
           <ProjectManagerPanel
-            projects={projects as any}
+            flows={flows}
+            projects={projects}
             workflows={workflows}
             people={people}
             brands={brands}
             connections={allConnections}
             onClose={() => setShowProjectManager(false)}
-            onFocusProject={(projectId) => {
-              console.log('🎯 onFocusProject chamado:', projectId);
-              console.log('📊 Estado atual - activeProjectId:', activeProjectId);
-              console.log('📊 Projetos disponíveis:', projects.map(p => ({ id: p.id, name: p.name })));
+            onFocusFlow={(centerId, centerType) => {
+              console.log('🎯 onFocusFlow chamado:', centerId, centerType);
               
               setShowProjectManager(false);
-              setActiveCenter({ id: projectId, type: 'project' });
-              setActiveProjectId(projectId);
+              setActiveCenter({ id: centerId, type: centerType });
+              if (centerType === 'project') {
+                setActiveProjectId(centerId);
+              }
               setViewMode('single');
               
               // Aguardar React atualizar o estado antes de reorganizar
               setTimeout(() => {
-                console.log('📊 Após timeout - activeProjectId:', projectId);
-                autoOrganizeSingle(projectId);
+                if (centerType === 'project') {
+                  autoOrganizeSingle(centerId);
+                }
               }, 100);
               
               // Second timeout: center view after layout is done
@@ -2225,7 +2227,9 @@ export const NetworkMatrix = () => {
                 const height = window.innerHeight - 100;
                 
                 // Get the actual nodes after layout (recalculated by React)
-                const currentNodes = getNodesForSingleView(projectId);
+                const currentNodes = centerType === 'project'
+                  ? getNodesForSingleView(centerId)
+                  : getNodesForCenter(centerId, centerType);
                 
                 if (currentNodes.length > 0) {
                   const bounds = calculateBounds(currentNodes);
@@ -2235,26 +2239,29 @@ export const NetworkMatrix = () => {
                 }
               }, 300);
             }}
-            onProjectCreate={(data) => {
-              const newProject = {
-                id: Date.now(),
-                type: 'project' as const,
-                x: 500,
-                y: 400,
-                ...data,
-              };
-              setProjects([...projects, newProject as any]);
-              setActiveProjectId(newProject.id);
-              setViewMode('single');
-              setTimeout(() => autoOrganizeSingle(newProject.id), 100);
-              toast.success('Flow criado com sucesso!');
-            }}
-            onProjectUpdate={(id, updates) => {
-              setProjects(prev => prev.map(p => p.id === id ? { ...p, ...updates as any } : p));
-            }}
-            onProjectDelete={(id) => {
-              const project = projects.find(p => p.id === id);
-              if (project) handleDeleteProject(id, project.name);
+            onFlowDelete={async (flowId) => {
+              try {
+                const { error } = await (supabase as any)
+                  .from('flows')
+                  .delete()
+                  .eq('id', flowId);
+
+                if (error) throw error;
+
+                // Recarregar flows
+                const { data: updatedFlows } = await (supabase as any)
+                  .from('flows')
+                  .select('*');
+                
+                if (updatedFlows) {
+                  setFlows(updatedFlows);
+                }
+
+                toast.success('Flow deletado com sucesso!');
+              } catch (error) {
+                console.error('Erro ao deletar flow:', error);
+                toast.error('Erro ao deletar flow');
+              }
             }}
           />
         )}
