@@ -21,6 +21,8 @@ import { PathIndicator } from './PathIndicator';
 import { useNetworkState } from '@/hooks/useNetworkState';
 import { useNetworkHistory } from '@/hooks/useNetworkHistory';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
 import { SAMPLE_WORKFLOWS, SAMPLE_PROJECTS, SAMPLE_PEOPLE, SAMPLE_BRANDS, SAMPLE_CONNECTIONS } from '@/data/sampleNetworkData';
 import { ParsedLinkedInData, LinkedInImportOptions } from '@/types/linkedin';
 
@@ -31,14 +33,17 @@ const CATEGORIES = {
 };
 
 export const NetworkMatrix = () => {
+  const { user } = useAuth();
+  
   // Nova arquitetura: separar projetos, pessoas e marcas
-  const [projects, setProjects] = useState<any[]>(SAMPLE_PROJECTS);
-  const [people, setPeople] = useState<any[]>(SAMPLE_PEOPLE);
-  const [brands, setBrands] = useState<any[]>(SAMPLE_BRANDS);
-  const [allConnections, setAllConnections] = useState(SAMPLE_CONNECTIONS);
-  const [workflows, setWorkflows] = useState(SAMPLE_WORKFLOWS);
+  const [projects, setProjects] = useState<any[]>([]);
+  const [people, setPeople] = useState<any[]>([]);
+  const [brands, setBrands] = useState<any[]>([]);
+  const [allConnections, setAllConnections] = useState([]);
+  const [workflows, setWorkflows] = useState([]);
+  const [isLoadingData, setIsLoadingData] = useState(true);
 
-  const [activeProjectId, setActiveProjectId] = useState<number | null>(SAMPLE_PROJECTS[0]?.id ?? null);
+  const [activeProjectId, setActiveProjectId] = useState<number | null>(null);
   const [viewMode, setViewMode] = useState('master');
   const [showLegend, setShowLegend] = useState(false);
   const [selectedNodes, setSelectedNodes] = useState([]);
@@ -63,6 +68,40 @@ export const NetworkMatrix = () => {
 
   const { state, updateState } = useNetworkState();
   const svgRef = useRef(null);
+
+  // Carregar dados do Supabase
+  useEffect(() => {
+    if (!user) return;
+    
+    const loadData = async () => {
+      setIsLoadingData(true);
+      try {
+        const sb = supabase as any;
+        const projectsRes = await sb.from('projects').select('*').eq('user_id', user.id);
+        const peopleRes = await sb.from('people').select('*').eq('user_id', user.id);
+        const brandsRes = await sb.from('brands').select('*').eq('user_id', user.id);
+        const connectionsRes = await sb.from('connections').select('*').eq('user_id', user.id);
+        const workflowsRes = await sb.from('workflows').select('*').eq('user_id', user.id);
+
+        if (projectsRes.data) setProjects(projectsRes.data);
+        if (peopleRes.data) setPeople(peopleRes.data);
+        if (brandsRes.data) setBrands(brandsRes.data);
+        if (connectionsRes.data) setAllConnections(connectionsRes.data);
+        if (workflowsRes.data) setWorkflows(workflowsRes.data);
+        
+        if (projectsRes.data && projectsRes.data.length > 0) {
+          setActiveProjectId(projectsRes.data[0].id);
+        }
+      } catch (error) {
+        console.error('Erro ao carregar dados:', error);
+        toast.error('Erro ao carregar dados');
+      } finally {
+        setIsLoadingData(false);
+      }
+    };
+
+    loadData();
+  }, [user]);
 
   // Combinar todos os nós
   const allNodes = [...projects, ...people, ...brands];
@@ -398,6 +437,33 @@ export const NetworkMatrix = () => {
   // Real history implementation
   const [history, setHistory] = useState<any[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
+
+  // Mouse wheel zoom handler
+  const handleWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    
+    if (!svgRef.current) return;
+    
+    const rect = svgRef.current.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+    
+    // Posição do mouse no espaço do canvas (antes do zoom)
+    const worldX = (mouseX - state.pan.x) / state.zoom;
+    const worldY = (mouseY - state.pan.y) / state.zoom;
+    
+    // Calcular novo zoom (scroll up = zoom in, scroll down = zoom out)
+    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+    const newZoom = Math.max(0.1, Math.min(5, state.zoom * delta));
+    
+    // Ajustar pan para manter o mouse sobre o mesmo ponto
+    const newPan = {
+      x: mouseX - worldX * newZoom,
+      y: mouseY - worldY * newZoom
+    };
+    
+    updateState({ zoom: newZoom, pan: newPan });
+  };
 
   const saveToHistory = () => {
     const snapshot = {
@@ -1351,6 +1417,7 @@ export const NetworkMatrix = () => {
           connections={connections}
           selectedNodes={selectedNodes}
           setSelectedNodes={setSelectedNodes}
+          onWheel={handleWheel}
           selectedConnection={selectedConnection}
           setSelectedConnection={setSelectedConnection}
           highlightedPath={highlightedPath}

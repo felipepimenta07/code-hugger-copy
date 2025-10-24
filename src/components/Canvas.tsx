@@ -24,6 +24,7 @@ interface CanvasProps {
   projects?: any[];
   allConnections?: any[];
   onGoToProject?: (id: number) => void;
+  onWheel?: (e: React.WheelEvent) => void;
 }
 
 const nodeColors = {
@@ -53,7 +54,8 @@ export const Canvas: React.FC<CanvasProps> = ({
   onOpenEditModal,
   projects = [],
   allConnections = [],
-  onGoToProject
+  onGoToProject,
+  onWheel
 }) => {
   const [hoveredConnection, setHoveredConnection] = useState<{
     index: number;
@@ -216,6 +218,7 @@ export const Canvas: React.FC<CanvasProps> = ({
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onContextMenu={handleCanvasContextMenu}
+      onWheel={onWheel}
       onMouseDown={(e) => {
         if (e.button === 0 && !e.shiftKey) {
           setSelectedNodes([]);
