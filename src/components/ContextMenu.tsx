@@ -25,7 +25,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ contextMenu, updateSta
             <div className="p-2">
               <button onClick={() => onCreateNode('project')} 
                 className="w-full text-left px-3 py-2.5 text-foreground hover:bg-secondary rounded-xl flex items-center gap-2 mb-1 transition-all">
-                🎯 Projeto Filho
+                🎯 Projeto
               </button>
               <button onClick={() => onCreateNode('person')} 
                 className="w-full text-left px-3 py-2.5 text-foreground hover:bg-secondary rounded-xl flex items-center gap-2 mb-1 transition-all">

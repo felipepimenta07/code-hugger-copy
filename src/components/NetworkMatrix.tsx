@@ -905,60 +905,162 @@ export const NetworkMatrix = () => {
   };
 
   const handleNodeCreation = async (nodeData: any) => {
-    saveToHistory();
-    const newNode: any = {
-      id: Date.now(),
-      type: nodeCreationType,
-      x: nodeCreationPosition.x,
-      y: nodeCreationPosition.y,
-      isNewHighlight: true,
-      ...nodeData
-    };
-
-    // Set homeProjectId for nodes created in single view
-    if (viewMode === 'single' && activeProjectId) {
-      if (nodeCreationType === 'person' || nodeCreationType === 'brand' || nodeCreationType === 'project') {
-        newNode.homeProjectId = activeProjectId;
-      }
+    if (!user) {
+      toast.error('Usuário não autenticado');
+      return;
     }
 
+    saveToHistory();
+    
     // Set default fields for projects
     if (nodeCreationType === 'project') {
-      newNode.workflows = nodeData.workflows || [];
-      newNode.status = nodeData.projectStatus || nodeData.status || 'ativo';
-      newNode.deadline = nodeData.startDate || nodeData.deadline || '';
-      newNode.category = nodeData.category || 'M';
+      const projectData = {
+        name: nodeData.name,
+        x: nodeCreationPosition.x,
+        y: nodeCreationPosition.y,
+        category: nodeData.category || 'M',
+        status: nodeData.projectStatus || nodeData.status || 'ativo',
+        deadline: nodeData.startDate || nodeData.deadline || null,
+        user_id: user.id
+      };
       
-      // Add to projects array
+      // Inserir no Supabase
+      const { data: insertedProject, error } = (await (supabase as any)
+        .from('projects')
+        .insert([projectData])
+        .select()
+        .maybeSingle());
+      
+      if (error || !insertedProject) {
+        console.error('Erro ao criar projeto:', error);
+        toast.error('Erro ao criar projeto');
+        return;
+      }
+      
+      // Atualizar com o ID real do banco
+      const newNode = {
+        ...insertedProject,
+        type: 'project',
+        workflows: nodeData.workflows || [],
+        isNewHighlight: true
+      };
+      
+      // Adicionar ao estado local
       setProjects(prev => [...prev, newNode]);
       setShowNodeCreationModal(false);
       
       // Se estamos em Single View, NÃO criar um novo flow
       // O projeto fica dentro do flow atual
       if (viewMode === 'single' && activeProjectId) {
-        toast.success(`Projeto "${newNode.name}" adicionado ao flow atual!`);
+        // Encontrar o nó central do flow (pode ser project/person/brand)
+        const centerNode = allNodes.find(n => n.id === activeProjectId);
         
-        // Conectar o novo projeto ao nó central do flow atual
-        const centerNode = projects.find(p => p.id === activeProjectId);
         if (centerNode) {
-          const newConnection = {
-            from: activeProjectId,
-            to: newNode.id,
-            type: 'related'
-          };
-          setAllConnections(prev => [...prev, newConnection]);
+          // Criar conexão no Supabase
+          const { error: connError } = (await (supabase as any)
+            .from('connections')
+            .insert([{
+              from_id: centerNode.id,
+              from_type: centerNode.type,
+              to_id: insertedProject.id,
+              to_type: 'project',
+              connection_type: 'strong',
+              user_id: user.id
+            }]));
+          
+          if (!connError) {
+            // Atualizar conexões locais
+            const newConnection = {
+              from: centerNode.id,
+              to: insertedProject.id,
+              type: 'related'
+            };
+            setAllConnections(prev => [...prev, newConnection]);
+          }
         }
+        
+        toast.success(`Projeto "${newNode.name}" adicionado ao flow atual!`);
       } else {
-        // Se estamos em Master View, criar um novo flow E mudar para Single View
-        setActiveProjectId(newNode.id);
-        setViewMode('single');
-        toast.success(`Projeto "${newNode.name}" criado!`);
+        // Se estamos em Master View, criar um novo flow
+        const { data: newFlow, error: flowError } = (await (supabase as any)
+          .from('flows')
+          .insert([{
+            name: newNode.name,
+            center_id: insertedProject.id,
+            center_type: 'project',
+            user_id: user.id
+          }])
+          .select()
+          .maybeSingle());
+        
+        if (!flowError && newFlow) {
+          setFlows(prev => [...prev, newFlow]);
+          setActiveProjectId(insertedProject.id);
+          setViewMode('single');
+          toast.success(`Flow "${newNode.name}" criado!`);
+        }
       }
-      // useEffect will handle organization and centering automatically
     } else if (nodeCreationType === 'person') {
-      // Add to people array
+      const personData = {
+        name: nodeData.name,
+        x: nodeCreationPosition.x,
+        y: nodeCreationPosition.y,
+        email: nodeData.email || null,
+        phone: nodeData.phone || null,
+        company: nodeData.company || null,
+        category: nodeData.category || null,
+        user_id: user.id
+      };
+      
+      // Inserir no Supabase
+      const { data: insertedPerson, error } = (await (supabase as any)
+        .from('people')
+        .insert([personData])
+        .select()
+        .maybeSingle());
+      
+      if (error || !insertedPerson) {
+        console.error('Erro ao criar pessoa:', error);
+        toast.error('Erro ao criar pessoa');
+        return;
+      }
+      
+      const newNode = {
+        ...insertedPerson,
+        type: 'person',
+        isNewHighlight: true
+      };
+      
       setPeople(prev => [...prev, newNode]);
       setShowNodeCreationModal(false);
+      
+      // Se estamos em Single View, criar conexão com o centro
+      if (viewMode === 'single' && activeProjectId) {
+        const centerNode = allNodes.find(n => n.id === activeProjectId);
+        
+        if (centerNode) {
+          const { error: connError } = (await (supabase as any)
+            .from('connections')
+            .insert([{
+              from_id: centerNode.id,
+              from_type: centerNode.type,
+              to_id: insertedPerson.id,
+              to_type: 'person',
+              connection_type: 'strong',
+              user_id: user.id
+            }]));
+          
+          if (!connError) {
+            const newConnection = {
+              from: centerNode.id,
+              to: insertedPerson.id,
+              type: 'related'
+            };
+            setAllConnections(prev => [...prev, newConnection]);
+          }
+        }
+      }
+      
       toast.success(`${newNode.name} criado!`);
       
       // Center view on the new node
@@ -972,9 +1074,64 @@ export const NetworkMatrix = () => {
         });
       }, 50);
     } else if (nodeCreationType === 'brand') {
-      // Add to brands array
+      const brandData = {
+        name: nodeData.name,
+        x: nodeCreationPosition.x,
+        y: nodeCreationPosition.y,
+        website: nodeData.website || null,
+        category: nodeData.category || null,
+        user_id: user.id
+      };
+      
+      // Inserir no Supabase
+      const { data: insertedBrand, error } = (await (supabase as any)
+        .from('brands')
+        .insert([brandData])
+        .select()
+        .maybeSingle());
+      
+      if (error || !insertedBrand) {
+        console.error('Erro ao criar marca:', error);
+        toast.error('Erro ao criar marca');
+        return;
+      }
+      
+      const newNode = {
+        ...insertedBrand,
+        type: 'brand',
+        isNewHighlight: true
+      };
+      
       setBrands(prev => [...prev, newNode]);
       setShowNodeCreationModal(false);
+      
+      // Se estamos em Single View, criar conexão com o centro
+      if (viewMode === 'single' && activeProjectId) {
+        const centerNode = allNodes.find(n => n.id === activeProjectId);
+        
+        if (centerNode) {
+          const { error: connError } = (await (supabase as any)
+            .from('connections')
+            .insert([{
+              from_id: centerNode.id,
+              from_type: centerNode.type,
+              to_id: insertedBrand.id,
+              to_type: 'brand',
+              connection_type: 'strong',
+              user_id: user.id
+            }]));
+          
+          if (!connError) {
+            const newConnection = {
+              from: centerNode.id,
+              to: insertedBrand.id,
+              type: 'related'
+            };
+            setAllConnections(prev => [...prev, newConnection]);
+          }
+        }
+      }
+      
       toast.success(`${newNode.name} criado!`);
       
       // Center view on the new node
