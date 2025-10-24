@@ -13,7 +13,7 @@ interface KeyboardShortcutsProps {
   saveToHistory: () => void;
   selectedConnection: number | null;
   setSelectedConnection: (connection: any) => void;
-  deleteConnection: (connectionIdOrPair: number | { from: number; to: number }) => void;
+  deleteConnection: (connectionIndex: number) => void;
   setShowPathFinder: (show: boolean) => void;
   setHighlightedPath: (path: number[]) => void;
   nodes?: any[];

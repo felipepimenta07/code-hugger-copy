@@ -455,8 +455,7 @@ export const NetworkMatrix = () => {
         }
       }
       
-      // Fallback para homeProjectId se não encontrar por conexão
-      map.set(n.id, foundProject || (n as any).homeProjectId || null);
+      map.set(n.id, foundProject);
     }
     return map;
   }, [allNodes, allConnections]);
@@ -471,7 +470,6 @@ export const NetworkMatrix = () => {
   const belongsToProject = (n: any, pid: number) =>
     n?.type !== 'project' && (
       (n as any).anchorProjectId === pid ||
-      (n as any).homeProjectId === pid ||
       allConnections.some(c => (c.from === n.id && c.to === pid) || (c.to === n.id && c.from === pid))
     );
 
@@ -494,13 +492,6 @@ export const NetworkMatrix = () => {
       if (c.to === projectId) {
         const node = byId.get(c.from);
         if (node && node.type !== 'project') included.add(c.from);
-      }
-    });
-    
-    // 1.5. Add all nodes with homeProjectId matching this project (even without connection)
-    allNodesWithAnchors.forEach(n => {
-      if (n.type !== 'project' && (n as any).homeProjectId === projectId) {
-        included.add(n.id);
       }
     });
     
@@ -588,9 +579,9 @@ export const NetworkMatrix = () => {
   // Filtrar nós e conexões por flow/modo
   const nodes = viewMode === 'master'
     ? allNodesWithAnchors
-        .filter(n => n.type === 'project' || n.anchorProjectId !== null || (n as any).homeProjectId !== null) // Incluir nós com homeProjectId
+        .filter(n => n.type === 'project' || n.anchorProjectId !== null) // Ocultar nós órfãos
         .map(n => {
-          const project = projects.find(p => p.id === (n.anchorProjectId || (n as any).homeProjectId));
+          const project = projects.find(p => p.id === n.anchorProjectId);
           return { ...n, projectId: project?.id, projectColor: project ? '#8b5cf6' : '#6366f1' };
         })
     : (activeCenter 
@@ -764,50 +755,42 @@ export const NetworkMatrix = () => {
         !allConnections.some(oc => oc.from === nc.from && oc.to === nc.to)
       );
       
-      // Salvar cada nova conexão no banco (imutável)
-      const enrichedConnections = [...newConnections];
-      for (let i = 0; i < enrichedConnections.length; i++) {
-        const conn = enrichedConnections[i];
-        const isNew = newlyAdded.some(nc => nc.from === conn.from && nc.to === conn.to);
-        
-        if (isNew && !conn.id) {
-          try {
-            // Buscar os tipos dos nós
-            const fromNode = allNodes.find(n => n.id === conn.from);
-            const toNode = allNodes.find(n => n.id === conn.to);
-            
-            if (!fromNode || !toNode) continue;
-            
-            const { data, error } = await (supabase as any)
-              .from('connections')
-              .insert([{
-                user_id: user.id,
-                from_id: conn.from,
-                from_type: fromNode.type,
-                to_id: conn.to,
-                to_type: toNode.type,
-                connection_type: conn.type || 'strong'
-              }] as any)
-              .select()
-              .single();
-            
-            if (!error && data) {
-              // Criar nova conexão com o ID (imutável)
-              enrichedConnections[i] = { ...conn, id: data.id };
-              console.log('✅ Conexão salva no banco:', enrichedConnections[i]);
-              toast.success('Conexão criada!');
-            }
-          } catch (e) {
-            console.error('Erro ao salvar conexão:', e);
-            toast.error('Erro ao criar conexão');
+      // Salvar cada nova conexão no banco
+      for (const conn of newlyAdded) {
+        try {
+          // Buscar os tipos dos nós
+          const fromNode = allNodes.find(n => n.id === conn.from);
+          const toNode = allNodes.find(n => n.id === conn.to);
+          
+          if (!fromNode || !toNode) continue;
+          
+          const { data, error } = await (supabase as any)
+            .from('connections')
+            .insert([{
+              user_id: user.id,
+              from_id: conn.from,
+              from_type: fromNode.type,
+              to_id: conn.to,
+              to_type: toNode.type,
+              connection_type: conn.type || 'strong'
+            }] as any)
+            .select()
+            .single();
+          
+          if (!error && data) {
+            // Atualizar a conexão com o ID do banco
+            conn.id = data.id;
+            console.log('✅ Conexão salva no banco:', conn);
+            toast.success('Conexão criada!');
           }
+        } catch (e) {
+          console.error('Erro ao salvar conexão:', e);
+          toast.error('Erro ao criar conexão');
         }
       }
-      
-      setAllConnections(enrichedConnections);
-    } else {
-      setAllConnections(newConnections);
     }
+    
+    setAllConnections(newConnections);
   };
 
 
@@ -1039,52 +1022,29 @@ export const NetworkMatrix = () => {
     }
   }, [activeProjectId]);
 
-  const deleteConnection = async (connectionIdOrPair: number | { from: number; to: number }) => {
-    if (!user) return;
+  const deleteConnection = (connectionIndex: number) => {
     saveToHistory();
     
-    let connectionId: number | null = null;
-    
-    // Se veio um número, é o id da conexão
-    if (typeof connectionIdOrPair === 'number') {
-      connectionId = connectionIdOrPair;
-    } else {
-      // Se veio um objeto {from, to}, procurar o id
-      const conn = allConnections.find(c => 
-        (c.from === connectionIdOrPair.from && c.to === connectionIdOrPair.to) ||
-        (c.from === connectionIdOrPair.to && c.to === connectionIdOrPair.from)
-      );
-      if (conn) {
-        connectionId = conn.id || null;
-      }
-    }
-    
-    if (!connectionId) {
-      console.error('❌ Conexão não encontrada para deletar');
-      toast.error('Erro ao deletar conexão: ID não encontrado');
-      return;
-    }
-    
-    try {
-      // Delete from database
-      const { error } = await (supabase as any)
+    // Delete connection from database
+    const conn = allConnections[connectionIndex];
+    if (conn && conn.id && user) {
+      (supabase as any)
         .from('connections')
         .delete()
-        .eq('id', connectionId)
-        .eq('user_id', user.id);
-      
-      if (error) throw error;
-      
-      // Delete from state
-      setAllConnections(prev => prev.filter(c => c.id !== connectionId));
-      setSelectedConnection(null);
-      
-      console.log('✅ Conexão deletada com sucesso');
-      toast.success('Conexão deletada!');
-    } catch (error: any) {
-      console.error('❌ Erro ao deletar conexão:', error);
-      toast.error('Erro ao deletar conexão', { description: error.message });
+        .eq('id', conn.id)
+        .eq('user_id', user.id)
+        .then(({ error }) => {
+          if (error) {
+            console.error('Erro ao deletar conexão do banco:', error);
+          } else {
+            console.log('✅ Conexão deletada do banco');
+          }
+        });
     }
+    
+    // Delete connection from state
+    setConnections(prev => prev.filter((_, idx) => idx !== connectionIndex));
+    setSelectedConnection(null);
   };
 
   useKeyboardShortcuts({
@@ -2084,7 +2044,6 @@ export const NetworkMatrix = () => {
             }, 200);
           }}
           onWheel={handleWheel}
-          onDeleteConnection={deleteConnection}
         />
 
         {/* Botões flutuantes de ação */}
