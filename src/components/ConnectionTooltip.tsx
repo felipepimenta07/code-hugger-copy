@@ -49,35 +49,35 @@ export const ConnectionTooltip: React.FC<ConnectionTooltipProps> = ({
         descriptions.push('Parceria estabelecida');
       }
     }
-    // Pessoa ↔ Flow
+    // Pessoa ↔ Projeto
     else if ((fromNode.type === 'person' && toNode.type === 'project') || (fromNode.type === 'project' && toNode.type === 'person')) {
       const person = fromNode.type === 'person' ? fromNode : toNode;
       const project = fromNode.type === 'project' ? fromNode : toNode;
-      descriptions.push(`${person.name} participa do flow ${project.name}`);
+      descriptions.push(`${person.name} participa do projeto ${project.name}`);
       if (connectionType === 'weak') {
         descriptions.push('Participação indireta ou consultoria');
       } else {
-        descriptions.push('Participação ativa no flow');
+        descriptions.push('Participação ativa no projeto');
       }
     }
-    // Marca ↔ Flow
+    // Marca ↔ Projeto
     else if ((fromNode.type === 'brand' && toNode.type === 'project') || (fromNode.type === 'project' && toNode.type === 'brand')) {
       const brand = fromNode.type === 'brand' ? fromNode : toNode;
       const project = fromNode.type === 'project' ? fromNode : toNode;
-      descriptions.push(`${brand.name} vinculada ao flow ${project.name}`);
+      descriptions.push(`${brand.name} vinculada ao projeto ${project.name}`);
       if (connectionType === 'weak') {
         descriptions.push('Apoio ou patrocínio indireto');
       } else {
         descriptions.push('Patrocinador ou parceiro principal');
       }
     }
-    // Flow ↔ Flow
+    // Projeto ↔ Projeto
     else if (fromNode.type === 'project' && toNode.type === 'project') {
-      descriptions.push(`Flows ${fromNode.name} e ${toNode.name} relacionados`);
+      descriptions.push(`Projetos ${fromNode.name} e ${toNode.name} relacionados`);
       if (connectionType === 'weak') {
         descriptions.push('Compartilham recursos ou pessoas');
       } else {
-        descriptions.push('Flows complementares ou dependentes');
+        descriptions.push('Projetos complementares ou dependentes');
       }
     }
     

@@ -24,8 +24,6 @@ interface CanvasProps {
   projects?: any[];
   allConnections?: any[];
   onGoToProject?: (id: number) => void;
-  onGoToCenter?: (center: { id: number; type: 'project' | 'person' | 'brand' }) => void;
-  onWheel?: (e: React.WheelEvent) => void;
 }
 
 const nodeColors = {
@@ -55,9 +53,7 @@ export const Canvas: React.FC<CanvasProps> = ({
   onOpenEditModal,
   projects = [],
   allConnections = [],
-  onGoToProject,
-  onGoToCenter,
-  onWheel
+  onGoToProject
 }) => {
   const [hoveredConnection, setHoveredConnection] = useState<{
     index: number;
@@ -127,22 +123,15 @@ export const Canvas: React.FC<CanvasProps> = ({
   const handleNodeDoubleClick = (e: React.MouseEvent, nodeId: number) => {
     e.stopPropagation();
     const node = nodes.find(n => n.id === nodeId);
-    
-    // Se estiver no master view, double click vai para single view do nó
-    if (viewMode === 'master' && node && onGoToCenter) {
-      onGoToCenter({ id: nodeId, type: node.type as 'project' | 'person' | 'brand' });
-    } else if (node && onOpenEditModal) {
-      // Caso contrário, abre o modal de edição
+    if (node && onOpenEditModal) {
       onOpenEditModal(node);
     }
   };
 
   const handleConnectionDotMouseDown = (e: React.MouseEvent, nodeId: number) => {
+    if (viewMode === 'master') return;
     e.stopPropagation();
-    e.preventDefault();
     const node = nodes.find(n => n.id === nodeId);
-    if (!node) return;
-    
     updateState({ 
       isDraggingConnection: true, 
       connectionStart: { id: nodeId, x: node.x, y: node.y }, 
@@ -227,7 +216,6 @@ export const Canvas: React.FC<CanvasProps> = ({
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onContextMenu={handleCanvasContextMenu}
-      onWheel={onWheel}
       onMouseDown={(e) => {
         if (e.button === 0 && !e.shiftKey) {
           setSelectedNodes([]);
@@ -374,7 +362,7 @@ export const Canvas: React.FC<CanvasProps> = ({
         })()}
         
         
-        {/* Clusters no Master View (por flow) */}
+        {/* Clusters no Master View (por projeto) */}
         {viewMode === 'master' && projects.map(project => {
           const clusterNodes = nodes.filter(n => n.projectId === project.id);
           if (clusterNodes.length === 0 && !nodes.some(n => n.id === project.id)) return null;
@@ -423,7 +411,7 @@ export const Canvas: React.FC<CanvasProps> = ({
                 opacity="0.35"
               />
               
-              {/* Label do flow */}
+              {/* Label do projeto */}
               <text
                 x={avgX}
                 y={avgY - radius - 30}
@@ -444,7 +432,7 @@ export const Canvas: React.FC<CanvasProps> = ({
           const from = nodes.find(n => n.id === conn.from);
           const to = nodes.find(n => n.id === conn.to);
           if (!from || !to) return null;
-          // Não renderizar conexões flow↔flow
+          // Não renderizar conexões projeto↔projeto
           if (from.type === 'project' && to.type === 'project') return null;
           
           // Encontrar índice correto em allConnections
@@ -459,7 +447,7 @@ export const Canvas: React.FC<CanvasProps> = ({
           const toDepth = nodeDepths.get(to.id) ?? 0;
           const connectionLevel = Math.min(fromDepth, toDepth);
           
-          // Detectar cross-flow: nós de flows diferentes (exceto flow↔flow)
+          // Detectar cross-flow: nós de projetos diferentes (exceto projeto↔projeto)
           const getAssignment = (node: any) => {
             if (node.type === 'project') return node.id;
             // No master view, projectId já vem calculado
@@ -548,9 +536,9 @@ export const Canvas: React.FC<CanvasProps> = ({
           // Gerar tooltip inteligente para conexões cross-flow
           let tooltipText = '';
           if (isCrossFlow) {
-            // Pessoa ↔ Pessoa (flows diferentes)
+            // Pessoa ↔ Pessoa (projetos diferentes)
             if (from.type === 'person' && to.type === 'person') {
-              tooltipText = `${from.name} conectado(a) a ${to.name} (flows diferentes)`;
+              tooltipText = `${from.name} conectado(a) a ${to.name} (projetos diferentes)`;
             }
             // Pessoa ↔ Marca
             else if ((from.type === 'person' && to.type === 'brand') || (from.type === 'brand' && to.type === 'person')) {
@@ -558,21 +546,21 @@ export const Canvas: React.FC<CanvasProps> = ({
               const brand = from.type === 'brand' ? from : to;
               tooltipText = `${person.name} trabalha na ${brand.name}`;
             }
-            // Marca ↔ Marca (flows diferentes)
+            // Marca ↔ Marca (projetos diferentes)
             else if (from.type === 'brand' && to.type === 'brand') {
-              tooltipText = `${from.name} parceira de ${to.name} (flows diferentes)`;
+              tooltipText = `${from.name} parceira de ${to.name} (projetos diferentes)`;
             }
-            // Pessoa ↔ Flow (flows diferentes)
+            // Pessoa ↔ Projeto (projetos diferentes)
             else if ((from.type === 'person' && to.type === 'project') || (from.type === 'project' && to.type === 'person')) {
               const person = from.type === 'person' ? from : to;
               const project = from.type === 'project' ? from : to;
-              tooltipText = `${person.name} participa do flow ${project.name}`;
+              tooltipText = `${person.name} participa do projeto ${project.name}`;
             }
-            // Marca ↔ Flow (flows diferentes)
+            // Marca ↔ Projeto (projetos diferentes)
             else if ((from.type === 'brand' && to.type === 'project') || (from.type === 'project' && to.type === 'brand')) {
               const brand = from.type === 'brand' ? from : to;
               const project = from.type === 'project' ? from : to;
-              tooltipText = `${brand.name} participa do flow ${project.name}`;
+              tooltipText = `${brand.name} participa do projeto ${project.name}`;
             }
           }
           
