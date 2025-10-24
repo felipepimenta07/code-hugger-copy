@@ -466,6 +466,15 @@ export const NetworkMatrix = () => {
     [allNodes, anchors]
   );
 
+  // Criar set de nós que são centros de flows
+  const flowCenterIds = React.useMemo(() => {
+    const centerIds = new Set<number>();
+    flows.forEach(flow => {
+      centerIds.add(flow.center_id);
+    });
+    return centerIds;
+  }, [flows]);
+
   // Helper: determine if a non-project node belongs to a project (strict isolation)
   const belongsToProject = (n: any, pid: number) =>
     n?.type !== 'project' && (
@@ -579,7 +588,11 @@ export const NetworkMatrix = () => {
   // Filtrar nós e conexões por flow/modo
   const nodes = viewMode === 'master'
     ? allNodesWithAnchors
-        .filter(n => n.type === 'project' || n.anchorProjectId !== null) // Ocultar nós órfãos
+        .filter(n => 
+          n.type === 'project' || // Projetos sempre visíveis
+          n.anchorProjectId !== null || // Nós ancorados a projetos
+          flowCenterIds.has(n.id) // Nós que são centros de flows (pessoas/marcas)
+        )
         .map(n => {
           const project = projects.find(p => p.id === n.anchorProjectId);
           return { ...n, projectId: project?.id, projectColor: project ? '#8b5cf6' : '#6366f1' };
