@@ -833,31 +833,35 @@ export const NetworkMatrix = () => {
   };
 
   const deleteConnection = async (connectionIndex: number) => {
+    // Salva o histórico antes da alteração
     saveToHistory();
-    
+
     const conn = allConnections[connectionIndex];
     if (!conn) return;
-    
-    // Limpar seleção de nós
+
+    // 🔹 Limpar qualquer seleção de nós para evitar deleção em cascata
     setSelectedNodes([]);
-    
-    // Deletar do Supabase
+
+    // 🔹 Deletar apenas a conexão no Supabase (se existir no banco)
     if (conn.id) {
       const { error } = await (supabase as any)
         .from('connections')
         .delete()
         .eq('id', conn.id);
-      
+
       if (error) {
         toast.error('Erro ao deletar conexão');
         return;
       }
     }
-    
-    // Deletar do estado local
-    setAllConnections(prev => prev.filter((_, idx) => idx !== connectionIndex));
+
+    // 🔹 Atualizar apenas o estado local de conexões
+    setAllConnections((prev) => prev.filter((_, idx) => idx !== connectionIndex));
+
+    // 🔹 Limpar seleção de conexão
     setSelectedConnection(null);
-    
+
+    // 🔹 Feedback visual
     toast.success('Conexão deletada!');
   };
 
