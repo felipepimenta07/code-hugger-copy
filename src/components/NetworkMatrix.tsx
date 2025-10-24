@@ -1322,23 +1322,24 @@ export const NetworkMatrix = () => {
           setActiveCenter({ id: createdPerson.id, type: 'person' });
           setViewMode('single');
           toast.success(`Flow "${createdPerson.name}" criado!`);
+          
+          // Aguardar mudança de view e centralizar
+          setTimeout(() => {
+            const nodesToCenter = getNodesForCenter(createdPerson.id, 'person');
+            if (nodesToCenter.length > 0 && svgRef.current) {
+              const rect = svgRef.current.getBoundingClientRect();
+              const bounds = calculateBounds(nodesToCenter);
+              const optimalZoom = 0.8; // Zoom confortável para ver o nó central
+              const centerPan = calculateCenterPan(bounds, optimalZoom, rect.width, rect.height);
+              updateState({ zoom: optimalZoom, pan: centerPan });
+            }
+          }, 200);
         } else {
           toast.success(`${createdPerson.name} criado!`);
         }
         
         setShowNodeCreationModal(false);
         console.log('✅ Pessoa criada com sucesso:', createdPerson);
-        
-        // Center view on the new node
-        setTimeout(() => {
-          const zoom = state.zoom;
-          updateState({
-            pan: {
-              x: window.innerWidth / 2 - createdPerson.x * zoom,
-              y: window.innerHeight / 2 - createdPerson.y * zoom
-            }
-          });
-        }, 50);
       } else if (actualType === 'brand') {
         const { data, error } = await (supabase as any)
           .from('brands')
@@ -1388,6 +1389,18 @@ export const NetworkMatrix = () => {
           setActiveCenter({ id: createdBrand.id, type: 'brand' });
           setViewMode('single');
           toast.success(`Flow "${createdBrand.name}" criado!`);
+          
+          // Aguardar mudança de view e centralizar
+          setTimeout(() => {
+            const nodesToCenter = getNodesForCenter(createdBrand.id, 'brand');
+            if (nodesToCenter.length > 0 && svgRef.current) {
+              const rect = svgRef.current.getBoundingClientRect();
+              const bounds = calculateBounds(nodesToCenter);
+              const optimalZoom = 0.8; // Zoom confortável para ver o nó central
+              const centerPan = calculateCenterPan(bounds, optimalZoom, rect.width, rect.height);
+              updateState({ zoom: optimalZoom, pan: centerPan });
+            }
+          }, 200);
         } else {
           toast.success(`${createdBrand.name} criado!`);
         }
