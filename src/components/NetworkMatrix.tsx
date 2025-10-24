@@ -838,10 +838,10 @@ export const NetworkMatrix = () => {
     const conn = allConnections[connectionIndex];
     if (!conn) return;
     
-    // 1. Limpar seleção de nós antes de deletar
+    // Limpar seleção de nós
     setSelectedNodes([]);
     
-    // 2. Deletar do Supabase
+    // Deletar do Supabase
     if (conn.id) {
       const { error } = await (supabase as any)
         .from('connections')
@@ -854,35 +854,7 @@ export const NetworkMatrix = () => {
       }
     }
     
-    // 3. Lógica existente de homeProjectId (MANTER COMO ESTÁ)
-    if (viewMode === 'single' && activeProjectId) {
-      const fromNode = allNodesWithAnchors.find(n => n.id === conn.from);
-      const toNode = allNodesWithAnchors.find(n => n.id === conn.to);
-      
-      [fromNode, toNode].forEach(node => {
-        if (node && (node.type === 'person' || node.type === 'brand' || node.type === 'project')) {
-          const otherNodeId = node.id === conn.from ? conn.to : conn.from;
-          if (otherNodeId === activeProjectId) {
-            const otherConnectionsToProject = allConnections.filter(
-              (c, idx) => idx !== connectionIndex && 
-              ((c.from === node.id && c.to === activeProjectId) || (c.to === node.id && c.from === activeProjectId))
-            );
-            
-            if (otherConnectionsToProject.length === 0 && !(node as any).homeProjectId) {
-              if (node.type === 'person') {
-                setPeople(prev => prev.map(p => p.id === node.id ? { ...p, homeProjectId: activeProjectId } : p));
-              } else if (node.type === 'brand') {
-                setBrands(prev => prev.map(b => b.id === node.id ? { ...b, homeProjectId: activeProjectId } : b));
-              } else if (node.type === 'project') {
-                setProjects(prev => prev.map(p => p.id === node.id ? { ...p, homeProjectId: activeProjectId } : p));
-              }
-            }
-          }
-        }
-      });
-    }
-    
-    // 4. Deletar do estado local
+    // Deletar do estado local
     setAllConnections(prev => prev.filter((_, idx) => idx !== connectionIndex));
     setSelectedConnection(null);
     
