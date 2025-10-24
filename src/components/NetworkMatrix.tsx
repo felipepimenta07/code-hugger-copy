@@ -781,6 +781,18 @@ export const NetworkMatrix = () => {
     }
   }, [viewMode, activeProjectId]);
 
+  // Guarda contra reset do flow quando o centro perde conexões
+  useEffect(() => {
+    if (viewMode === 'single' && activeProjectId) {
+      const isCenterStillVisible = allNodesWithAnchors.some(n => n.id === activeProjectId);
+      // Só sair do flow se o centro foi realmente removido do estado
+      if (!isCenterStillVisible) {
+        setActiveProjectId(null);
+        setViewMode('master');
+      }
+    }
+  }, [viewMode, activeProjectId, allNodesWithAnchors]);
+
   useKeyboardShortcuts({
     selectedNodes,
     setSelectedNodes,
