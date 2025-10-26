@@ -18,6 +18,7 @@ import { ProjectManagerPanel } from './ProjectManagerPanel';
 import { AIInsightsPanel } from './AIInsightsPanel';
 import { FlowStarterModal } from './FlowStarterModal';
 import { PathIndicator } from './PathIndicator';
+import { QATestButton } from './QATestButton';
 import { useNetworkState } from '@/hooks/useNetworkState';
 import { useNetworkHistory } from '@/hooks/useNetworkHistory';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
@@ -1838,6 +1839,8 @@ export const NetworkMatrix = () => {
             connections={allConnections}
           />
         )}
+
+        <QATestButton />
       </div>
     </div>
   );
