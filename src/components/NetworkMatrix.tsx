@@ -861,6 +861,26 @@ export const NetworkMatrix = () => {
     }
   }, [viewMode, activeProjectId, allNodesWithAnchors]);
 
+  // 🧩 Protege o nó central de sumir após deletar conexões
+  useEffect(() => {
+    if (viewMode === 'single' && activeProjectId) {
+      // Verifica se o nó central ainda existe na lista de projetos
+      const centerNode = projects.find(p => p.id === activeProjectId);
+      if (!centerNode) return; // se realmente foi deletado, sai
+
+      // Verifica se o centro ainda está visível na lista de nós renderizados
+      const stillVisible = nodes.some(n => n.id === activeProjectId);
+
+      // Se o nó central existe, mas não está visível, força re-render
+      if (!stillVisible) {
+        setProjects(prev => {
+          const exists = prev.some(p => p.id === centerNode.id);
+          return exists ? prev : [...prev, centerNode];
+        });
+      }
+    }
+  }, [viewMode, activeProjectId, nodes, projects]);
+
   useKeyboardShortcuts({
     selectedNodes,
     setSelectedNodes,
