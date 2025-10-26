@@ -957,6 +957,28 @@ export const NetworkMatrix = () => {
         }
       }
 
+      // 🔹 Fixar "filiação" antes de remover (para manter nó visível em Single View)
+      if (viewMode === 'single' && activeProjectId) {
+        const otherId =
+          conn.from === activeProjectId ? conn.to :
+          conn.to === activeProjectId ? conn.from :
+          null;
+
+        if (otherId) {
+          const otherNode =
+            people.find(p => p.id === otherId) ||
+            brands.find(b => b.id === otherId);
+
+          if (otherNode && !('homeProjectId' in otherNode)) {
+            if (people.find(p => p.id === otherId)) {
+              setPeople(prev => prev.map(p => p.id === otherId ? { ...p, homeProjectId: activeProjectId } : p));
+            } else if (brands.find(b => b.id === otherId)) {
+              setBrands(prev => prev.map(b => b.id === otherId ? { ...b, homeProjectId: activeProjectId } : b));
+            }
+          }
+        }
+      }
+
       // 🔹 Remover conexão apenas do estado local
       setAllConnections(prev => prev.filter((_, idx) => idx !== connectionIndex));
 
@@ -1182,7 +1204,8 @@ export const NetworkMatrix = () => {
       const newNode = {
         ...insertedPerson,
         type: 'person',
-        isNewHighlight: true
+        isNewHighlight: true,
+        ...(viewMode === 'single' && activeProjectId ? { homeProjectId: activeProjectId } : {})
       };
       
       setPeople(prev => [...prev, newNode]);
@@ -1262,7 +1285,8 @@ export const NetworkMatrix = () => {
       const newNode = {
         ...insertedBrand,
         type: 'brand',
-        isNewHighlight: true
+        isNewHighlight: true,
+        ...(viewMode === 'single' && activeProjectId ? { homeProjectId: activeProjectId } : {})
       };
       
       setBrands(prev => [...prev, newNode]);
