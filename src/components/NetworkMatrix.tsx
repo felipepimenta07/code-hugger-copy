@@ -1214,42 +1214,6 @@ export const NetworkMatrix = () => {
       setPeople(prev => [...prev, newNode]);
       setShowNodeCreationModal(false);
       
-      // Se estamos em Single View, criar conexão com o centro
-      if (viewMode === 'single' && activeProjectId) {
-        const centerNode = allNodes.find(n => n.id === activeProjectId);
-        
-        if (centerNode) {
-          // Obter flow_id do centro
-          const currentFlow = flows.find(f => f.center_id === centerNode.id);
-          const flowId = currentFlow?.id || null;
-          
-          const { error: connError } = (await (supabase as any)
-            .from('connections')
-            .insert([{
-              from_id: centerNode.id,
-              from_type: centerNode.type,
-              to_id: insertedPerson.id,
-              to_type: 'person',
-              connection_type: 'strong',
-              flow_id: flowId,
-              user_id: user.id
-            }]));
-          
-          if (!connError) {
-            const newConnection = {
-              from: centerNode.id,
-              to: insertedPerson.id,
-              from_type: centerNode.type,
-              to_type: 'person',
-              type: 'related',
-              connection_type: 'strong',
-              flow_id: flowId
-            };
-            setAllConnections(prev => [...prev, newConnection]);
-          }
-        }
-      }
-      
       toast.success(`${newNode.name} criado!`);
       
       // Center view on the new node
@@ -1294,42 +1258,6 @@ export const NetworkMatrix = () => {
       
       setBrands(prev => [...prev, newNode]);
       setShowNodeCreationModal(false);
-      
-      // Se estamos em Single View, criar conexão com o centro
-      if (viewMode === 'single' && activeProjectId) {
-        const centerNode = allNodes.find(n => n.id === activeProjectId);
-        
-        if (centerNode) {
-          // Obter flow_id do centro
-          const currentFlow = flows.find(f => f.center_id === centerNode.id);
-          const flowId = currentFlow?.id || null;
-          
-          const { error: connError } = (await (supabase as any)
-            .from('connections')
-            .insert([{
-              from_id: centerNode.id,
-              from_type: centerNode.type,
-              to_id: insertedBrand.id,
-              to_type: 'brand',
-              connection_type: 'strong',
-              flow_id: flowId,
-              user_id: user.id
-            }]));
-          
-          if (!connError) {
-            const newConnection = {
-              from: centerNode.id,
-              to: insertedBrand.id,
-              from_type: centerNode.type,
-              to_type: 'brand',
-              type: 'related',
-              connection_type: 'strong',
-              flow_id: flowId
-            };
-            setAllConnections(prev => [...prev, newConnection]);
-          }
-        }
-      }
       
       toast.success(`${newNode.name} criado!`);
       
