@@ -913,36 +913,42 @@ export const NetworkMatrix = () => {
   };
 
   const deleteConnection = async (connectionIndex: number) => {
-    // Salva o histórico antes da alteração
+    // 🔹 Salvar histórico antes da alteração
     saveToHistory();
 
     const conn = allConnections[connectionIndex];
     if (!conn) return;
 
-    // 🔹 Limpar qualquer seleção de nós para evitar deleção em cascata
+    // 🔹 Limpar seleção de nós antes de deletar
     setSelectedNodes([]);
 
-    // 🔹 Deletar apenas a conexão no Supabase (se existir no banco)
-    if (conn.id) {
-      const { error } = await (supabase as any)
-        .from('connections')
-        .delete()
-        .eq('id', conn.id);
+    try {
+      // 🔹 Deletar apenas a conexão do Supabase (se tiver ID)
+      if (conn.id) {
+        const { error } = await supabase
+          .from('connections')
+          .delete()
+          .eq('id', conn.id);
 
-      if (error) {
-        toast.error('Erro ao deletar conexão');
-        return;
+        if (error) {
+          console.error('Erro ao deletar conexão:', error);
+          toast.error('Erro ao deletar conexão no banco');
+          return;
+        }
       }
+
+      // 🔹 Remover conexão apenas do estado local
+      setAllConnections(prev => prev.filter((_, idx) => idx !== connectionIndex));
+
+      // 🔹 Limpar seleção de conexão
+      setSelectedConnection(null);
+
+      // 🔹 Manter tudo mais como está
+      toast.success('Conexão deletada!');
+    } catch (err) {
+      console.error('Erro ao deletar conexão:', err);
+      toast.error('Erro inesperado ao deletar conexão');
     }
-
-    // 🔹 Atualizar apenas o estado local de conexões
-    setAllConnections((prev) => prev.filter((_, idx) => idx !== connectionIndex));
-
-    // 🔹 Limpar seleção de conexão
-    setSelectedConnection(null);
-
-    // 🔹 Feedback visual
-    toast.success('Conexão deletada!');
   };
 
   const deleteNode = (nodeId) => {
