@@ -1098,54 +1098,6 @@ export const NetworkMatrix = () => {
       // Se estamos em Single View, NÃO criar um novo flow
       // O projeto fica dentro do flow atual
       if (viewMode === 'single' && activeProjectId) {
-        // Encontrar o nó central do flow (pode ser project/person/brand)
-        const centerNode = allNodes.find(n => n.id === activeProjectId);
-        
-        if (centerNode) {
-          // Criar conexão no Supabase
-          // Obter flow_id do centro
-          const currentFlow = flows.find(f => f.center_id === centerNode.id);
-          const flowId = currentFlow?.id || null;
-
-          const { error: connError } = (await (supabase as any)
-            .from('connections')
-            .insert([{
-              from_id: centerNode.id,
-              from_type: centerNode.type,
-              to_id: insertedProject.id,
-              to_type: 'project',
-              connection_type: 'strong',
-              flow_id: flowId,
-              user_id: user.id
-            }]));
-          
-          if (!connError) {
-            // Atualizar projeto com flow_id
-            if (flowId) {
-              await (supabase as any)
-                .from('projects')
-                .update({ flow_id: flowId })
-                .eq('id', insertedProject.id);
-              
-              setProjects(prev => prev.map(p => 
-                p.id === insertedProject.id ? { ...p, flow_id: flowId } : p
-              ));
-            }
-            
-            // Atualizar conexões locais com formato normalizado
-            const newConnection = {
-              from: centerNode.id,
-              to: insertedProject.id,
-              from_type: centerNode.type,
-              to_type: 'project',
-              type: 'related',
-              connection_type: 'strong',
-              flow_id: flowId
-            };
-            setAllConnections(prev => [...prev, newConnection]);
-          }
-        }
-        
         toast.success(`Projeto "${newNode.name}" adicionado ao flow atual!`);
       } else {
         // Se estamos em Master View, criar um novo flow
