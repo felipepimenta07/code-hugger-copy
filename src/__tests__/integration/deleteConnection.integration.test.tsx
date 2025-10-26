@@ -70,4 +70,16 @@ describe('Integration: deleteConnection baseline', () => {
     expect(testState.viewMode).toBe('single');
     expect(testState.nodes.length).toBe(3);
   });
+
+  it('deve manter nós secundários visíveis após deletar conexão', () => {
+    const connectionId = 1; // conexão entre Centro (id:1) e Nó A (id:2)
+    testState.connections = deleteConnection(connectionId, testState.connections);
+
+    // Nó A deve continuar na lista de nós, mesmo sem conexão
+    expect(testState.nodes.length).toBe(3);
+    expect(testState.nodes.find((n: any) => n.id === 2)).toBeDefined();
+    
+    // Apenas a conexão foi removida
+    expect(testState.connections.length).toBe(1);
+  });
 });

@@ -485,9 +485,9 @@ export const NetworkMatrix = () => {
       });
     }
     
-    // 3. Include "orphan" nodes with homeProjectId (nodes created in project without connection)
+    // 3. Include ALL nodes that belong to this project (even without active connections)
     allNodesWithAnchors.forEach(n => {
-      if ((n as any).homeProjectId === projectId && n.type !== 'project') {
+      if (n.type !== 'project' && belongsToProject(n, projectId)) {
         included.add(n.id);
       }
     });
