@@ -19,6 +19,7 @@ import { AIInsightsPanel } from './AIInsightsPanel';
 import { FlowStarterModal } from './FlowStarterModal';
 import { PathIndicator } from './PathIndicator';
 import { QATestButton } from './QATestButton';
+import { ResetButton } from './ResetButton';
 import { useNetworkState } from '@/hooks/useNetworkState';
 import { useNetworkHistory } from '@/hooks/useNetworkHistory';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
@@ -70,6 +71,72 @@ export const NetworkMatrix = () => {
 
   const { state, updateState } = useNetworkState();
   const svgRef = useRef(null);
+
+  // Função para recarregar dados após reset
+  const reloadData = async () => {
+    if (!user) return;
+    
+    setIsLoadingData(true);
+    try {
+      const sb = supabase as any;
+      const projectsRes = await sb.from('projects').select('*').eq('user_id', user.id);
+      const peopleRes = await sb.from('people').select('*').eq('user_id', user.id);
+      const brandsRes = await sb.from('brands').select('*').eq('user_id', user.id);
+      const connectionsRes = await sb.from('connections').select('*').eq('user_id', user.id);
+      const workflowsRes = await sb.from('workflows').select('*').eq('user_id', user.id);
+      const flowsRes = await sb.from('flows').select('*').eq('user_id', user.id);
+
+      // Adicionar propriedade 'type' aos dados carregados
+      if (projectsRes.data) {
+        setProjects(projectsRes.data.map((p: any) => ({ ...p, type: 'project' })));
+      } else {
+        setProjects([]);
+      }
+      if (peopleRes.data) {
+        setPeople(peopleRes.data.map((p: any) => ({ ...p, type: 'person' })));
+      } else {
+        setPeople([]);
+      }
+      if (brandsRes.data) {
+        setBrands(brandsRes.data.map((b: any) => ({ ...b, type: 'brand' })));
+      } else {
+        setBrands([]);
+      }
+      if (connectionsRes.data) {
+        // Normalizar conexões do backend (from_id/to_id) para formato interno (from/to)
+        setAllConnections(connectionsRes.data.map((c: any) => ({
+          ...c,
+          from: c.from_id,
+          to: c.to_id,
+          type: c.connection_type || 'related'
+        })));
+      } else {
+        setAllConnections([]);
+      }
+      if (workflowsRes.data) {
+        setWorkflows(workflowsRes.data);
+      } else {
+        setWorkflows([]);
+      }
+      if (flowsRes.data) {
+        setFlows(flowsRes.data);
+      } else {
+        setFlows([]);
+      }
+      
+      // Resetar view
+      setActiveProjectId(null);
+      setViewMode('master');
+      setSelectedNodes([]);
+      setSelectedConnection(null);
+      
+    } catch (error) {
+      console.error('Erro ao carregar dados:', error);
+      toast.error('Erro ao carregar dados');
+    } finally {
+      setIsLoadingData(false);
+    }
+  };
 
   // Carregar dados do Supabase
   useEffect(() => {
@@ -985,6 +1052,10 @@ export const NetworkMatrix = () => {
         
         if (centerNode) {
           // Criar conexão no Supabase
+          // Obter flow_id do centro
+          const currentFlow = flows.find(f => f.center_id === centerNode.id);
+          const flowId = currentFlow?.id || null;
+
           const { error: connError } = (await (supabase as any)
             .from('connections')
             .insert([{
@@ -993,10 +1064,23 @@ export const NetworkMatrix = () => {
               to_id: insertedProject.id,
               to_type: 'project',
               connection_type: 'strong',
+              flow_id: flowId,
               user_id: user.id
             }]));
           
           if (!connError) {
+            // Atualizar projeto com flow_id
+            if (flowId) {
+              await (supabase as any)
+                .from('projects')
+                .update({ flow_id: flowId })
+                .eq('id', insertedProject.id);
+              
+              setProjects(prev => prev.map(p => 
+                p.id === insertedProject.id ? { ...p, flow_id: flowId } : p
+              ));
+            }
+            
             // Atualizar conexões locais com formato normalizado
             const newConnection = {
               from: centerNode.id,
@@ -1004,7 +1088,8 @@ export const NetworkMatrix = () => {
               from_type: centerNode.type,
               to_type: 'project',
               type: 'related',
-              connection_type: 'strong'
+              connection_type: 'strong',
+              flow_id: flowId
             };
             setAllConnections(prev => [...prev, newConnection]);
           }
@@ -1013,7 +1098,7 @@ export const NetworkMatrix = () => {
         toast.success(`Projeto "${newNode.name}" adicionado ao flow atual!`);
       } else {
         // Se estamos em Master View, criar um novo flow
-        const { data: newFlow, error: flowError } = (await (supabase as any)
+      const { data: newFlow, error: flowError } = (await (supabase as any)
           .from('flows')
           .insert([{
             name: newNode.name,
@@ -1026,6 +1111,18 @@ export const NetworkMatrix = () => {
         
         if (!flowError && newFlow) {
           setFlows(prev => [...prev, newFlow]);
+          
+          // Atualizar o projeto com flow_id
+          await (supabase as any)
+            .from('projects')
+            .update({ flow_id: newFlow.id })
+            .eq('id', insertedProject.id);
+          
+          // Atualizar estado local
+          setProjects(prev => prev.map(p => 
+            p.id === insertedProject.id ? { ...p, flow_id: newFlow.id } : p
+          ));
+          
           setActiveProjectId(insertedProject.id);
           setViewMode('single');
           toast.success(`Flow "${newNode.name}" criado!`);
@@ -1070,6 +1167,10 @@ export const NetworkMatrix = () => {
         const centerNode = allNodes.find(n => n.id === activeProjectId);
         
         if (centerNode) {
+          // Obter flow_id do centro
+          const currentFlow = flows.find(f => f.center_id === centerNode.id);
+          const flowId = currentFlow?.id || null;
+          
           const { error: connError } = (await (supabase as any)
             .from('connections')
             .insert([{
@@ -1078,6 +1179,7 @@ export const NetworkMatrix = () => {
               to_id: insertedPerson.id,
               to_type: 'person',
               connection_type: 'strong',
+              flow_id: flowId,
               user_id: user.id
             }]));
           
@@ -1088,7 +1190,8 @@ export const NetworkMatrix = () => {
               from_type: centerNode.type,
               to_type: 'person',
               type: 'related',
-              connection_type: 'strong'
+              connection_type: 'strong',
+              flow_id: flowId
             };
             setAllConnections(prev => [...prev, newConnection]);
           }
@@ -1144,6 +1247,10 @@ export const NetworkMatrix = () => {
         const centerNode = allNodes.find(n => n.id === activeProjectId);
         
         if (centerNode) {
+          // Obter flow_id do centro
+          const currentFlow = flows.find(f => f.center_id === centerNode.id);
+          const flowId = currentFlow?.id || null;
+          
           const { error: connError } = (await (supabase as any)
             .from('connections')
             .insert([{
@@ -1152,6 +1259,7 @@ export const NetworkMatrix = () => {
               to_id: insertedBrand.id,
               to_type: 'brand',
               connection_type: 'strong',
+              flow_id: flowId,
               user_id: user.id
             }]));
           
@@ -1162,7 +1270,8 @@ export const NetworkMatrix = () => {
               from_type: centerNode.type,
               to_type: 'brand',
               type: 'related',
-              connection_type: 'strong'
+              connection_type: 'strong',
+              flow_id: flowId
             };
             setAllConnections(prev => [...prev, newConnection]);
           }
@@ -1841,6 +1950,7 @@ export const NetworkMatrix = () => {
         )}
 
         <QATestButton />
+        {user && <ResetButton onResetComplete={reloadData} userId={user.id} />}
       </div>
     </div>
   );

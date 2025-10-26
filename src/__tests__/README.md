@@ -1,6 +1,56 @@
-# 🧪 QA Baseline - deleteConnection Tests
+# 🧪 QA Baseline - deleteConnection Tests & Flow Architecture
 
-Este diretório contém os testes de baseline para a funcionalidade de deleção de conexões.
+Este diretório contém os testes de baseline para a funcionalidade de deleção de conexões e a nova arquitetura de **flows**.
+
+## 🏗️ Nova Arquitetura de Flows
+
+### Estrutura de Dados
+
+```typescript
+// Tabela flows
+{
+  id: bigint,
+  center_id: bigint,        // ID do nó central (project, person, ou brand)
+  center_type: string,      // 'project', 'person', ou 'brand'
+  name: string,
+  user_id: uuid
+}
+
+// Tabela projects (com flow_id)
+{
+  id: bigint,
+  name: string,
+  flow_id: bigint,          // Referência ao flow
+  x: numeric,
+  y: numeric,
+  user_id: uuid
+}
+
+// Tabela connections (com flow_id)
+{
+  id: bigint,
+  from_id: bigint,
+  to_id: bigint,
+  from_type: string,
+  to_type: string,
+  flow_id: bigint,          // Referência ao flow
+  connection_type: string,
+  user_id: uuid
+}
+```
+
+### Comportamento das Views
+
+**Master View**:
+- Mostra todos os flows (cada `center_id` como nó principal)
+- Cada flow com mais de 1 conexão tem borda indicativa
+- Clicar em um flow → `setActiveProjectId(flow.center_id)` → muda para Single View
+
+**Single View**:
+- Renderiza `connections.filter(c => c.flow_id === activeFlowId)`
+- Renderiza todos os nós cujos IDs apareçam em `from_id` ou `to_id` dessas conexões
+- Deletar conexão → permanece no flow (não reseta para Master)
+- Deletar o nó central → volta para Master View
 
 ## 📁 Estrutura
 
@@ -58,6 +108,28 @@ npm run test:visual:ui
 # Atualizar snapshots baseline
 npx playwright test --update-snapshots
 ```
+
+## 🔄 Reset da Rede
+
+O sistema inclui um **botão "Resetar Tudo"** (canto inferior direito, ao lado do QA Button) que permite limpar completamente o banco de dados:
+
+```typescript
+// O reset é feito em ordem correta para respeitar foreign keys:
+1. Conexões (connections)
+2. Flows (flows)
+3. Projetos (projects)
+4. Pessoas (people)
+5. Marcas (brands)
+6. Workflows (workflows)
+```
+
+**⚠️ ATENÇÃO**: Esta ação é irreversível e deleta TODOS os dados do usuário atual. Uma confirmação é solicitada antes de executar.
+
+### Uso do Reset Button
+1. Clique no botão vermelho "Resetar Tudo" (canto inferior direito)
+2. Confirme a ação no diálogo
+3. Aguarde a conclusão
+4. O sistema volta automaticamente para Master View com dados zerados
 
 ## 🎨 Botão de QA no Painel
 
@@ -186,4 +258,5 @@ test('deve renderizar corretamente', async ({ page }) => {
 
 ---
 
-**Última atualização**: 24/10/2025
+**Última atualização**: 26/10/2025
+**Arquitetura**: Flow-based com sincronização Master/Single View
