@@ -948,13 +948,16 @@ export const NetworkMatrix = () => {
         if (otherId) {
           const otherNode =
             people.find(p => p.id === otherId) ||
-            brands.find(b => b.id === otherId);
+            brands.find(b => b.id === otherId) ||
+            projects.find(p => p.id === otherId);
 
           if (otherNode && !('homeProjectId' in otherNode)) {
             if (people.find(p => p.id === otherId)) {
               setPeople(prev => prev.map(p => p.id === otherId ? { ...p, homeProjectId: activeProjectId } : p));
             } else if (brands.find(b => b.id === otherId)) {
               setBrands(prev => prev.map(b => b.id === otherId ? { ...b, homeProjectId: activeProjectId } : b));
+            } else if (projects.find(p => p.id === otherId)) {
+              setProjects(prev => prev.map(p => p.id === otherId ? { ...p, homeProjectId: activeProjectId } : p));
             }
           }
         }
