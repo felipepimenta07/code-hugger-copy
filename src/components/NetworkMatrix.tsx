@@ -881,26 +881,7 @@ export const NetworkMatrix = () => {
     }
   }, [viewMode, activeProjectId, nodes, projects]);
 
-  useKeyboardShortcuts({
-    selectedNodes,
-    setSelectedNodes,
-    setNodes,
-    setConnections,
-    updateState,
-    undo,
-    redo,
-    historyIndex,
-    history,
-    saveToHistory,
-    selectedConnection,
-    setSelectedConnection,
-    setShowPathFinder,
-    setHighlightedPath,
-    nodes,
-    allNodes,
-    viewMode,
-    zoom: state.zoom
-  });
+  // Keyboard shortcuts are initialized after deleteConnection is defined to avoid hoisting issues.
 
   const addNode = () => {
     if (state.newNodeName.trim() && viewMode === 'single') {
@@ -992,6 +973,28 @@ export const NetworkMatrix = () => {
       toast.error('Erro inesperado ao deletar conexão');
     }
   };
+
+  useKeyboardShortcuts({
+    selectedNodes,
+    setSelectedNodes,
+    setNodes,
+    setConnections,
+    updateState,
+    undo,
+    redo,
+    historyIndex,
+    history,
+    saveToHistory,
+    selectedConnection,
+    setSelectedConnection,
+    setShowPathFinder,
+    setHighlightedPath,
+    nodes,
+    allNodes,
+    viewMode,
+    zoom: state.zoom,
+    deleteConnectionByIndex: deleteConnection,
+  });
 
   const deleteNode = (nodeId) => {
     saveToHistory();

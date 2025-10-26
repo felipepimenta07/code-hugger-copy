@@ -19,6 +19,7 @@ interface KeyboardShortcutsProps {
   allNodes?: any[];
   viewMode?: string;
   zoom?: number;
+  deleteConnectionByIndex?: (index: number) => void;
 }
 
 export const useKeyboardShortcuts = ({
@@ -39,7 +40,8 @@ export const useKeyboardShortcuts = ({
   nodes,
   allNodes,
   viewMode,
-  zoom
+  zoom,
+  deleteConnectionByIndex,
 }: KeyboardShortcutsProps) => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -52,10 +54,14 @@ export const useKeyboardShortcuts = ({
       if (e.key === 'Delete' || e.key === 'Backspace') {
         e.preventDefault();
         if (selectedConnection !== null) {
-          saveToHistory();
-          setSelectedNodes([]); // Limpar selectedNodes primeiro
-          setConnections((prev: any[]) => prev.filter((_, idx) => idx !== selectedConnection));
-          setSelectedConnection(null);
+          if (deleteConnectionByIndex) {
+            deleteConnectionByIndex(selectedConnection);
+          } else {
+            saveToHistory();
+            setSelectedNodes([]); // Limpar selectedNodes primeiro
+            setConnections((prev: any[]) => prev.filter((_, idx) => idx !== selectedConnection));
+            setSelectedConnection(null);
+          }
           return; // IMPORTANTE: Não executar o bloco de deletar nós
         } else if (selectedNodes.length > 0) {
           saveToHistory();
@@ -143,6 +149,7 @@ export const useKeyboardShortcuts = ({
     nodes,
     allNodes,
     viewMode,
-    zoom
+    zoom,
+    deleteConnectionByIndex,
   ]);
 };
