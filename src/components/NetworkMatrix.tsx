@@ -1112,41 +1112,11 @@ export const NetworkMatrix = () => {
       setProjects(prev => [...prev, newNode]);
       setShowNodeCreationModal(false);
       
-      // Se estamos em Single View, NÃO criar um novo flow
-      // O projeto fica dentro do flow atual
+      // Apenas notificar o usuário - não criar flow automaticamente
       if (viewMode === 'single' && activeProjectId) {
         toast.success(`Projeto "${newNode.name}" adicionado ao flow atual!`);
       } else {
-        // Se estamos em Master View, criar um novo flow
-      const { data: newFlow, error: flowError } = (await (supabase as any)
-          .from('flows')
-          .insert([{
-            name: newNode.name,
-            center_id: insertedProject.id,
-            center_type: 'project',
-            user_id: user.id
-          }])
-          .select()
-          .maybeSingle());
-        
-        if (!flowError && newFlow) {
-          setFlows(prev => [...prev, newFlow]);
-          
-          // Atualizar o projeto com flow_id
-          await (supabase as any)
-            .from('projects')
-            .update({ flow_id: newFlow.id })
-            .eq('id', insertedProject.id);
-          
-          // Atualizar estado local
-          setProjects(prev => prev.map(p => 
-            p.id === insertedProject.id ? { ...p, flow_id: newFlow.id } : p
-          ));
-          
-          setActiveProjectId(insertedProject.id);
-          setViewMode('single');
-          toast.success(`Flow "${newNode.name}" criado!`);
-        }
+        toast.success(`Projeto "${newNode.name}" criado!`);
       }
     } else if (nodeCreationType === 'person') {
       const personData = {
