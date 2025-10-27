@@ -1,8 +1,8 @@
 import React from "react";
 import { toast } from "sonner";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "../lib/supabaseClient";
 import Canvas from "./Canvas";
-import { applyRadialLayout } from "@/lib/layoutUtils";
+import { applyRadialLayout } from "../lib/layoutUtils";
 
 export default function NetworkMatrix({
   projects,
@@ -34,19 +34,19 @@ export default function NetworkMatrix({
     [projects, centerProjectIds],
   );
 
-  // 🔹 Seleção dos nós visíveis (Master ou Single)
+  // 🔹 Seleção dos nós visíveis
   const nodes =
     viewMode === "master"
       ? allNodesWithAnchors
           .filter((n) => {
-            if (flows.length === 0) return true; // fallback
+            if (flows.length === 0) return true; // fallback: sem flows mostra tudo
 
-            // Mostrar o centro
+            // Mostrar centro do flow
             if (centerProjectIds.has(n.id)) return true;
 
-            // Mostrar nós que pertencem ao flow (pessoas, marcas, projetos irmãos)
+            // Mostrar nós que pertencem a flows existentes (pessoas, marcas, projetos irmãos)
             const inFlow = flows.some(
-              (f) => f.center_id === (n.anchorProjectId ?? n.homeProjectId) || (n.flow_id && n.flow_id === f.id),
+              (f) => f.center_id === (n.anchorProjectId ?? n.homeProjectId) || n.flow_id === f.id,
             );
             return inFlow;
           })
@@ -59,7 +59,7 @@ export default function NetworkMatrix({
         ? getNodesForSingleView(activeProjectId)
         : [];
 
-  // 🧩 Função de auto-organização visual
+  // 🧩 Organização automática de clusters
   const autoOrganize = React.useCallback(() => {
     const cols = 3;
     const spacingX = 1400;
@@ -69,12 +69,13 @@ export default function NetworkMatrix({
       const centersParaUsar = centerProjects.length > 0 ? centerProjects : projects;
 
       centersParaUsar.forEach((center, pIndex) => {
-        // Pegar todos os nós do mesmo flow (pessoas, marcas e projetos irmãos)
+        // Pegar todos os nós que pertencem ao mesmo flow (projetos, pessoas e marcas)
         const clusterNodes = allNodesWithAnchors.filter((n) => {
           if (n.id === center.id) return false;
           return (
             n.anchorProjectId === center.id ||
-            (n.flow_id && flows.some((f) => f.center_id === center.id && f.id === n.flow_id))
+            n.flow_id === center.flow_id ||
+            (n.homeProjectId && n.homeProjectId === center.id)
           );
         });
 
@@ -87,7 +88,6 @@ export default function NetworkMatrix({
         updateAllNodePositions(layouted);
       });
     } else if (viewMode === "single" && activeProjectId) {
-      // Organizar Single View normalmente
       const layouted = applyRadialLayout(getNodesForSingleView(activeProjectId), 0, 0);
       updateAllNodePositions(layouted);
     }
@@ -99,10 +99,9 @@ export default function NetworkMatrix({
     updateAllNodePositions,
     getNodesForSingleView,
     activeProjectId,
-    flows,
   ]);
 
-  // 🗑️ Deletar conexão sem remover nós
+  // 🗑️ Deletar conexão (sem apagar nós)
   const deleteConnection = async (connectionIndex: number) => {
     saveToHistory();
 
@@ -110,7 +109,6 @@ export default function NetworkMatrix({
     if (!conn) return;
 
     try {
-      // Deletar conexão do Supabase
       if (conn.id) {
         const { error } = await supabase.from("connections").delete().eq("id", conn.id);
         if (error) {
@@ -120,7 +118,7 @@ export default function NetworkMatrix({
         }
       }
 
-      // 🔒 Garantir que o nó não seja deletado junto
+      // Corrigir referência local
       if (viewMode === "single" && activeProjectId) {
         const otherId = conn.from === activeProjectId ? conn.to : conn.to === activeProjectId ? conn.from : null;
 
@@ -142,9 +140,7 @@ export default function NetworkMatrix({
         }
       }
 
-      // Remover apenas a linha da conexão
       setAllConnections((prev) => prev.filter((_, idx) => idx !== connectionIndex));
-
       toast.success("Conexão deletada!");
     } catch (error) {
       console.error("Erro ao deletar conexão:", error);
@@ -152,7 +148,7 @@ export default function NetworkMatrix({
     }
   };
 
-  // 🧩 Proteger nó central (não some após deletar conexões)
+  // 🧩 Proteger o nó central (não some ao deletar conexões)
   React.useEffect(() => {
     if (viewMode === "single" && activeProjectId) {
       const centerNode = projects.find((p) => p.id === activeProjectId);
@@ -168,7 +164,7 @@ export default function NetworkMatrix({
     }
   }, [viewMode, activeProjectId, nodes, projects, setProjects]);
 
-  // 🔁 Atualiza o layout ao mudar de modo
+  // 🔁 Reorganizar ao mudar de modo
   React.useEffect(() => {
     autoOrganize();
   }, [viewMode, projects, flows]);
