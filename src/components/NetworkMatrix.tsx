@@ -1,6 +1,6 @@
 import React from "react";
 import { toast } from "sonner";
-import { supabase } from "../lib/supabaseClient";
+import { supabase } from "../integrations/supabase/client";
 import Canvas from "./Canvas";
 import { applyRadialLayout } from "../lib/layoutUtils";
 
@@ -23,7 +23,7 @@ export default function NetworkMatrix({
   getNodesForSingleView,
   saveToHistory,
 }) {
-  // 🔹 Identificar os centros de cada flow (1 cluster por flow)
+  // 🔹 Identificar centers (projetos centrais de cada flow)
   const centerProjectIds = React.useMemo(
     () => new Set(flows.filter((f) => f.center_type === "project").map((f) => f.center_id)),
     [flows],
@@ -34,32 +34,36 @@ export default function NetworkMatrix({
     [projects, centerProjectIds],
   );
 
-  // 🔹 Seleção dos nós visíveis
+  // 🔹 Determinar quais nós devem aparecer
   const nodes =
     viewMode === "master"
       ? allNodesWithAnchors
           .filter((n) => {
-            if (flows.length === 0) return true; // fallback: sem flows mostra tudo
-
-            // Mostrar centro do flow
-            if (centerProjectIds.has(n.id)) return true;
-
-            // Mostrar nós que pertencem a flows existentes (pessoas, marcas, projetos irmãos)
-            const inFlow = flows.some(
-              (f) => f.center_id === (n.anchorProjectId ?? n.homeProjectId) || n.flow_id === f.id,
+            if (flows.length === 0) return true;
+            // Mostrar centers e nós que pertencem ao mesmo flow
+            if (n.type === "project") {
+              return centerProjectIds.has(n.id) || flows.some((f) => f.id === n.flow_id);
+            }
+            const project = projects.find((p) => centerProjectIds.has(p.id));
+            return (
+              project &&
+              (n.anchorProjectId === project.id || n.homeProjectId === project.id || n.flow_id === project.flow_id)
             );
-            return inFlow;
           })
           .map((n) => {
-            const project = projects.find((p) => p.id === n.anchorProjectId) || projects.find((p) => p.id === n.id);
-            const flowColor = project ? "#8b5cf6" : "#6366f1";
-            return { ...n, projectId: project?.id, projectColor: flowColor };
+            const project =
+              projects.find((p) => p.id === n.anchorProjectId) || projects.find((p) => centerProjectIds.has(p.id));
+            return {
+              ...n,
+              projectId: project?.id,
+              projectColor: project ? "#8b5cf6" : "#6366f1",
+            };
           })
       : activeProjectId
         ? getNodesForSingleView(activeProjectId)
         : [];
 
-  // 🧩 Organização automática de clusters
+  // 🔹 Organização automática (1 cluster por flow)
   const autoOrganize = React.useCallback(() => {
     const cols = 3;
     const spacingX = 1400;
@@ -68,19 +72,15 @@ export default function NetworkMatrix({
     if (viewMode === "master") {
       const centersParaUsar = centerProjects.length > 0 ? centerProjects : projects;
 
-      centersParaUsar.forEach((center, pIndex) => {
-        // Pegar todos os nós que pertencem ao mesmo flow (projetos, pessoas e marcas)
-        const clusterNodes = allNodesWithAnchors.filter((n) => {
-          if (n.id === center.id) return false;
-          return (
-            n.anchorProjectId === center.id ||
-            n.flow_id === center.flow_id ||
-            (n.homeProjectId && n.homeProjectId === center.id)
-          );
-        });
+      centersParaUsar.forEach((center, index) => {
+        const clusterNodes = allNodesWithAnchors.filter(
+          (n) =>
+            n.id !== center.id &&
+            (n.anchorProjectId === center.id || n.flow_id === center.flow_id || n.homeProjectId === center.id),
+        );
 
-        const col = pIndex % cols;
-        const row = Math.floor(pIndex / cols);
+        const col = index % cols;
+        const row = Math.floor(index / cols);
         const clusterX = col * spacingX + 700;
         const clusterY = row * spacingY + 600;
 
@@ -118,7 +118,6 @@ export default function NetworkMatrix({
         }
       }
 
-      // Corrigir referência local
       if (viewMode === "single" && activeProjectId) {
         const otherId = conn.from === activeProjectId ? conn.to : conn.to === activeProjectId ? conn.from : null;
 
@@ -148,7 +147,7 @@ export default function NetworkMatrix({
     }
   };
 
-  // 🧩 Proteger o nó central (não some ao deletar conexões)
+  // 🧩 Proteger nó central
   React.useEffect(() => {
     if (viewMode === "single" && activeProjectId) {
       const centerNode = projects.find((p) => p.id === activeProjectId);
@@ -164,7 +163,7 @@ export default function NetworkMatrix({
     }
   }, [viewMode, activeProjectId, nodes, projects, setProjects]);
 
-  // 🔁 Reorganizar ao mudar de modo
+  // 🔁 Atualiza layout ao trocar de modo
   React.useEffect(() => {
     autoOrganize();
   }, [viewMode, projects, flows]);
