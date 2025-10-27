@@ -34,15 +34,17 @@ export default function NetworkMatrix({
     [projects, centerProjectIds],
   );
 
-  // 🔹 Seleção dos nós visíveis
+  // 🔹 Seleção dos nós visíveis (Master ou Single)
   const nodes =
     viewMode === "master"
       ? allNodesWithAnchors
           .filter((n) => {
             if (flows.length === 0) return true; // fallback
-            // Mostra o centro
+
+            // Mostrar o centro
             if (centerProjectIds.has(n.id)) return true;
-            // Mostra quem pertence a esse flow
+
+            // Mostrar nós que pertencem ao flow (pessoas, marcas, projetos irmãos)
             const inFlow = flows.some(
               (f) => f.center_id === (n.anchorProjectId ?? n.homeProjectId) || (n.flow_id && n.flow_id === f.id),
             );
@@ -67,7 +69,7 @@ export default function NetworkMatrix({
       const centersParaUsar = centerProjects.length > 0 ? centerProjects : projects;
 
       centersParaUsar.forEach((center, pIndex) => {
-        // Pegar todos os nós do mesmo flow (incluindo projetos irmãos)
+        // Pegar todos os nós do mesmo flow (pessoas, marcas e projetos irmãos)
         const clusterNodes = allNodesWithAnchors.filter((n) => {
           if (n.id === center.id) return false;
           return (
@@ -107,9 +109,8 @@ export default function NetworkMatrix({
     const conn = allConnections[connectionIndex];
     if (!conn) return;
 
-    setSelectedNodes?.([]);
-
     try {
+      // Deletar conexão do Supabase
       if (conn.id) {
         const { error } = await supabase.from("connections").delete().eq("id", conn.id);
         if (error) {
@@ -119,7 +120,29 @@ export default function NetworkMatrix({
         }
       }
 
-      // Apenas remove a linha da conexão
+      // 🔒 Garantir que o nó não seja deletado junto
+      if (viewMode === "single" && activeProjectId) {
+        const otherId = conn.from === activeProjectId ? conn.to : conn.to === activeProjectId ? conn.from : null;
+
+        if (otherId) {
+          const otherNode =
+            people.find((p) => p.id === otherId) ||
+            brands.find((b) => b.id === otherId) ||
+            projects.find((p) => p.id === otherId);
+
+          if (otherNode && !("homeProjectId" in otherNode)) {
+            if (otherNode.type === "person") {
+              setPeople((prev) => prev.map((p) => (p.id === otherId ? { ...p, homeProjectId: activeProjectId } : p)));
+            } else if (otherNode.type === "brand") {
+              setBrands((prev) => prev.map((b) => (b.id === otherId ? { ...b, homeProjectId: activeProjectId } : b)));
+            } else if (otherNode.type === "project") {
+              setProjects((prev) => prev.map((p) => (p.id === otherId ? { ...p, homeProjectId: activeProjectId } : p)));
+            }
+          }
+        }
+      }
+
+      // Remover apenas a linha da conexão
       setAllConnections((prev) => prev.filter((_, idx) => idx !== connectionIndex));
 
       toast.success("Conexão deletada!");
@@ -129,7 +152,7 @@ export default function NetworkMatrix({
     }
   };
 
-  // 🧩 Protege o nó central de sumir após deleção de conexões
+  // 🧩 Proteger nó central (não some após deletar conexões)
   React.useEffect(() => {
     if (viewMode === "single" && activeProjectId) {
       const centerNode = projects.find((p) => p.id === activeProjectId);
@@ -145,7 +168,7 @@ export default function NetworkMatrix({
     }
   }, [viewMode, activeProjectId, nodes, projects, setProjects]);
 
-  // 🔁 Atualiza o layout automaticamente ao mudar de modo
+  // 🔁 Atualiza o layout ao mudar de modo
   React.useEffect(() => {
     autoOrganize();
   }, [viewMode, projects, flows]);
@@ -154,7 +177,7 @@ export default function NetworkMatrix({
     <div className="min-h-screen h-screen bg-background flex flex-col overflow-hidden">
       <Canvas
         nodes={nodes}
-        projects={viewMode === "master" ? centerProjects : projects}
+        projects={viewMode === "master" && centerProjects.length > 0 ? centerProjects : projects}
         people={people}
         brands={brands}
         connections={allConnections}
