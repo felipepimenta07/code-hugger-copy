@@ -429,6 +429,17 @@ export const NetworkMatrix = () => {
     [allNodes, anchors]
   );
 
+  // Identificar centers de flow (projetos que são centros de flows)
+  const centerProjectIds = React.useMemo(() => 
+    new Set(flows.filter(f => f.center_type === 'project').map(f => f.center_id)),
+    [flows]
+  );
+  
+  const centerProjects = React.useMemo(() => 
+    projects.filter(p => centerProjectIds.has(p.id)),
+    [projects, centerProjectIds]
+  );
+
   // Helper: determine if a non-project node belongs to a project (strict isolation)
   const belongsToProject = (n: any, pid: number) =>
     n?.type !== 'project' && (
@@ -508,12 +519,27 @@ export const NetworkMatrix = () => {
 
   // Filtrar nós e conexões por projeto/modo
   const nodes = viewMode === 'master'
-    ? allNodesWithAnchors
-        .filter(n => n.type === 'project' || n.anchorProjectId !== null) // Ocultar nós órfãos
-        .map(n => {
-          const project = projects.find(p => p.id === n.anchorProjectId);
-          return { ...n, projectId: project?.id, projectColor: project ? '#8b5cf6' : '#6366f1' };
-        })
+    ? (() => {
+        // Se houver flows, mostrar apenas os centers e seus nós
+        if (centerProjects.length > 0) {
+          return allNodesWithAnchors
+            .filter(n => {
+              if (n.type === 'project') return centerProjectIds.has(n.id);
+              return centerProjectIds.has(n.anchorProjectId ?? -1);
+            })
+            .map(n => {
+              const project = projects.find(p => p.id === (n.type === 'project' ? n.id : n.anchorProjectId));
+              return { ...n, projectId: project?.id, projectColor: project ? '#8b5cf6' : '#6366f1' };
+            });
+        }
+        // Fallback: se não houver flows, mostrar todos os projetos como clusters
+        return allNodesWithAnchors
+          .filter(n => n.type === 'project' || n.anchorProjectId !== null)
+          .map(n => {
+            const project = projects.find(p => p.id === n.anchorProjectId);
+            return { ...n, projectId: project?.id, projectColor: project ? '#8b5cf6' : '#6366f1' };
+          });
+      })()
     : (activeProjectId ? getNodesForSingleView(activeProjectId) : []);
 
   // Para o PathIndicator
@@ -733,18 +759,20 @@ export const NetworkMatrix = () => {
     if (viewMode === 'single') {
       autoOrganizeSingle(activeProjectId);
     } else {
-      // Master View: grid de clusters por projeto com centralização automática
-      const cols = Math.max(2, Math.ceil(Math.sqrt(projects.length)));
+      // Master View: usar apenas centers de flow (ou todos os projetos se não houver flows)
+      const centersParaUsar = centerProjects.length > 0 ? centerProjects : projects;
+      const cols = Math.max(2, Math.ceil(Math.sqrt(centersParaUsar.length)));
       
-      projects.forEach((project, pIndex) => {
+      centersParaUsar.forEach((center, pIndex) => {
+        // Apenas nós não-projeto que pertencem a este center
         const clusterNodes = allNodesWithAnchors.filter(n => 
-          n.anchorProjectId === project.id && n.id !== project.id
+          n.anchorProjectId === center.id && n.id !== center.id && n.type !== 'project'
         );
         const col = pIndex % cols;
         const row = Math.floor(pIndex / cols);
         const clusterX = col * 1400 + 700;
         const clusterY = row * 1200 + 600;
-        const layouted = applyRadialLayout([project, ...clusterNodes], clusterX, clusterY);
+        const layouted = applyRadialLayout([center, ...clusterNodes], clusterX, clusterY);
         updateAllNodePositions(layouted);
       });
       
@@ -805,24 +833,28 @@ export const NetworkMatrix = () => {
   useEffect(() => {
     if (viewMode === 'master' && projects.length > 0 && allNodes.length > 0) {
       const timer = setTimeout(() => {
-        // First organize master view
-        const cols = Math.max(2, Math.ceil(Math.sqrt(projects.length)));
+        // Usar apenas centers de flow (ou todos os projetos se não houver flows)
+        const centersParaUsar = centerProjects.length > 0 ? centerProjects : projects;
+        const cols = Math.max(2, Math.ceil(Math.sqrt(centersParaUsar.length)));
         
-        projects.forEach((project, pIndex) => {
+        centersParaUsar.forEach((center, pIndex) => {
           const clusterNodes = allNodesWithAnchors.filter(n => 
-            n.anchorProjectId === project.id && n.id !== project.id
+            n.anchorProjectId === center.id && n.id !== center.id && n.type !== 'project'
           );
           const col = pIndex % cols;
           const row = Math.floor(pIndex / cols);
           const clusterX = col * 1400 + 700;
           const clusterY = row * 1200 + 600;
-          const layouted = applyRadialLayout([project, ...clusterNodes], clusterX, clusterY);
+          const layouted = applyRadialLayout([center, ...clusterNodes], clusterX, clusterY);
           updateAllNodePositions(layouted);
         });
         
         // Then center - single flow after organization completes
         setTimeout(() => {
-          const projectNodes = allNodesWithAnchors.filter(n => n.type === 'project');
+          const projectNodes = centerProjects.length > 0 
+            ? allNodesWithAnchors.filter(n => n.type === 'project' && centerProjectIds.has(n.id))
+            : allNodesWithAnchors.filter(n => n.type === 'project');
+            
           if (projectNodes.length > 0 && svgRef.current) {
             const rect = svgRef.current.getBoundingClientRect();
             const bounds = calculateBounds(projectNodes);
@@ -1676,7 +1708,7 @@ export const NetworkMatrix = () => {
           updateNodePosition={updateNodePosition}
           setConnections={setConnections}
           saveToHistory={saveToHistory}
-          projects={projects}
+          projects={viewMode === 'master' && centerProjects.length > 0 ? centerProjects : projects}
           allConnections={allConnections}
           onOpenEditModal={(node) => {
             setEditingNodeInModal(node);
