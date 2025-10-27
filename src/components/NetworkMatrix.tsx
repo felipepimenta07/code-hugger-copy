@@ -485,12 +485,22 @@ export const NetworkMatrix = () => {
       });
     }
     
-    // 3. Include ALL nodes that belong to this project (even without active connections)
+    // 3. Include ALL non-project nodes that belong to this project (even without active connections)
     allNodesWithAnchors.forEach(n => {
       if (n.type !== 'project' && belongsToProject(n, projectId)) {
         included.add(n.id);
       }
     });
+
+    // 4. Include sibling projects that share the same flow_id as the center (if any)
+    const centerFlowId = (projectNode as any).flow_id;
+    if (centerFlowId) {
+      allNodesWithAnchors.forEach(n => {
+        if (n.type === 'project' && n.id !== projectId && (n as any).flow_id === centerFlowId) {
+          included.add(n.id);
+        }
+      });
+    }
     
     // Return nodes: project first, then others
     return [projectNode, ...Array.from(included).filter(id => id !== projectId).map(id => byId.get(id)!).filter(Boolean)];
@@ -1063,6 +1073,9 @@ export const NetworkMatrix = () => {
     
     // Set default fields for projects
     if (nodeCreationType === 'project') {
+      const centerFlowId = (viewMode === 'single' && activeProjectId)
+        ? (projects.find(p => p.id === activeProjectId)?.flow_id ?? null)
+        : null;
       const projectData = {
         name: nodeData.name,
         x: nodeCreationPosition.x,
@@ -1070,7 +1083,8 @@ export const NetworkMatrix = () => {
         category: nodeData.category || 'M',
         status: nodeData.projectStatus || nodeData.status || 'ativo',
         deadline: nodeData.startDate || nodeData.deadline || null,
-        user_id: user.id
+        user_id: user.id,
+        ...(centerFlowId ? { flow_id: centerFlowId } : {})
       };
       
       // Inserir no Supabase
