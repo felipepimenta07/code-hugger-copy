@@ -1,29 +1,71 @@
-import React from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { supabase } from "../integrations/supabase/client";
-import Canvas from "./Canvas";
+import { Canvas } from "./Canvas";
 import { applyRadialLayout } from "../lib/layoutUtils";
+import { useNetworkState } from "../hooks/useNetworkState";
 
-export default function NetworkMatrix({
-  projects,
-  people,
-  brands,
-  flows,
-  allNodesWithAnchors,
-  allConnections,
-  updateAllNodePositions,
-  setAllConnections,
-  setProjects,
-  setPeople,
-  setBrands,
-  viewMode,
-  setViewMode,
-  activeProjectId,
-  setActiveProjectId,
-  getNodesForSingleView,
-  saveToHistory,
-}) {
-  // 🔹 Identificar centers (projetos centrais de cada flow)
+export default function NetworkMatrix() {
+  const [projects, setProjects] = useState([]);
+  const [people, setPeople] = useState([]);
+  const [brands, setBrands] = useState([]);
+  const [flows, setFlows] = useState([]);
+  const [connections, setConnections] = useState([]);
+  const [viewMode, setViewMode] = useState("master");
+  const [activeProjectId, setActiveProjectId] = useState(null);
+  const [selectedNodes, setSelectedNodes] = useState<number[]>([]);
+  const [selectedConnection, setSelectedConnection] = useState<number | null>(null);
+  const [highlightedPath, setHighlightedPath] = useState<number[]>([]);
+  const [hoveredNode, setHoveredNode] = useState<number | null>(null);
+  
+  const svgRef = useRef<SVGSVGElement>(null);
+  const { state, updateState } = useNetworkState();
+  
+  const saveToHistory = () => {
+    // History functionality can be added here if needed
+    console.log("Saving to history");
+  };
+
+  // Load data from Supabase
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      const [projectsRes, peopleRes, brandsRes, flowsRes, connectionsRes] = await Promise.all([
+        supabase.from("projects").select("*"),
+        supabase.from("people").select("*"),
+        supabase.from("brands").select("*"),
+        supabase.from("flows").select("*"),
+        supabase.from("connections").select("*")
+      ]);
+
+      if (projectsRes.data) setProjects(projectsRes.data);
+      if (peopleRes.data) setPeople(peopleRes.data);
+      if (brandsRes.data) setBrands(brandsRes.data);
+      if (flowsRes.data) setFlows(flowsRes.data);
+      if (connectionsRes.data) setConnections(connectionsRes.data);
+    } catch (error) {
+      console.error("Error loading data:", error);
+      toast.error("Erro ao carregar dados");
+    }
+  };
+
+  const updateNodePosition = (nodeId: number, deltaX: number, deltaY: number) => {
+    const updateNode = (node: any) => {
+      if (node.id === nodeId) {
+        return { ...node, x: node.x + deltaX, y: node.y + deltaY };
+      }
+      return node;
+    };
+
+    setProjects((prev) => prev.map(updateNode));
+    setPeople((prev) => prev.map(updateNode));
+    setBrands((prev) => prev.map(updateNode));
+  };
+
+  // Identificar centers (projetos centrais de cada flow)
   const centerProjectIds = React.useMemo(
     () => new Set(flows.filter((f) => f.center_type === "project").map((f) => f.center_id)),
     [flows],
@@ -34,36 +76,54 @@ export default function NetworkMatrix({
     [projects, centerProjectIds],
   );
 
-  // 🔹 Determinar quais nós devem aparecer
-  const nodes =
-    viewMode === "master"
-      ? allNodesWithAnchors
-          .filter((n) => {
-            if (flows.length === 0) return true;
-            // Mostrar centers e nós que pertencem ao mesmo flow
-            if (n.type === "project") {
-              return centerProjectIds.has(n.id) || flows.some((f) => f.id === n.flow_id);
-            }
-            const project = projects.find((p) => centerProjectIds.has(p.id));
-            return (
-              project &&
-              (n.anchorProjectId === project.id || n.homeProjectId === project.id || n.flow_id === project.flow_id)
-            );
-          })
-          .map((n) => {
-            const project =
-              projects.find((p) => p.id === n.anchorProjectId) || projects.find((p) => centerProjectIds.has(p.id));
-            return {
-              ...n,
-              projectId: project?.id,
-              projectColor: project ? "#8b5cf6" : "#6366f1",
-            };
-          })
-      : activeProjectId
-        ? getNodesForSingleView(activeProjectId)
-        : [];
+  // Função para obter nós do single view
+  const getNodesForSingleView = (projectId: string) => {
+    const centerProject = projects.find((p) => p.id === projectId);
+    if (!centerProject) return [];
 
-  // 🔹 Organização automática (1 cluster por flow)
+    const connectedNodeIds = new Set(
+      connections
+        .filter((c) => c.from === projectId || c.to === projectId)
+        .flatMap((c) => [c.from, c.to])
+    );
+
+    const connectedPeople = people.filter((p) => connectedNodeIds.has(p.id));
+    const connectedBrands = brands.filter((b) => connectedNodeIds.has(b.id));
+    const connectedProjects = projects.filter(
+      (p) => p.id !== projectId && connectedNodeIds.has(p.id)
+    );
+
+    return [centerProject, ...connectedPeople, ...connectedBrands, ...connectedProjects];
+  };
+
+  // Determinar quais nós devem aparecer
+  const allNodes = [...projects, ...people, ...brands];
+  
+  const nodes = viewMode === "master"
+    ? allNodes.filter((n) => {
+        if (flows.length === 0) return true;
+        
+        // Mostrar centers
+        if (n.type === "project" && centerProjectIds.has(n.id)) return true;
+        
+        // Mostrar projetos do mesmo flow que os centers
+        if (n.type === "project") {
+          return flows.some((f) => f.id === n.flow_id);
+        }
+        
+        // Mostrar pessoas e marcas conectadas aos centers
+        const connectedToCenters = connections.some((c) => 
+          (centerProjectIds.has(c.from) && c.to === n.id) ||
+          (centerProjectIds.has(c.to) && c.from === n.id)
+        );
+        
+        return connectedToCenters;
+      })
+    : activeProjectId
+      ? getNodesForSingleView(activeProjectId)
+      : [];
+
+  // Organização automática (1 cluster por flow)
   const autoOrganize = React.useCallback(() => {
     const cols = 3;
     const spacingX = 1400;
@@ -73,10 +133,17 @@ export default function NetworkMatrix({
       const centersParaUsar = centerProjects.length > 0 ? centerProjects : projects;
 
       centersParaUsar.forEach((center, index) => {
-        const clusterNodes = allNodesWithAnchors.filter(
+        const clusterNodes = allNodes.filter(
           (n) =>
             n.id !== center.id &&
-            (n.anchorProjectId === center.id || n.flow_id === center.flow_id || n.homeProjectId === center.id),
+            (n.anchorProjectId === center.id ||
+              n.flow_id === center.flow_id ||
+              n.homeProjectId === center.id ||
+              connections.some(
+                (c) =>
+                  (c.from === center.id && c.to === n.id) ||
+                  (c.to === center.id && c.from === n.id)
+              ))
         );
 
         const col = index % cols;
@@ -85,103 +152,89 @@ export default function NetworkMatrix({
         const clusterY = row * spacingY + 600;
 
         const layouted = applyRadialLayout([center, ...clusterNodes], clusterX, clusterY);
-        updateAllNodePositions(layouted);
+        
+        layouted.forEach((node) => {
+          if (node.type === "project") {
+            setProjects((prev) =>
+              prev.map((p) => (p.id === node.id ? { ...p, x: node.x, y: node.y } : p))
+            );
+          } else if (node.type === "person") {
+            setPeople((prev) =>
+              prev.map((p) => (p.id === node.id ? { ...p, x: node.x, y: node.y } : p))
+            );
+          } else if (node.type === "brand") {
+            setBrands((prev) =>
+              prev.map((b) => (b.id === node.id ? { ...b, x: node.x, y: node.y } : b))
+            );
+          }
+        });
       });
     } else if (viewMode === "single" && activeProjectId) {
       const layouted = applyRadialLayout(getNodesForSingleView(activeProjectId), 0, 0);
-      updateAllNodePositions(layouted);
-    }
-  }, [
-    viewMode,
-    centerProjects,
-    projects,
-    allNodesWithAnchors,
-    updateAllNodePositions,
-    getNodesForSingleView,
-    activeProjectId,
-  ]);
-
-  // 🗑️ Deletar conexão (sem apagar nós)
-  const deleteConnection = async (connectionIndex: number) => {
-    saveToHistory();
-
-    const conn = allConnections[connectionIndex];
-    if (!conn) return;
-
-    try {
-      if (conn.id) {
-        const { error } = await supabase.from("connections").delete().eq("id", conn.id);
-        if (error) {
-          console.error("Erro ao deletar conexão:", error);
-          toast.error("Erro ao deletar conexão");
-          return;
+      layouted.forEach((node) => {
+        if (node.type === "project") {
+          setProjects((prev) =>
+            prev.map((p) => (p.id === node.id ? { ...p, x: node.x, y: node.y } : p))
+          );
+        } else if (node.type === "person") {
+          setPeople((prev) =>
+            prev.map((p) => (p.id === node.id ? { ...p, x: node.x, y: node.y } : p))
+          );
+        } else if (node.type === "brand") {
+          setBrands((prev) =>
+            prev.map((b) => (b.id === node.id ? { ...b, x: node.x, y: node.y } : b))
+          );
         }
-      }
-
-      if (viewMode === "single" && activeProjectId) {
-        const otherId = conn.from === activeProjectId ? conn.to : conn.to === activeProjectId ? conn.from : null;
-
-        if (otherId) {
-          const otherNode =
-            people.find((p) => p.id === otherId) ||
-            brands.find((b) => b.id === otherId) ||
-            projects.find((p) => p.id === otherId);
-
-          if (otherNode && !("homeProjectId" in otherNode)) {
-            if (otherNode.type === "person") {
-              setPeople((prev) => prev.map((p) => (p.id === otherId ? { ...p, homeProjectId: activeProjectId } : p)));
-            } else if (otherNode.type === "brand") {
-              setBrands((prev) => prev.map((b) => (b.id === otherId ? { ...b, homeProjectId: activeProjectId } : b)));
-            } else if (otherNode.type === "project") {
-              setProjects((prev) => prev.map((p) => (p.id === otherId ? { ...p, homeProjectId: activeProjectId } : p)));
-            }
-          }
-        }
-      }
-
-      setAllConnections((prev) => prev.filter((_, idx) => idx !== connectionIndex));
-      toast.success("Conexão deletada!");
-    } catch (error) {
-      console.error("Erro ao deletar conexão:", error);
-      toast.error("Erro inesperado ao deletar conexão");
+      });
     }
-  };
+  }, [viewMode, centerProjects, projects, allNodes, connections, activeProjectId]);
 
-  // 🧩 Proteger nó central
-  React.useEffect(() => {
-    if (viewMode === "single" && activeProjectId) {
-      const centerNode = projects.find((p) => p.id === activeProjectId);
-      if (!centerNode) return;
-
-      const stillVisible = nodes.some((n) => n.id === activeProjectId);
-      if (!stillVisible) {
-        setProjects((prev) => {
-          const exists = prev.some((p) => p.id === centerNode.id);
-          return exists ? prev : [...prev, centerNode];
-        });
-      }
-    }
-  }, [viewMode, activeProjectId, nodes, projects, setProjects]);
-
-  // 🔁 Atualiza layout ao trocar de modo
+  // Atualiza layout ao trocar de modo
   React.useEffect(() => {
     autoOrganize();
-  }, [viewMode, projects, flows]);
+  }, [viewMode, flows]);
+
+  const handleOpenEditModal = (node: any) => {
+    updateState({ editingNode: node });
+  };
+
+  const handleGoToProject = (id: number) => {
+    setActiveProjectId(id);
+    setViewMode("single");
+  };
+
+  const handleWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    const delta = e.deltaY * -0.001;
+    const newZoom = Math.min(Math.max(0.1, state.zoom + delta), 2);
+    updateState({ zoom: newZoom });
+  };
 
   return (
     <div className="min-h-screen h-screen bg-background flex flex-col overflow-hidden">
       <Canvas
-        nodes={nodes}
-        projects={viewMode === "master" && centerProjects.length > 0 ? centerProjects : projects}
-        people={people}
-        brands={brands}
-        connections={allConnections}
-        deleteConnection={deleteConnection}
+        svgRef={svgRef}
+        state={state}
+        updateState={updateState}
         viewMode={viewMode}
-        setViewMode={setViewMode}
-        activeProjectId={activeProjectId}
-        setActiveProjectId={setActiveProjectId}
-        flows={flows}
+        workflows={flows}
+        nodes={nodes}
+        connections={connections}
+        selectedNodes={selectedNodes}
+        setSelectedNodes={setSelectedNodes}
+        selectedConnection={selectedConnection}
+        setSelectedConnection={setSelectedConnection}
+        highlightedPath={highlightedPath}
+        hoveredNode={hoveredNode}
+        setHoveredNode={setHoveredNode}
+        updateNodePosition={updateNodePosition}
+        setConnections={setConnections}
+        saveToHistory={saveToHistory}
+        onOpenEditModal={handleOpenEditModal}
+        projects={projects}
+        allConnections={connections}
+        onGoToProject={handleGoToProject}
+        onWheel={handleWheel}
       />
     </div>
   );
