@@ -533,20 +533,8 @@ export const NetworkMatrix = () => {
         const fromNode = nodes.find(n => n.id === c.from);
         const toNode = nodes.find(n => n.id === c.to);
         
-        // Both nodes must be in the filtered list
-        if (!fromNode || !toNode) return false;
-        
-        // Allow project-to-project connections only when one is the active center
-        if (fromNode.type === 'project' && toNode.type === 'project') {
-          // Only show if one of them is the active project (center)
-          return fromNode.id === activeProjectId || toNode.id === activeProjectId;
-        }
-        
-        // If connection involves another project (not the active one), exclude it
-        if (fromNode.type === 'project' && fromNode.id !== activeProjectId) return false;
-        if (toNode.type === 'project' && toNode.id !== activeProjectId) return false;
-        
-        return true;
+        // Mostrar conexão apenas se ambos os nós estão visíveis
+        return fromNode && toNode;
       });
 
   // Real history implementation
@@ -655,8 +643,55 @@ export const NetworkMatrix = () => {
     setBrands(newBrands);
   };
 
-  const setConnections = (updater) => {
-    setAllConnections(typeof updater === 'function' ? updater(allConnections) : updater);
+  const setConnections = async (updater) => {
+    const newConnections = typeof updater === 'function' ? updater(allConnections) : updater;
+    setAllConnections(newConnections);
+    
+    // Identificar conexões novas (sem id do Supabase)
+    const toCreate = newConnections.filter(c => !c.id);
+    if (toCreate.length === 0) return;
+    
+    // Preparar payload para inserção
+    const payload = toCreate.map(c => {
+      const fromNode = allNodes.find(n => n.id === c.from);
+      const toNode = allNodes.find(n => n.id === c.to);
+      return {
+        user_id: user.id,
+        from_id: c.from,
+        to_id: c.to,
+        from_type: fromNode?.type,
+        to_type: toNode?.type,
+        connection_type: c.type || 'strong',
+        flow_id: activeProjectId
+      };
+    });
+    
+    // Inserir no banco
+    const { data, error } = await supabase
+      .from('connections')
+      .insert(payload)
+      .select();
+      
+    if (error) {
+      console.error('Erro ao criar conexão:', error);
+      toast.error('Erro ao criar conexão');
+      return;
+    }
+    
+    // Atualizar estado local com IDs do Supabase
+    setAllConnections(prev => {
+      const updated = [...prev];
+      let dataIndex = 0;
+      for (let i = 0; i < updated.length; i++) {
+        if (!updated[i].id && data && data[dataIndex]) {
+          updated[i] = { ...updated[i], id: data[dataIndex].id };
+          dataIndex++;
+        }
+      }
+      return updated;
+    });
+    
+    toast.success('Conexão criada!');
   };
 
   // Helper: Contar conexões
