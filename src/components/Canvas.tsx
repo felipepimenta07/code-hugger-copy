@@ -22,6 +22,7 @@ interface CanvasProps {
   saveToHistory: () => void;
   onOpenEditModal?: (node: any) => void;
   projects?: any[];
+  flows?: any[];
   allConnections?: any[];
   onGoToProject?: (id: number) => void;
   onWheel?: (e: React.WheelEvent) => void;
@@ -53,6 +54,7 @@ export const Canvas: React.FC<CanvasProps> = ({
   saveToHistory,
   onOpenEditModal,
   projects = [],
+  flows = [],
   allConnections = [],
   onGoToProject,
   onWheel
@@ -375,23 +377,20 @@ export const Canvas: React.FC<CanvasProps> = ({
         })()}
         
         
-        {/* Clusters no Master View (por projeto) */}
-        {viewMode === 'master' && projects.map(project => {
-          const clusterNodes = nodes.filter(n => n.projectId === project.id);
-          if (clusterNodes.length === 0 && !nodes.some(n => n.id === project.id)) return null;
+        {/* Clusters no Master View (por flow) */}
+        {viewMode === 'master' && flows.map(flow => {
+          const clusterNodes = nodes.filter(n => n.flow_id === flow.id);
+          if (clusterNodes.length === 0) return null;
           
-          const projectNode = nodes.find(n => n.id === project.id);
-          const allClusterNodes = projectNode ? [projectNode, ...clusterNodes] : clusterNodes;
-          
-          const avgX = allClusterNodes.reduce((sum, n) => sum + n.x, 0) / allClusterNodes.length;
-          const avgY = allClusterNodes.reduce((sum, n) => sum + n.y, 0) / allClusterNodes.length;
-          const maxDist = Math.max(...allClusterNodes.map(n => 
+          const avgX = clusterNodes.reduce((sum, n) => sum + n.x, 0) / clusterNodes.length;
+          const avgY = clusterNodes.reduce((sum, n) => sum + n.y, 0) / clusterNodes.length;
+          const maxDist = Math.max(...clusterNodes.map(n => 
             Math.sqrt((n.x - avgX) ** 2 + (n.y - avgY) ** 2)
           ), 200);
           const radius = maxDist + 150;
 
           return (
-            <g key={project.id}>
+            <g key={flow.id}>
               {/* Anel rosa/roxo decorativo */}
               <circle
                 cx={avgX}
@@ -424,7 +423,7 @@ export const Canvas: React.FC<CanvasProps> = ({
                 opacity="0.35"
               />
               
-              {/* Label do projeto */}
+              {/* Label do flow */}
               <text
                 x={avgX}
                 y={avgY - radius - 30}
@@ -434,7 +433,7 @@ export const Canvas: React.FC<CanvasProps> = ({
                 fontWeight="bold"
                 letterSpacing="3"
               >
-                {project.name.toUpperCase()}
+                {flow.name.toUpperCase()}
               </text>
             </g>
           );
