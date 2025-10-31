@@ -655,8 +655,64 @@ export const NetworkMatrix = () => {
     setBrands(newBrands);
   };
 
-  const setConnections = (updater) => {
-    setAllConnections(typeof updater === 'function' ? updater(allConnections) : updater);
+  const setConnections = async (updater) => {
+    const newConnections = typeof updater === 'function' ? updater(allConnections) : updater;
+    
+    // Atualizar estado local imediatamente para UI responsiva
+    setAllConnections(newConnections);
+    
+    // Detectar conexões novas (sem id do Supabase)
+    const connectionsToCreate = newConnections.filter(c => !c.id);
+    
+    if (connectionsToCreate.length > 0) {
+      try {
+        // Determinar os tipos de from e to para cada conexão
+        const connectionsWithTypes = connectionsToCreate.map(conn => {
+          const fromNode = [...projects, ...people, ...brands].find(n => n.id === conn.from);
+          const toNode = [...projects, ...people, ...brands].find(n => n.id === conn.to);
+          
+          return {
+            from_id: conn.from,
+            to_id: conn.to,
+            from_type: fromNode?.type || 'project',
+            to_type: toNode?.type || 'project',
+            connection_type: conn.type || 'strong',
+            user_id: user?.id
+          };
+        });
+        
+        // Inserir no Supabase
+        const { data, error } = await supabase
+          .from('connections')
+          .insert(connectionsWithTypes)
+          .select();
+        
+        if (error) {
+          console.error('Erro ao criar conexões:', error);
+          toast.error('Erro ao criar conexões');
+          return;
+        }
+        
+        if (data) {
+          // Atualizar estado local com os IDs do Supabase
+          setAllConnections(prev => {
+            const withoutNew = prev.filter(c => c.id);
+            const normalized = data.map(c => ({
+              ...c,
+              from: c.from_id,
+              to: c.to_id,
+              type: c.connection_type || 'related'
+            }));
+            return [...withoutNew, ...normalized];
+          });
+          
+          toast.success('Conexão criada!');
+        }
+      } catch (error) {
+        console.error('Erro ao salvar conexões:', error);
+        toast.error('Erro ao salvar conexões');
+      }
+    }
   };
 
   // Helper: Contar conexões
