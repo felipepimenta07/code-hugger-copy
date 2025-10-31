@@ -512,7 +512,9 @@ export const NetworkMatrix = () => {
         .filter(n => n.type === 'project' || n.anchorProjectId !== null) // Ocultar nós órfãos
         .map(n => {
           const project = projects.find(p => p.id === n.anchorProjectId);
-          return { ...n, projectId: project?.id, projectColor: project ? '#8b5cf6' : '#6366f1' };
+          // Se o nó é um projeto, usa o flow_id dele; se não, usa o flow_id do projeto âncora
+          const flowId = n.type === 'project' ? n.flow_id : project?.flow_id;
+          return { ...n, projectId: project?.id, projectColor: project ? '#8b5cf6' : '#6366f1', flow_id: flowId };
         })
     : (activeProjectId ? getNodesForSingleView(activeProjectId) : []);
 
@@ -1677,6 +1679,7 @@ export const NetworkMatrix = () => {
           setConnections={setConnections}
           saveToHistory={saveToHistory}
           projects={projects}
+          flows={flows}
           allConnections={allConnections}
           onOpenEditModal={(node) => {
             setEditingNodeInModal(node);
