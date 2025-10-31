@@ -712,45 +712,55 @@ export const NetworkMatrix = () => {
       )
     );
     
-    // Salvar novas conexões no Supabase
+    // Atualizar estado local imediatamente
+    setAllConnections(newConnections);
+    
+    // Salvar novas conexões no Supabase em background
     if (addedConnections.length > 0 && user) {
-      const sb = supabase as any;
-      const connectionsToInsert = addedConnections.map((c: any) => ({
-        from_id: c.from,
-        to_id: c.to,
-        connection_type: c.type || 'strong',
-        user_id: user.id
-      }));
-      
-      const { data: insertedConnections, error } = await sb
-        .from('connections')
-        .insert(connectionsToInsert)
-        .select();
-      
-      if (error) {
-        console.error('Erro ao salvar conexões:', error);
-        toast.error('Erro ao salvar conexão');
-        return;
-      }
-      
-      // Atualizar estado com IDs do Supabase
-      const connectionsWithIds = newConnections.map((c: any) => {
-        if (!c.id) {
-          const inserted = insertedConnections?.find((ins: any) => 
-            (ins.from_id === c.from && ins.to_id === c.to) ||
-            (ins.from_id === c.to && ins.to_id === c.from)
-          );
-          if (inserted) {
-            return { ...c, id: inserted.id, from: inserted.from_id, to: inserted.to_id };
-          }
+      try {
+        const sb = supabase as any;
+        const connectionsToInsert = addedConnections.map((c: any) => ({
+          from_id: c.from,
+          to_id: c.to,
+          connection_type: c.type || 'strong',
+          user_id: user.id
+        }));
+        
+        const { data: insertedConnections, error } = await sb
+          .from('connections')
+          .insert(connectionsToInsert)
+          .select();
+        
+        if (error) {
+          console.error('Erro ao salvar conexões:', error);
+          toast.error('Erro ao salvar conexão');
+          return;
         }
-        return c;
-      });
-      
-      setAllConnections(connectionsWithIds);
-      toast.success('Conexão criada!');
-    } else {
-      setAllConnections(newConnections);
+        
+        // Atualizar estado com IDs do Supabase
+        setAllConnections(prev => prev.map((c: any) => {
+          if (!c.id) {
+            const inserted = insertedConnections?.find((ins: any) => 
+              (ins.from_id === c.from && ins.to_id === c.to) ||
+              (ins.from_id === c.to && ins.to_id === c.from)
+            );
+            if (inserted) {
+              return { 
+                id: inserted.id, 
+                from: inserted.from_id, 
+                to: inserted.to_id, 
+                type: inserted.connection_type || c.type,
+                user_id: inserted.user_id
+              };
+            }
+          }
+          return c;
+        }));
+        
+        toast.success('Conexão criada!');
+      } catch (err) {
+        console.error('Erro inesperado ao salvar conexão:', err);
+      }
     }
   };
 
