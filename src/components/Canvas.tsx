@@ -129,7 +129,15 @@ export const Canvas: React.FC<CanvasProps> = ({
     const node = nodes.find(n => n.id === nodeId);
     if (!node) return;
     
-    // Duplo clique SEMPRE entra no flow
+    // No Single View: abre o editor lateral
+    if (viewMode === 'single') {
+      if (onOpenEditModal) {
+        onOpenEditModal(node);
+      }
+      return;
+    }
+    
+    // No Master View: mantém comportamento atual (navegar para o projeto)
     if (onGoToProject) {
       // Se o nó for um projeto, entra diretamente nele
       if (node.type === 'project') {
