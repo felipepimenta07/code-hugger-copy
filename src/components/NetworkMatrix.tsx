@@ -611,23 +611,57 @@ export const NetworkMatrix = () => {
   };
 
   // Função para atualizar posição de nós (corrige dragging) and clear highlight
-  const updateNodePosition = (nodeId: number, deltaX: number, deltaY: number) => {
+  const updateNodePosition = async (nodeId: number, deltaX: number, deltaY: number) => {
     const isProject = projects.find(p => p.id === nodeId);
     const isPerson = people.find(p => p.id === nodeId);
     const isBrand = brands.find(b => b.id === nodeId);
     
+    let newX: number, newY: number;
+    let tableName: 'projects' | 'people' | 'brands' | null = null;
+    
     if (isProject) {
+      newX = isProject.x + deltaX;
+      newY = isProject.y + deltaY;
+      tableName = 'projects';
+      
       setProjects(prev => prev.map(p => 
-        p.id === nodeId ? { ...p, x: p.x + deltaX, y: p.y + deltaY, isNewHighlight: false } : p
+        p.id === nodeId ? { ...p, x: newX, y: newY, isNewHighlight: false } : p
       ));
     } else if (isPerson) {
+      newX = isPerson.x + deltaX;
+      newY = isPerson.y + deltaY;
+      tableName = 'people';
+      
       setPeople(prev => prev.map(p => 
-        p.id === nodeId ? { ...p, x: p.x + deltaX, y: p.y + deltaY, isNewHighlight: false } : p
+        p.id === nodeId ? { ...p, x: newX, y: newY, isNewHighlight: false } : p
       ));
     } else if (isBrand) {
+      newX = isBrand.x + deltaX;
+      newY = isBrand.y + deltaY;
+      tableName = 'brands';
+      
       setBrands(prev => prev.map(b => 
-        b.id === nodeId ? { ...b, x: b.x + deltaX, y: b.y + deltaY, isNewHighlight: false } : b
+        b.id === nodeId ? { ...b, x: newX, y: newY, isNewHighlight: false } : b
       ));
+    } else {
+      return; // Nó não encontrado
+    }
+    
+    // Salvar no Supabase apenas no Single View (não bloqueia a UI)
+    if (tableName && viewMode === 'single' && user) {
+      try {
+        const { error } = await supabase
+          .from(tableName)
+          .update({ x: newX, y: newY })
+          .eq('id', nodeId)
+          .eq('user_id', user.id);
+        
+        if (error) {
+          console.error('Erro ao salvar posição do nó:', error);
+        }
+      } catch (err) {
+        console.error('Erro ao persistir posição:', err);
+      }
     }
   };
 
