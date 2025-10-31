@@ -701,8 +701,57 @@ export const NetworkMatrix = () => {
     setBrands(newBrands);
   };
 
-  const setConnections = (updater) => {
-    setAllConnections(typeof updater === 'function' ? updater(allConnections) : updater);
+  const setConnections = async (updater) => {
+    const newConnections = typeof updater === 'function' ? updater(allConnections) : updater;
+    
+    // Identificar conexões novas (sem ID do Supabase)
+    const addedConnections = newConnections.filter((c: any) => 
+      !c.id && !allConnections.some((existing: any) => 
+        (existing.from === c.from && existing.to === c.to) || 
+        (existing.from === c.to && existing.to === c.from)
+      )
+    );
+    
+    // Salvar novas conexões no Supabase
+    if (addedConnections.length > 0 && user) {
+      const sb = supabase as any;
+      const connectionsToInsert = addedConnections.map((c: any) => ({
+        from_id: c.from,
+        to_id: c.to,
+        connection_type: c.type || 'strong',
+        user_id: user.id
+      }));
+      
+      const { data: insertedConnections, error } = await sb
+        .from('connections')
+        .insert(connectionsToInsert)
+        .select();
+      
+      if (error) {
+        console.error('Erro ao salvar conexões:', error);
+        toast.error('Erro ao salvar conexão');
+        return;
+      }
+      
+      // Atualizar estado com IDs do Supabase
+      const connectionsWithIds = newConnections.map((c: any) => {
+        if (!c.id) {
+          const inserted = insertedConnections?.find((ins: any) => 
+            (ins.from_id === c.from && ins.to_id === c.to) ||
+            (ins.from_id === c.to && ins.to_id === c.from)
+          );
+          if (inserted) {
+            return { ...c, id: inserted.id, from: inserted.from_id, to: inserted.to_id };
+          }
+        }
+        return c;
+      });
+      
+      setAllConnections(connectionsWithIds);
+      toast.success('Conexão criada!');
+    } else {
+      setAllConnections(newConnections);
+    }
   };
 
   // Helper: Contar conexões
@@ -894,24 +943,26 @@ export const NetworkMatrix = () => {
         
         // Then center after organization completes
         setTimeout(() => {
+          const centerNode = projects.find(p => p.id === activeProjectId);
+          if (!centerNode || !svgRef.current) return;
+          
+          const rect = svgRef.current.getBoundingClientRect();
           const nodesToCenter = getNodesForSingleView(activeProjectId);
-          if (nodesToCenter.length > 0 && svgRef.current) {
-            const rect = svgRef.current.getBoundingClientRect();
+          
+          if (nodesToCenter.length > 1) {
+            // Se há outros nós além do projeto central, centraliza todos
             const bounds = calculateBounds(nodesToCenter);
             const centerPan = calculateCenterPan(bounds, 0.9, rect.width, rect.height);
             updateState({ zoom: 0.9, pan: centerPan });
           } else {
-            // Fallback: centralizar no projeto mesmo sem nós conectados
-            const centerNode = projects.find(p => p.id === activeProjectId);
-            if (centerNode) {
-              updateState({
-                zoom: 0.9,
-                pan: {
-                  x: window.innerWidth / 2 - centerNode.x * 0.9,
-                  y: window.innerHeight / 2 - centerNode.y * 0.9
-                }
-              });
-            }
+            // Sempre centraliza no projeto central
+            updateState({
+              zoom: 0.9,
+              pan: {
+                x: rect.width / 2 - centerNode.x * 0.9,
+                y: rect.height / 2 - centerNode.y * 0.9
+              }
+            });
           }
         }, 150);
       }, 100);
