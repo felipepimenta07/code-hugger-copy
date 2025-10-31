@@ -1910,26 +1910,39 @@ export const NetworkMatrix = () => {
               setViewMode('single');
               setShowFlowsManager(false);
               
-              // First timeout: let React recalculate nodes
-              setTimeout(() => {
+              // Usar requestAnimationFrame para garantir que React terminou de renderizar
+              requestAnimationFrame(() => {
+                // Primeiro organizar os nós
                 autoOrganizeSingle(centerId);
-              }, 50);
-              
-              // Second timeout: center view after layout is done
-              setTimeout(() => {
-                const width = window.innerWidth;
-                const height = window.innerHeight - 100;
                 
-                // Get the actual nodes after layout (recalculated by React)
-                const currentNodes = getNodesForSingleView(centerId);
-                
-                if (currentNodes.length > 0) {
-                  const bounds = calculateBounds(currentNodes);
-                  const zoom = calculateOptimalZoom(bounds, width, height);
-                  const pan = calculateCenterPan(bounds, zoom, width, height);
-                  updateState({ zoom, pan });
-                }
-              }, 300);
+                // Depois de organizar, centralizar em múltiplos frames
+                requestAnimationFrame(() => {
+                  requestAnimationFrame(() => {
+                    const currentNodes = getNodesForSingleView(centerId);
+                    
+                    if (currentNodes.length > 0 && svgRef.current) {
+                      const rect = svgRef.current.getBoundingClientRect();
+                      const bounds = calculateBounds(currentNodes);
+                      const zoom = calculateOptimalZoom(bounds, rect.width, rect.height);
+                      const pan = calculateCenterPan(bounds, zoom, rect.width, rect.height);
+                      
+                      updateState({ zoom, pan });
+                    } else {
+                      // Fallback: centralizar no nó central mesmo sem conexões
+                      const centerProject = projects.find(p => p.id === centerId);
+                      if (centerProject) {
+                        updateState({
+                          zoom: 0.9,
+                          pan: {
+                            x: window.innerWidth / 2 - centerProject.x * 0.9,
+                            y: window.innerHeight / 2 - centerProject.y * 0.9
+                          }
+                        });
+                      }
+                    }
+                  });
+                });
+              });
             }}
           />
         )}
