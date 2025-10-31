@@ -193,6 +193,55 @@ export const NetworkMatrix = () => {
     loadData();
   }, [user]);
 
+  // Migração: criar flows para projetos existentes sem flow_id
+  useEffect(() => {
+    if (!user || projects.length === 0 || isLoadingData) return;
+    
+    const migrateExistingProjects = async () => {
+      const projectsWithoutFlow = projects.filter(p => !p.flow_id);
+      
+      if (projectsWithoutFlow.length === 0) return;
+      
+      console.log(`Migrando ${projectsWithoutFlow.length} projetos sem flow...`);
+      
+      for (const project of projectsWithoutFlow) {
+        try {
+          // Criar flow
+          const { data: newFlow, error: flowError } = await supabase
+            .from('flows')
+            .insert([{
+              name: project.name,
+              center_type: 'project',
+              center_id: project.id,
+              user_id: user.id
+            }])
+            .select()
+            .maybeSingle();
+          
+          if (newFlow && !flowError) {
+            // Atualizar projeto com flow_id
+            await supabase
+              .from('projects')
+              .update({ flow_id: newFlow.id })
+              .eq('id', project.id);
+            
+            console.log(`Flow criado para projeto "${project.name}" (ID: ${project.id})`);
+          }
+        } catch (error) {
+          console.error(`Erro ao migrar projeto ${project.id}:`, error);
+        }
+      }
+      
+      // Recarregar dados após migração
+      if (projectsWithoutFlow.length > 0) {
+        await reloadData();
+        toast.success(`${projectsWithoutFlow.length} flows criados automaticamente!`);
+      }
+    };
+    
+    migrateExistingProjects();
+  }, [projects.length, isLoadingData]);
+
   // Garantir que selecionar uma conexão limpa a seleção de nós
   useEffect(() => {
     if (selectedConnection !== null) {
@@ -508,12 +557,10 @@ export const NetworkMatrix = () => {
 
   // Filtrar nós e conexões por projeto/modo
   const nodes = viewMode === 'master'
-    ? allNodesWithAnchors
-        .filter(n => n.type === 'project' || n.anchorProjectId !== null) // Ocultar nós órfãos
-        .map(n => {
-          const project = projects.find(p => p.id === n.anchorProjectId);
-          return { ...n, projectId: project?.id, projectColor: project ? '#8b5cf6' : '#6366f1' };
-        })
+    ? allNodesWithAnchors.map(n => {
+        const project = projects.find(p => p.id === n.anchorProjectId);
+        return { ...n, projectId: project?.id, projectColor: project ? '#8b5cf6' : '#6366f1' };
+      })
     : (activeProjectId ? getNodesForSingleView(activeProjectId) : []);
 
   // Para o PathIndicator
@@ -852,6 +899,18 @@ export const NetworkMatrix = () => {
             const bounds = calculateBounds(nodesToCenter);
             const centerPan = calculateCenterPan(bounds, 0.9, rect.width, rect.height);
             updateState({ zoom: 0.9, pan: centerPan });
+          } else {
+            // Fallback: centralizar no projeto mesmo sem nós conectados
+            const centerNode = projects.find(p => p.id === activeProjectId);
+            if (centerNode) {
+              updateState({
+                zoom: 0.9,
+                pan: {
+                  x: window.innerWidth / 2 - centerNode.x * 0.9,
+                  y: window.innerHeight / 2 - centerNode.y * 0.9
+                }
+              });
+            }
           }
         }, 150);
       }, 100);
@@ -1100,6 +1159,30 @@ export const NetworkMatrix = () => {
         return;
       }
       
+      // Se criado em Master View (sem centerFlowId), criar flow automaticamente
+      if (!centerFlowId) {
+        const { data: newFlow, error: flowError } = await supabase
+          .from('flows')
+          .insert([{
+            name: insertedProject.name,
+            center_type: 'project',
+            center_id: insertedProject.id,
+            user_id: user.id
+          }])
+          .select()
+          .maybeSingle();
+        
+        if (newFlow && !flowError) {
+          // Atualizar projeto com flow_id
+          await supabase
+            .from('projects')
+            .update({ flow_id: newFlow.id })
+            .eq('id', insertedProject.id);
+          
+          insertedProject.flow_id = newFlow.id;
+        }
+      }
+      
       // Atualizar com o ID real do banco
       const newNode = {
         ...insertedProject,
@@ -1112,11 +1195,11 @@ export const NetworkMatrix = () => {
       setProjects(prev => [...prev, newNode]);
       setShowNodeCreationModal(false);
       
-      // Apenas notificar o usuário - não criar flow automaticamente
+      // Notificar o usuário
       if (viewMode === 'single' && activeProjectId) {
         toast.success(`Projeto "${newNode.name}" adicionado ao flow atual!`);
       } else {
-        toast.success(`Projeto "${newNode.name}" criado!`);
+        toast.success(`Projeto "${newNode.name}" criado com novo flow!`);
       }
     } else if (nodeCreationType === 'person') {
       const personData = {
