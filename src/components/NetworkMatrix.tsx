@@ -68,6 +68,7 @@ export const NetworkMatrix = () => {
   const [showAIInsights, setShowAIInsights] = useState(false);
   const [showFlowStarterModal, setShowFlowStarterModal] = useState(false);
   const [showLinkedInImport, setShowLinkedInImport] = useState(false);
+  const [isCreatingNode, setIsCreatingNode] = useState(false);
 
   const { state, updateState } = useNetworkState();
   const svgRef = useRef(null);
@@ -1128,6 +1129,13 @@ export const NetworkMatrix = () => {
       return;
     }
 
+    // Prevenir múltiplas criações simultâneas
+    if (isCreatingNode) {
+      console.log('Já existe uma criação em andamento');
+      return;
+    }
+
+    setIsCreatingNode(true);
     saveToHistory();
     
     // Set default fields for projects
@@ -1156,6 +1164,7 @@ export const NetworkMatrix = () => {
       if (error || !insertedProject) {
         console.error('Erro ao criar projeto:', error);
         toast.error('Erro ao criar projeto');
+        setIsCreatingNode(false);
         return;
       }
       
@@ -1194,6 +1203,7 @@ export const NetworkMatrix = () => {
       // Adicionar ao estado local
       setProjects(prev => [...prev, newNode]);
       setShowNodeCreationModal(false);
+      setIsCreatingNode(false);
       
       // Notificar o usuário
       if (viewMode === 'single' && activeProjectId) {
@@ -1223,6 +1233,7 @@ export const NetworkMatrix = () => {
       if (error || !insertedPerson) {
         console.error('Erro ao criar pessoa:', error);
         toast.error('Erro ao criar pessoa');
+        setIsCreatingNode(false);
         return;
       }
       
@@ -1235,6 +1246,7 @@ export const NetworkMatrix = () => {
       
       setPeople(prev => [...prev, newNode]);
       setShowNodeCreationModal(false);
+      setIsCreatingNode(false);
       
       toast.success(`${newNode.name} criado!`);
       
@@ -1268,6 +1280,7 @@ export const NetworkMatrix = () => {
       if (error || !insertedBrand) {
         console.error('Erro ao criar marca:', error);
         toast.error('Erro ao criar marca');
+        setIsCreatingNode(false);
         return;
       }
       
@@ -1280,6 +1293,7 @@ export const NetworkMatrix = () => {
       
       setBrands(prev => [...prev, newNode]);
       setShowNodeCreationModal(false);
+      setIsCreatingNode(false);
       
       toast.success(`${newNode.name} criado!`);
       
