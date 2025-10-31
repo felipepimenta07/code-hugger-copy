@@ -68,7 +68,6 @@ export const NetworkMatrix = () => {
   const [showAIInsights, setShowAIInsights] = useState(false);
   const [showFlowStarterModal, setShowFlowStarterModal] = useState(false);
   const [showLinkedInImport, setShowLinkedInImport] = useState(false);
-  const [isCreatingNode, setIsCreatingNode] = useState(false);
 
   const { state, updateState } = useNetworkState();
   const svgRef = useRef(null);
@@ -193,55 +192,6 @@ export const NetworkMatrix = () => {
 
     loadData();
   }, [user]);
-
-  // Migração: criar flows para projetos existentes sem flow_id
-  useEffect(() => {
-    if (!user || projects.length === 0 || isLoadingData) return;
-    
-    const migrateExistingProjects = async () => {
-      const projectsWithoutFlow = projects.filter(p => !p.flow_id);
-      
-      if (projectsWithoutFlow.length === 0) return;
-      
-      console.log(`Migrando ${projectsWithoutFlow.length} projetos sem flow...`);
-      
-      for (const project of projectsWithoutFlow) {
-        try {
-          // Criar flow
-          const { data: newFlow, error: flowError } = await supabase
-            .from('flows')
-            .insert([{
-              name: project.name,
-              center_type: 'project',
-              center_id: project.id,
-              user_id: user.id
-            }])
-            .select()
-            .maybeSingle();
-          
-          if (newFlow && !flowError) {
-            // Atualizar projeto com flow_id
-            await supabase
-              .from('projects')
-              .update({ flow_id: newFlow.id })
-              .eq('id', project.id);
-            
-            console.log(`Flow criado para projeto "${project.name}" (ID: ${project.id})`);
-          }
-        } catch (error) {
-          console.error(`Erro ao migrar projeto ${project.id}:`, error);
-        }
-      }
-      
-      // Recarregar dados após migração
-      if (projectsWithoutFlow.length > 0) {
-        await reloadData();
-        toast.success(`${projectsWithoutFlow.length} flows criados automaticamente!`);
-      }
-    };
-    
-    migrateExistingProjects();
-  }, [projects.length, isLoadingData]);
 
   // Garantir que selecionar uma conexão limpa a seleção de nós
   useEffect(() => {
@@ -558,10 +508,12 @@ export const NetworkMatrix = () => {
 
   // Filtrar nós e conexões por projeto/modo
   const nodes = viewMode === 'master'
-    ? allNodesWithAnchors.map(n => {
-        const project = projects.find(p => p.id === n.anchorProjectId);
-        return { ...n, projectId: project?.id, projectColor: project ? '#8b5cf6' : '#6366f1' };
-      })
+    ? allNodesWithAnchors
+        .filter(n => n.type === 'project' || n.anchorProjectId !== null) // Ocultar nós órfãos
+        .map(n => {
+          const project = projects.find(p => p.id === n.anchorProjectId);
+          return { ...n, projectId: project?.id, projectColor: project ? '#8b5cf6' : '#6366f1' };
+        })
     : (activeProjectId ? getNodesForSingleView(activeProjectId) : []);
 
   // Para o PathIndicator
@@ -701,67 +653,8 @@ export const NetworkMatrix = () => {
     setBrands(newBrands);
   };
 
-  const setConnections = async (updater) => {
-    const newConnections = typeof updater === 'function' ? updater(allConnections) : updater;
-    
-    // Identificar conexões novas (sem ID do Supabase)
-    const addedConnections = newConnections.filter((c: any) => 
-      !c.id && !allConnections.some((existing: any) => 
-        (existing.from === c.from && existing.to === c.to) || 
-        (existing.from === c.to && existing.to === c.from)
-      )
-    );
-    
-    // Atualizar estado local imediatamente
-    setAllConnections(newConnections);
-    
-    // Salvar novas conexões no Supabase em background
-    if (addedConnections.length > 0 && user) {
-      try {
-        const sb = supabase as any;
-        const connectionsToInsert = addedConnections.map((c: any) => ({
-          from_id: c.from,
-          to_id: c.to,
-          connection_type: c.type || 'strong',
-          user_id: user.id
-        }));
-        
-        const { data: insertedConnections, error } = await sb
-          .from('connections')
-          .insert(connectionsToInsert)
-          .select();
-        
-        if (error) {
-          console.error('Erro ao salvar conexões:', error);
-          toast.error('Erro ao salvar conexão');
-          return;
-        }
-        
-        // Atualizar estado com IDs do Supabase
-        setAllConnections(prev => prev.map((c: any) => {
-          if (!c.id) {
-            const inserted = insertedConnections?.find((ins: any) => 
-              (ins.from_id === c.from && ins.to_id === c.to) ||
-              (ins.from_id === c.to && ins.to_id === c.from)
-            );
-            if (inserted) {
-              return { 
-                id: inserted.id, 
-                from: inserted.from_id, 
-                to: inserted.to_id, 
-                type: inserted.connection_type || c.type,
-                user_id: inserted.user_id
-              };
-            }
-          }
-          return c;
-        }));
-        
-        toast.success('Conexão criada!');
-      } catch (err) {
-        console.error('Erro inesperado ao salvar conexão:', err);
-      }
-    }
+  const setConnections = (updater) => {
+    setAllConnections(typeof updater === 'function' ? updater(allConnections) : updater);
   };
 
   // Helper: Contar conexões
@@ -953,26 +846,12 @@ export const NetworkMatrix = () => {
         
         // Then center after organization completes
         setTimeout(() => {
-          const centerNode = projects.find(p => p.id === activeProjectId);
-          if (!centerNode || !svgRef.current) return;
-          
-          const rect = svgRef.current.getBoundingClientRect();
           const nodesToCenter = getNodesForSingleView(activeProjectId);
-          
-          if (nodesToCenter.length > 1) {
-            // Se há outros nós além do projeto central, centraliza todos
+          if (nodesToCenter.length > 0 && svgRef.current) {
+            const rect = svgRef.current.getBoundingClientRect();
             const bounds = calculateBounds(nodesToCenter);
             const centerPan = calculateCenterPan(bounds, 0.9, rect.width, rect.height);
             updateState({ zoom: 0.9, pan: centerPan });
-          } else {
-            // Sempre centraliza no projeto central
-            updateState({
-              zoom: 0.9,
-              pan: {
-                x: rect.width / 2 - centerNode.x * 0.9,
-                y: rect.height / 2 - centerNode.y * 0.9
-              }
-            });
           }
         }, 150);
       }, 100);
@@ -1190,13 +1069,6 @@ export const NetworkMatrix = () => {
       return;
     }
 
-    // Prevenir múltiplas criações simultâneas
-    if (isCreatingNode) {
-      console.log('Já existe uma criação em andamento');
-      return;
-    }
-
-    setIsCreatingNode(true);
     saveToHistory();
     
     // Set default fields for projects
@@ -1225,32 +1097,7 @@ export const NetworkMatrix = () => {
       if (error || !insertedProject) {
         console.error('Erro ao criar projeto:', error);
         toast.error('Erro ao criar projeto');
-        setIsCreatingNode(false);
         return;
-      }
-      
-      // Se criado em Master View (sem centerFlowId), criar flow automaticamente
-      if (!centerFlowId) {
-        const { data: newFlow, error: flowError } = await supabase
-          .from('flows')
-          .insert([{
-            name: insertedProject.name,
-            center_type: 'project',
-            center_id: insertedProject.id,
-            user_id: user.id
-          }])
-          .select()
-          .maybeSingle();
-        
-        if (newFlow && !flowError) {
-          // Atualizar projeto com flow_id
-          await supabase
-            .from('projects')
-            .update({ flow_id: newFlow.id })
-            .eq('id', insertedProject.id);
-          
-          insertedProject.flow_id = newFlow.id;
-        }
       }
       
       // Atualizar com o ID real do banco
@@ -1264,13 +1111,12 @@ export const NetworkMatrix = () => {
       // Adicionar ao estado local
       setProjects(prev => [...prev, newNode]);
       setShowNodeCreationModal(false);
-      setIsCreatingNode(false);
       
-      // Notificar o usuário
+      // Apenas notificar o usuário - não criar flow automaticamente
       if (viewMode === 'single' && activeProjectId) {
         toast.success(`Projeto "${newNode.name}" adicionado ao flow atual!`);
       } else {
-        toast.success(`Projeto "${newNode.name}" criado com novo flow!`);
+        toast.success(`Projeto "${newNode.name}" criado!`);
       }
     } else if (nodeCreationType === 'person') {
       const personData = {
@@ -1294,7 +1140,6 @@ export const NetworkMatrix = () => {
       if (error || !insertedPerson) {
         console.error('Erro ao criar pessoa:', error);
         toast.error('Erro ao criar pessoa');
-        setIsCreatingNode(false);
         return;
       }
       
@@ -1307,7 +1152,6 @@ export const NetworkMatrix = () => {
       
       setPeople(prev => [...prev, newNode]);
       setShowNodeCreationModal(false);
-      setIsCreatingNode(false);
       
       toast.success(`${newNode.name} criado!`);
       
@@ -1341,7 +1185,6 @@ export const NetworkMatrix = () => {
       if (error || !insertedBrand) {
         console.error('Erro ao criar marca:', error);
         toast.error('Erro ao criar marca');
-        setIsCreatingNode(false);
         return;
       }
       
@@ -1354,7 +1197,6 @@ export const NetworkMatrix = () => {
       
       setBrands(prev => [...prev, newNode]);
       setShowNodeCreationModal(false);
-      setIsCreatingNode(false);
       
       toast.success(`${newNode.name} criado!`);
       
@@ -1985,39 +1827,26 @@ export const NetworkMatrix = () => {
               setViewMode('single');
               setShowFlowsManager(false);
               
-              // Usar requestAnimationFrame para garantir que React terminou de renderizar
-              requestAnimationFrame(() => {
-                // Primeiro organizar os nós
+              // First timeout: let React recalculate nodes
+              setTimeout(() => {
                 autoOrganizeSingle(centerId);
+              }, 50);
+              
+              // Second timeout: center view after layout is done
+              setTimeout(() => {
+                const width = window.innerWidth;
+                const height = window.innerHeight - 100;
                 
-                // Depois de organizar, centralizar em múltiplos frames
-                requestAnimationFrame(() => {
-                  requestAnimationFrame(() => {
-                    const currentNodes = getNodesForSingleView(centerId);
-                    
-                    if (currentNodes.length > 0 && svgRef.current) {
-                      const rect = svgRef.current.getBoundingClientRect();
-                      const bounds = calculateBounds(currentNodes);
-                      const zoom = calculateOptimalZoom(bounds, rect.width, rect.height);
-                      const pan = calculateCenterPan(bounds, zoom, rect.width, rect.height);
-                      
-                      updateState({ zoom, pan });
-                    } else {
-                      // Fallback: centralizar no nó central mesmo sem conexões
-                      const centerProject = projects.find(p => p.id === centerId);
-                      if (centerProject) {
-                        updateState({
-                          zoom: 0.9,
-                          pan: {
-                            x: window.innerWidth / 2 - centerProject.x * 0.9,
-                            y: window.innerHeight / 2 - centerProject.y * 0.9
-                          }
-                        });
-                      }
-                    }
-                  });
-                });
-              });
+                // Get the actual nodes after layout (recalculated by React)
+                const currentNodes = getNodesForSingleView(centerId);
+                
+                if (currentNodes.length > 0) {
+                  const bounds = calculateBounds(currentNodes);
+                  const zoom = calculateOptimalZoom(bounds, width, height);
+                  const pan = calculateCenterPan(bounds, zoom, width, height);
+                  updateState({ zoom, pan });
+                }
+              }, 300);
             }}
           />
         )}
