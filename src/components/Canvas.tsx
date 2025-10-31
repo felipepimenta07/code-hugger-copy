@@ -125,8 +125,18 @@ export const Canvas: React.FC<CanvasProps> = ({
   const handleNodeDoubleClick = (e: React.MouseEvent, nodeId: number) => {
     e.stopPropagation();
     const node = nodes.find(n => n.id === nodeId);
-    if (node && onOpenEditModal) {
-      onOpenEditModal(node);
+    if (!node) return;
+    
+    // Duplo clique SEMPRE entra no flow
+    if (onGoToProject) {
+      // Se o nó for um projeto, entra diretamente nele
+      if (node.type === 'project') {
+        onGoToProject(node.id);
+      } 
+      // Se for pessoa ou marca, encontra o projeto do flow atual
+      else if (node.flow_id) {
+        onGoToProject(node.flow_id);
+      }
     }
   };
 
