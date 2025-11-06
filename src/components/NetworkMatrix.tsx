@@ -1472,18 +1472,6 @@ export const NetworkMatrix = () => {
       setBrands(prev => [...prev, newNode]);
     }
 
-    // Se criou novo flow, mudar para Single View APÓS adicionar ao estado local
-    if (insertedNode.flow_id) {
-      const isNewFlow = !flows.find(f => f.id === insertedNode.flow_id);
-      if (isNewFlow) {
-        // Aguardar o estado atualizar antes de mudar view
-        setTimeout(() => {
-          setActiveProjectId(insertedNode.id);
-          setViewMode('single');
-        }, 100);
-      }
-    }
-
     setShowNodeCreationModal(false);
     
     // Mensagem de sucesso
