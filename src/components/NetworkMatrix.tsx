@@ -740,10 +740,8 @@ export const NetworkMatrix = () => {
     const payload = toCreate.map(c => {
       const fromNode = allNodes.find(n => n.id === c.from);
       const toNode = allNodes.find(n => n.id === c.to);
-      // No Single View, usar o flow_id do projeto ativo; no Master, deixar null
-      const flowId = viewMode === 'single' 
-        ? projects.find(p => p.id === activeProjectId)?.flow_id 
-        : null;
+      // No Single View, usar o flow_id atual; no Master, deixar null
+      const flowId = getCurrentFlowId();
       return {
         user_id: user.id,
         from_id: c.from,
@@ -1327,9 +1325,13 @@ export const NetworkMatrix = () => {
   // Função helper para obter flow_id atual
   const getCurrentFlowId = (): number | null => {
     if (viewMode === 'single' && activeProjectId) {
-      // Em single view, buscar o flow_id do projeto ativo
-      const activeProject = projects.find(p => p.id === activeProjectId);
-      return activeProject?.flow_id ?? null;
+      // Em single view, buscar o flow_id em todas as coleções
+      const pFlow = projects.find(p => p.id === activeProjectId)?.flow_id;
+      if (pFlow) return pFlow;
+      const peFlow = people.find(pe => pe.id === activeProjectId)?.flow_id;
+      if (peFlow) return peFlow;
+      const bFlow = brands.find(b => b.id === activeProjectId)?.flow_id;
+      if (bFlow) return bFlow;
     }
     return null; // Master view não tem flow específico
   };
