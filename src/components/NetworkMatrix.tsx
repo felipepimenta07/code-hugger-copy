@@ -503,7 +503,7 @@ export const NetworkMatrix = () => {
 
   // Filtrar nós e conexões por projeto/modo
   const nodes = viewMode === 'master'
-    ? allNodes // Mostrar TODOS os nós no Master View
+    ? allNodes.filter(n => n.flow_id !== null && n.flow_id !== undefined) // Mostrar apenas nós com flow_id válido
     : (activeProjectId ? getNodesForSingleView(activeProjectId) : []);
 
   // Para o PathIndicator
