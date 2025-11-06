@@ -33,9 +33,9 @@ export const ResetButton: React.FC<ResetButtonProps> = ({ onResetComplete, userI
       // Passo 1: deletar conexões e tabelas de junção primeiro (evitar FKs)
       const [connRes, projWfRes, personWfRes, brandWfRes] = await Promise.all([
         supabase.from('connections').delete().eq('user_id', userId),
-        supabase.from('project_workflows').delete(), // RLS garante que só apaga as suas
-        supabase.from('person_workflows').delete(),  // RLS garante que só apaga as suas
-        supabase.from('brand_workflows').delete(),   // RLS garante que só apaga as suas
+        supabase.from('project_workflows').delete().gt('project_id', 0),
+        supabase.from('person_workflows').delete().gt('person_id', 0),
+        supabase.from('brand_workflows').delete().gt('brand_id', 0),
       ]);
       if (connRes.error) throw connRes.error;
       if (projWfRes.error) throw projWfRes.error;
