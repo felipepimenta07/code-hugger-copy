@@ -48,6 +48,7 @@ export type Database = {
         Row: {
           category: string | null
           created_at: string
+          home_project_id: number | null
           id: number
           master_x: number | null
           master_y: number | null
@@ -60,6 +61,7 @@ export type Database = {
         Insert: {
           category?: string | null
           created_at?: string
+          home_project_id?: number | null
           id?: never
           master_x?: number | null
           master_y?: number | null
@@ -72,6 +74,7 @@ export type Database = {
         Update: {
           category?: string | null
           created_at?: string
+          home_project_id?: number | null
           id?: never
           master_x?: number | null
           master_y?: number | null
@@ -160,6 +163,7 @@ export type Database = {
           company: string | null
           created_at: string
           email: string | null
+          home_project_id: number | null
           id: number
           master_x: number | null
           master_y: number | null
@@ -174,6 +178,7 @@ export type Database = {
           company?: string | null
           created_at?: string
           email?: string | null
+          home_project_id?: number | null
           id?: never
           master_x?: number | null
           master_y?: number | null
@@ -188,6 +193,7 @@ export type Database = {
           company?: string | null
           created_at?: string
           email?: string | null
+          home_project_id?: number | null
           id?: never
           master_x?: number | null
           master_y?: number | null

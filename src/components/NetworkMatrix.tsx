@@ -1332,7 +1332,8 @@ export const NetworkMatrix = () => {
         phone: nodeData.phone || null,
         company: nodeData.company || null,
         category: nodeData.category || null,
-        user_id: user.id
+        user_id: user.id,
+        home_project_id: viewMode === 'single' && activeProjectId ? activeProjectId : null
       };
       
       // Inserir no Supabase
@@ -1377,7 +1378,8 @@ export const NetworkMatrix = () => {
         y: nodeCreationPosition.y,
         website: nodeData.website || null,
         category: nodeData.category || null,
-        user_id: user.id
+        user_id: user.id,
+        home_project_id: viewMode === 'single' && activeProjectId ? activeProjectId : null
       };
       
       // Inserir no Supabase
@@ -1901,25 +1903,27 @@ export const NetworkMatrix = () => {
 
         {/* Botões flutuantes de ação */}
         <div className="fixed bottom-6 right-6 flex flex-col gap-3 z-30">
-          {/* Reorganizar Nós */}
-          <button
-            onClick={async () => {
-              const loadingToast = toast.loading('Organizando nós...');
-              try {
-                await autoOrganize();
-                toast.success('Nós organizados com sucesso!', { id: loadingToast });
-              } catch (error) {
-                toast.error('Erro ao organizar nós', { id: loadingToast });
-              }
-            }}
-            className="p-4 bg-primary text-primary-foreground rounded-full shadow-2xl hover:scale-110 transition-all group relative"
-            title="Reorganizar Nós (A)"
-          >
-            <LayoutGrid size={22} className="group-hover:scale-110 transition-transform" />
-            <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 bg-popover text-popover-foreground px-3 py-1.5 rounded-lg text-sm font-medium shadow-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-              Reorganizar Nós {viewMode === 'master' ? '(Master View)' : '(Single View)'}
-            </span>
-          </button>
+          {/* Reorganizar Nós - Apenas no Single View */}
+          {viewMode === 'single' && (
+            <button
+              onClick={async () => {
+                const loadingToast = toast.loading('Organizando nós...');
+                try {
+                  await autoOrganize();
+                  toast.success('Nós organizados com sucesso!', { id: loadingToast });
+                } catch (error) {
+                  toast.error('Erro ao organizar nós', { id: loadingToast });
+                }
+              }}
+              className="p-4 bg-primary text-primary-foreground rounded-full shadow-2xl hover:scale-110 transition-all group relative"
+              title="Reorganizar Nós (A)"
+            >
+              <LayoutGrid size={22} className="group-hover:scale-110 transition-transform" />
+              <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 bg-popover text-popover-foreground px-3 py-1.5 rounded-lg text-sm font-medium shadow-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                Reorganizar Nós (Single View)
+              </span>
+            </button>
+          )}
           
           {/* Salvar Design */}
           <button
@@ -1933,24 +1937,17 @@ export const NetworkMatrix = () => {
             </span>
           </button>
           
-          {/* Centralizar View (NOVO) */}
+          {/* Centralizar View */}
           <button
-            onClick={async () => {
-              // Resetar estado do Master View para forçar reorganização
-              setMasterViewState(null);
-              
-              // Se estiver no Master View, reorganiza imediatamente
-              if (viewMode === 'master') {
-                await autoOrganize();
-              } else {
-                // Se estiver no Single View, centraliza nele mesmo
-                const width = window.innerWidth;
-                const height = window.innerHeight - 100;
-                const bounds = calculateBounds(nodes);
-                const zoom = calculateOptimalZoom(bounds, width, height);
-                const pan = calculateCenterPan(bounds, zoom, width, height);
-                updateState({ zoom, pan });
-              }
+            onClick={() => {
+              // Apenas centralizar, sem reorganizar
+              const width = window.innerWidth;
+              const height = window.innerHeight - 100;
+              const nodesToCenter = viewMode === 'master' ? allNodes : nodes;
+              const bounds = calculateBounds(nodesToCenter);
+              const zoom = calculateOptimalZoom(bounds, width, height);
+              const pan = calculateCenterPan(bounds, zoom, width, height);
+              updateState({ zoom, pan });
             }}
             className="p-3.5 bg-accent text-accent-foreground rounded-full shadow-xl hover:scale-110 transition-all group relative"
             title="Centralizar (C)"
