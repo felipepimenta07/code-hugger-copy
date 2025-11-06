@@ -96,9 +96,6 @@ export const Canvas: React.FC<CanvasProps> = ({
   
   const nodeDepths = calculateNodeDepths();
   
-  // Memorizar raio por flow durante a sessão para evitar variações ao alternar telas
-  const flowRadiiRef = useRef<Map<number, number>>(new Map());
-  
   // Offsets estáveis por flow no Master View para evitar sobreposição
   const getFlowOffset = (flowId: number) => {
     if (!flows || flows.length === 0) return { dx: 0, dy: 0 };
@@ -496,11 +493,8 @@ export const Canvas: React.FC<CanvasProps> = ({
             200
           );
 
-          // Raio atual calculado e raio estável memorizado (nunca diminui durante a sessão)
-          const currentRadius = maxDist + 150;
-          const prevRadius = flowRadiiRef.current.get(flow.id) ?? 0;
-          const stableRadius = Math.max(prevRadius, currentRadius);
-          if (stableRadius !== prevRadius) flowRadiiRef.current.set(flow.id, stableRadius);
+          // Raio sempre baseado no tamanho atual do cluster
+          const radius = maxDist + 150;
 
           const { dx, dy } = getFlowOffset(flow.id);
           const renderX = avgX + dx;
@@ -512,7 +506,7 @@ export const Canvas: React.FC<CanvasProps> = ({
               <circle
                 cx={renderX}
                 cy={renderY}
-                r={stableRadius * 0.4}
+                r={radius * 0.4}
                 fill="none"
                 stroke="url(#gradientPinkPurple)"
                 strokeWidth="15"
@@ -523,7 +517,7 @@ export const Canvas: React.FC<CanvasProps> = ({
               <circle
                 cx={renderX}
                 cy={renderY}
-                r={stableRadius + 40}
+                r={radius + 40}
                 fill="#8b5cf615"
                 opacity="0.2"
               />
@@ -532,7 +526,7 @@ export const Canvas: React.FC<CanvasProps> = ({
               <circle
                 cx={renderX}
                 cy={renderY}
-                r={stableRadius}
+                r={radius}
                 fill="none"
                 stroke="#8b5cf6"
                 strokeWidth="2"
@@ -543,7 +537,7 @@ export const Canvas: React.FC<CanvasProps> = ({
               {/* Label do flow */}
               <text
                 x={renderX}
-                y={renderY - stableRadius - 30}
+                y={renderY - radius - 30}
                 textAnchor="middle"
                 fill="#8b5cf6"
                 fontSize="18"
@@ -576,25 +570,18 @@ export const Canvas: React.FC<CanvasProps> = ({
           const toDepth = nodeDepths.get(to.id) ?? 0;
           const connectionLevel = Math.min(fromDepth, toDepth);
           
-          // Detectar cross-flow: nós de projetos diferentes (exceto projeto↔projeto)
-          const getAssignment = (node: any) => {
-            if (node.type === 'project') return node.id;
-            // No master view, projectId já vem calculado
-            return node.projectId ?? node.anchorProjectId ?? node.homeProjectId ?? null;
-          };
-          const fromProj = getAssignment(from);
-          const toProj = getAssignment(to);
-          
-          const isCrossFlow = viewMode === 'master' &&
-            fromProj && toProj && fromProj !== toProj &&
-            !(from.type === 'project' && to.type === 'project');
-          
           const isInPath = highlightedPath.length > 0 && 
             highlightedPath.some((id, i) => 
               i < highlightedPath.length - 1 && 
               ((highlightedPath[i] === from.id && highlightedPath[i + 1] === to.id) ||
                 (highlightedPath[i] === to.id && highlightedPath[i + 1] === from.id))
             );
+          
+          // Detectar cross-flow: conexões entre flows diferentes no Master View
+          const fromFlowId = getNodeFlowId(from);
+          const toFlowId = getNodeFlowId(to);
+          const isCrossFlow = viewMode === 'master' &&
+            fromFlowId && toFlowId && fromFlowId !== toFlowId;
           
           // Styling based on priority: path > selected > cross-project > depth-based
           let strokeColor;
@@ -663,8 +650,6 @@ export const Canvas: React.FC<CanvasProps> = ({
           const baseFromY = viewMode === 'master' ? (from.master_y ?? from.y) : from.y;
           const baseToX = viewMode === 'master' ? (to.master_x ?? to.x) : to.x;
           const baseToY = viewMode === 'master' ? (to.master_y ?? to.y) : to.y;
-          const fromFlowId = getNodeFlowId(from);
-          const toFlowId = getNodeFlowId(to);
           const fromOff = viewMode === 'master' && fromFlowId ? getFlowOffset(fromFlowId) : { dx: 0, dy: 0 };
           const toOff = viewMode === 'master' && toFlowId ? getFlowOffset(toFlowId) : { dx: 0, dy: 0 };
           const fromX = baseFromX + fromOff.dx;
