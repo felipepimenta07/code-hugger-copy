@@ -1415,9 +1415,8 @@ export const NetworkMatrix = () => {
         setFlows(prev => [...prev, updatedFlow]);
       }
 
-      // Se criou novo flow, mudar para Single View
-      setActiveProjectId(insertedNode.id);
-      setViewMode('single');
+      // NÃO mudar para Single View aqui ainda
+      // Vai mudar depois que adicionar ao estado local
     }
 
     return insertedNode;
@@ -1447,6 +1446,18 @@ export const NetworkMatrix = () => {
       setPeople(prev => [...prev, newNode]);
     } else if (nodeCreationType === 'brand') {
       setBrands(prev => [...prev, newNode]);
+    }
+
+    // Se criou novo flow, mudar para Single View APÓS adicionar ao estado local
+    if (insertedNode.flow_id) {
+      const isNewFlow = !flows.find(f => f.id === insertedNode.flow_id);
+      if (isNewFlow) {
+        // Aguardar o estado atualizar antes de mudar view
+        setTimeout(() => {
+          setActiveProjectId(insertedNode.id);
+          setViewMode('single');
+        }, 100);
+      }
     }
 
     setShowNodeCreationModal(false);
