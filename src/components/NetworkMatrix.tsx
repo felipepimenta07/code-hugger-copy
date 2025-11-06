@@ -522,8 +522,23 @@ export const NetworkMatrix = () => {
     // Filtrar TODOS os nós que pertencem a este flow
     const flowNodes = allNodes.filter(node => node.flow_id === currentFlowId);
     console.log('✅ Flow nodes found:', flowNodes.length, flowNodes);
-    
-    return flowNodes;
+
+    // Reordenar garantindo o NÓ RAIZ (flows.center_id/type) na primeira posição
+    const flow = flows.find(f => f.id === currentFlowId);
+    if (!flow) return flowNodes;
+
+    const getByType = (type: string, id: number) => {
+      if (type === 'project') return projects.find(p => p.id === id);
+      if (type === 'person') return people.find(p => p.id === id);
+      if (type === 'brand') return brands.find(b => b.id === id);
+      return null;
+    };
+
+    const center = flow.center_id ? getByType(flow.center_type, flow.center_id) : null;
+    if (!center) return flowNodes;
+
+    const reordered = [center, ...flowNodes.filter(n => n.id !== center.id)];
+    return reordered;
   };
 
   // Filtrar nós e conexões por projeto/modo
@@ -536,9 +551,15 @@ export const NetworkMatrix = () => {
     ? allNodes.find(n => n.id === selectedNodes[0]) 
     : null;
 
-  const centerNode = viewMode === 'single' && activeProjectId
-    ? projects.find(p => p.id === activeProjectId)
-    : null;
+  const centerNode = (viewMode === 'single' && activeProjectId) ? (() => {
+    const currentFlowId = getCurrentFlowIdFromProjectId(activeProjectId);
+    const flow = flows.find(f => f.id === currentFlowId);
+    if (!flow) return null;
+    if (flow.center_type === 'project') return projects.find(p => p.id === flow.center_id) || null;
+    if (flow.center_type === 'person') return people.find(p => p.id === flow.center_id) || null;
+    if (flow.center_type === 'brand') return brands.find(b => b.id === flow.center_id) || null;
+    return null;
+  })() : null;
 
   const connections = viewMode === 'master'
     ? allConnections
