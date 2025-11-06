@@ -1049,19 +1049,14 @@ export const NetworkMatrix = () => {
   useEffect(() => {
     if (viewMode === 'single' && activeProjectId && allNodes.length > 0) {
       const timer = setTimeout(() => {
-        // First organize single view
-        autoOrganizeSingle(activeProjectId);
-        
-        // Then center after organization completes
-        setTimeout(() => {
-          const nodesToCenter = getNodesForSingleView(activeProjectId);
-          if (nodesToCenter.length > 0 && svgRef.current) {
-            const rect = svgRef.current.getBoundingClientRect();
-            const bounds = calculateBounds(nodesToCenter);
-            const centerPan = calculateCenterPan(bounds, 0.9, rect.width, rect.height);
-            updateState({ zoom: 0.9, pan: centerPan });
-          }
-        }, 150);
+        // Only center the view, no auto-organization
+        const nodesToCenter = getNodesForSingleView(activeProjectId);
+        if (nodesToCenter.length > 0 && svgRef.current) {
+          const rect = svgRef.current.getBoundingClientRect();
+          const bounds = calculateBounds(nodesToCenter);
+          const centerPan = calculateCenterPan(bounds, 0.9, rect.width, rect.height);
+          updateState({ zoom: 0.9, pan: centerPan });
+        }
       }, 100);
       return () => clearTimeout(timer);
     }
@@ -1634,13 +1629,7 @@ export const NetworkMatrix = () => {
                         
                         setViewMode('single');
                         
-                        // Centralizar quando mudar para single view
-                        setTimeout(() => {
-                          if (activeProjectId) {
-                            autoOrganizeSingle(activeProjectId);
-                          }
-                        }, 50);
-                        
+                        // Centralizar quando mudar para single view (sem auto-organizar)
                         setTimeout(() => {
                           const width = window.innerWidth;
                           const height = window.innerHeight - 100;
@@ -1652,7 +1641,7 @@ export const NetworkMatrix = () => {
                             const pan = calculateCenterPan(bounds, zoom, width, height);
                             updateState({ zoom, pan });
                           }
-                        }, 300);
+                        }, 50);
                       }}
                       className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                         viewMode === 'single' 
