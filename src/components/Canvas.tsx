@@ -101,8 +101,30 @@ export const Canvas: React.FC<CanvasProps> = ({
     if (!flows || flows.length === 0) return { dx: 0, dy: 0 };
     const idx = Math.max(0, flows.findIndex(f => f.id === flowId));
     const angle = (idx / Math.max(flows.length, 1)) * Math.PI * 2;
-    const radius = 160; // separação sutil: próximos, mas não sobrepostos
-    return { dx: Math.cos(angle) * radius, dy: Math.sin(angle) * radius };
+
+    // Calcular raio do cluster deste flow (usando master_x/master_y) para separar por tamanho real
+    const clusterNodes = nodes.filter(n => n.flow_id === flowId);
+    let radius = 200; // fallback
+    if (clusterNodes.length > 0) {
+      const avgX = clusterNodes.reduce((sum, n) => sum + (n.master_x ?? n.x), 0) / clusterNodes.length;
+      const avgY = clusterNodes.reduce((sum, n) => sum + (n.master_y ?? n.y), 0) / clusterNodes.length;
+      const maxDist = Math.max(
+        ...clusterNodes.map(n => {
+          const nx = n.master_x ?? n.x;
+          const ny = n.master_y ?? n.y;
+          return Math.hypot(nx - avgX, ny - avgY);
+        }),
+        200
+      );
+      radius = maxDist + 150; // mesmo cálculo usado para o círculo externo pontilhado
+    }
+
+    // Garantir 100px de folga ENTRE as bordas dos círculos maiores (que usam radius + 40)
+    // Distância centro-a-centro entre dois flows opostos = (radius+40+base) + (radius'+40+base) => folga = 2*base
+    const base = 50; // 2*50 = 100px de folga
+    const magnitude = radius + 40 + base;
+
+    return { dx: Math.cos(angle) * magnitude, dy: Math.sin(angle) * magnitude };
   };
 
   const getNodeFlowId = (n: any) => n?.flow_id ?? (n?.type === 'project' ? n.id : null);
