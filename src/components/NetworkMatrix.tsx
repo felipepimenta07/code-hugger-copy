@@ -69,6 +69,7 @@ export const NetworkMatrix = () => {
   const [showAIInsights, setShowAIInsights] = useState(false);
   const [showFlowStarterModal, setShowFlowStarterModal] = useState(false);
   const [showLinkedInImport, setShowLinkedInImport] = useState(false);
+  const [isCreatingFlowRoot, setIsCreatingFlowRoot] = useState(false);
   
   // Estado para dialog de duplicatas
   const [duplicateCheckModal, setDuplicateCheckModal] = useState<{
@@ -1350,6 +1351,11 @@ export const NetworkMatrix = () => {
     let currentFlowId = getCurrentFlowId();
     let isNewFlow = false;
 
+    // Se está criando flow root via botão "+", SEMPRE criar novo flow
+    if (isCreatingFlowRoot) {
+      currentFlowId = null; // Forçar criação de novo flow
+    }
+
     // Se não houver flow_id (criando em Master View ou primeiro nó), criar novo flow
     if (!currentFlowId) {
       // Criar novo flow
@@ -1472,6 +1478,15 @@ export const NetworkMatrix = () => {
       setPeople(prev => [...prev, newNode]);
     } else if (nodeCreationType === 'brand') {
       setBrands(prev => [...prev, newNode]);
+    }
+
+    // Se criou flow root via botão "+", mudar para Single View
+    if (isCreatingFlowRoot) {
+      setTimeout(() => {
+        setActiveProjectId(insertedNode.id);
+        setViewMode('single');
+        setIsCreatingFlowRoot(false); // Reset flag
+      }, 100);
     }
 
     setShowNodeCreationModal(false);
@@ -1699,9 +1714,13 @@ export const NetworkMatrix = () => {
       {showFlowStarterModal && (
         <FlowStarterModal
           isOpen={showFlowStarterModal}
-          onClose={() => setShowFlowStarterModal(false)}
+          onClose={() => {
+            setShowFlowStarterModal(false);
+            setIsCreatingFlowRoot(false);
+          }}
           onSelectType={(type) => {
             setShowFlowStarterModal(false);
+            setIsCreatingFlowRoot(true); // Marcar que está criando flow root
             const width = window.innerWidth;
             const height = window.innerHeight - 100;
             setNodeCreationType(type);
