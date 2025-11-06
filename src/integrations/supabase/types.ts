@@ -48,11 +48,12 @@ export type Database = {
         Row: {
           category: string | null
           created_at: string
-          home_project_id: number | null
+          flow_id: number
           id: number
           master_x: number | null
           master_y: number | null
           name: string
+          original_node_id: number | null
           user_id: string
           website: string | null
           x: number | null
@@ -61,11 +62,12 @@ export type Database = {
         Insert: {
           category?: string | null
           created_at?: string
-          home_project_id?: number | null
+          flow_id: number
           id?: never
           master_x?: number | null
           master_y?: number | null
           name: string
+          original_node_id?: number | null
           user_id: string
           website?: string | null
           x?: number | null
@@ -74,17 +76,33 @@ export type Database = {
         Update: {
           category?: string | null
           created_at?: string
-          home_project_id?: number | null
+          flow_id?: number
           id?: never
           master_x?: number | null
           master_y?: number | null
           name?: string
+          original_node_id?: number | null
           user_id?: string
           website?: string | null
           x?: number | null
           y?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "brands_flow_id_fkey"
+            columns: ["flow_id"]
+            isOneToOne: false
+            referencedRelation: "flows"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brands_original_node_id_fkey"
+            columns: ["original_node_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       connections: {
         Row: {
@@ -163,11 +181,12 @@ export type Database = {
           company: string | null
           created_at: string
           email: string | null
-          home_project_id: number | null
+          flow_id: number
           id: number
           master_x: number | null
           master_y: number | null
           name: string
+          original_node_id: number | null
           phone: string | null
           user_id: string
           x: number | null
@@ -178,11 +197,12 @@ export type Database = {
           company?: string | null
           created_at?: string
           email?: string | null
-          home_project_id?: number | null
+          flow_id: number
           id?: never
           master_x?: number | null
           master_y?: number | null
           name: string
+          original_node_id?: number | null
           phone?: string | null
           user_id: string
           x?: number | null
@@ -193,17 +213,33 @@ export type Database = {
           company?: string | null
           created_at?: string
           email?: string | null
-          home_project_id?: number | null
+          flow_id?: number
           id?: never
           master_x?: number | null
           master_y?: number | null
           name?: string
+          original_node_id?: number | null
           phone?: string | null
           user_id?: string
           x?: number | null
           y?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "people_flow_id_fkey"
+            columns: ["flow_id"]
+            isOneToOne: false
+            referencedRelation: "flows"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "people_original_node_id_fkey"
+            columns: ["original_node_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       person_workflows: {
         Row: {
@@ -297,11 +333,12 @@ export type Database = {
           category: string | null
           created_at: string
           deadline: string | null
-          flow_id: number | null
+          flow_id: number
           id: number
           master_x: number | null
           master_y: number | null
           name: string
+          original_node_id: number | null
           status: string | null
           user_id: string
           x: number | null
@@ -311,11 +348,12 @@ export type Database = {
           category?: string | null
           created_at?: string
           deadline?: string | null
-          flow_id?: number | null
+          flow_id: number
           id?: never
           master_x?: number | null
           master_y?: number | null
           name: string
+          original_node_id?: number | null
           status?: string | null
           user_id: string
           x?: number | null
@@ -325,11 +363,12 @@ export type Database = {
           category?: string | null
           created_at?: string
           deadline?: string | null
-          flow_id?: number | null
+          flow_id?: number
           id?: never
           master_x?: number | null
           master_y?: number | null
           name?: string
+          original_node_id?: number | null
           status?: string | null
           user_id?: string
           x?: number | null
@@ -341,6 +380,13 @@ export type Database = {
             columns: ["flow_id"]
             isOneToOne: false
             referencedRelation: "flows"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_original_node_id_fkey"
+            columns: ["original_node_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]

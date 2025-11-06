@@ -20,6 +20,7 @@ import { FlowStarterModal } from './FlowStarterModal';
 import { PathIndicator } from './PathIndicator';
 
 import { ResetButton } from './ResetButton';
+import { DuplicateCheckDialog } from './DuplicateCheckDialog';
 import { useNetworkState } from '@/hooks/useNetworkState';
 import { useNetworkHistory } from '@/hooks/useNetworkHistory';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
@@ -68,6 +69,14 @@ export const NetworkMatrix = () => {
   const [showAIInsights, setShowAIInsights] = useState(false);
   const [showFlowStarterModal, setShowFlowStarterModal] = useState(false);
   const [showLinkedInImport, setShowLinkedInImport] = useState(false);
+  
+  // Estado para dialog de duplicatas
+  const [duplicateCheckModal, setDuplicateCheckModal] = useState<{
+    show: boolean;
+    existingNode: any;
+    newNodeData: any;
+    nodeType: 'person' | 'project' | 'brand';
+  } | null>(null);
   
   // Estado para memorizar visualização do Master View
   const [masterViewState, setMasterViewState] = useState<{
@@ -1268,6 +1277,194 @@ export const NetworkMatrix = () => {
     return false;
   };
 
+  // Função helper para obter flow_id atual
+  const getCurrentFlowId = (): number | null => {
+    if (viewMode === 'single' && activeProjectId) {
+      // Em single view, buscar o flow_id do projeto ativo
+      const activeProject = projects.find(p => p.id === activeProjectId);
+      return activeProject?.flow_id ?? null;
+    }
+    return null; // Master view não tem flow específico
+  };
+
+  // Função para criar nó no banco de dados
+  const createNodeInDatabase = async (
+    nodeType: 'person' | 'project' | 'brand',
+    nodeData: any,
+    originalNodeId: number | null = null
+  ): Promise<any> => {
+    if (!user) {
+      toast.error('Usuário não autenticado');
+      return null;
+    }
+
+    let currentFlowId = getCurrentFlowId();
+    let isNewFlow = false;
+
+    // Se não houver flow_id (criando em Master View ou primeiro nó), criar novo flow
+    if (!currentFlowId) {
+      // Criar novo flow
+      const { data: newFlow, error: flowError } = await supabase
+        .from('flows')
+        .insert([{
+          center_id: 0, // Temporário, será atualizado após criar o nó
+          center_type: nodeType,
+          name: `Flow: ${nodeData.name}`,
+          user_id: user.id
+        }])
+        .select()
+        .single();
+
+      if (flowError || !newFlow) {
+        console.error('Erro ao criar flow:', flowError);
+        toast.error('Erro ao criar flow');
+        return null;
+      }
+
+      currentFlowId = newFlow.id;
+      isNewFlow = true;
+    }
+
+    // Preparar dados base
+    const baseData = {
+      ...nodeData,
+      x: nodeCreationPosition.x,
+      y: nodeCreationPosition.y,
+      user_id: user.id,
+      flow_id: currentFlowId,
+      ...(originalNodeId ? { original_node_id: originalNodeId } : {})
+    };
+
+    // Inserir no banco
+    const tableName = nodeType === 'person' ? 'people' : 
+                     nodeType === 'brand' ? 'brands' : 'projects';
+    
+    const { data: insertedNode, error } = await supabase
+      .from(tableName)
+      .insert([baseData])
+      .select()
+      .single();
+
+    if (error || !insertedNode) {
+      console.error(`Erro ao criar ${nodeType}:`, error);
+      toast.error(`Erro ao criar ${nodeType}`);
+      return null;
+    }
+
+    // Se foi criado novo flow, atualizar o center_id com o ID do nó criado
+    if (isNewFlow && currentFlowId) {
+      const { error: updateFlowError } = await supabase
+        .from('flows')
+        .update({ center_id: insertedNode.id })
+        .eq('id', currentFlowId);
+
+      if (updateFlowError) {
+        console.error('Erro ao atualizar flow:', updateFlowError);
+      }
+
+      // Atualizar lista de flows local
+      const { data: updatedFlow } = await supabase
+        .from('flows')
+        .select('*')
+        .eq('id', currentFlowId)
+        .single();
+
+      if (updatedFlow) {
+        setFlows(prev => [...prev, updatedFlow]);
+      }
+
+      // Se criou novo flow, mudar para Single View
+      setActiveProjectId(insertedNode.id);
+      setViewMode('single');
+    }
+
+    return insertedNode;
+  };
+
+  // Função separada para criação efetiva do nó
+  const handleCreateNode = async (nodeData: any, originalNodeId: number | null) => {
+    const insertedNode = await createNodeInDatabase(
+      nodeCreationType as 'person' | 'project' | 'brand',
+      nodeData,
+      originalNodeId
+    );
+
+    if (!insertedNode) return;
+
+    // Adicionar ao estado local
+    const newNode = {
+      ...insertedNode,
+      type: nodeCreationType,
+      isNewHighlight: true,
+      ...(originalNodeId ? { original_node_id: originalNodeId } : {})
+    };
+
+    if (nodeCreationType === 'project') {
+      setProjects(prev => [...prev, newNode]);
+    } else if (nodeCreationType === 'person') {
+      setPeople(prev => [...prev, newNode]);
+    } else if (nodeCreationType === 'brand') {
+      setBrands(prev => [...prev, newNode]);
+    }
+
+    setShowNodeCreationModal(false);
+    
+    // Mensagem de sucesso
+    const message = originalNodeId 
+      ? `Cópia de "${newNode.name}" criada neste flow!`
+      : `${newNode.name} criado!`;
+    toast.success(message);
+
+    // Centralizar view no novo nó
+    setTimeout(() => {
+      const zoom = state.zoom;
+      updateState({
+        pan: {
+          x: window.innerWidth / 2 - newNode.x * zoom,
+          y: window.innerHeight / 2 - newNode.y * zoom
+        }
+      });
+    }, 50);
+  };
+
+  // Handlers para o DuplicateCheckDialog
+  const handleDuplicateConfirmSame = async () => {
+    if (!duplicateCheckModal) return;
+
+    const { existingNode, newNodeData, nodeType } = duplicateCheckModal;
+
+    // Criar cópia com todos os dados do nó original
+    const copiedData = {
+      ...newNodeData,
+      // Copiar dados relevantes do nó existente
+      ...(nodeType === 'person' && {
+        email: existingNode.email,
+        phone: existingNode.phone,
+        company: existingNode.company,
+      }),
+      ...(nodeType === 'brand' && {
+        website: existingNode.website,
+      }),
+      category: existingNode.category,
+    };
+
+    await handleCreateNode(copiedData, existingNode.id);
+    setDuplicateCheckModal(null);
+  };
+
+  const handleDuplicateConfirmDifferent = async () => {
+    if (!duplicateCheckModal) return;
+
+    // Criar nó normalmente sem vinculação
+    await handleCreateNode(duplicateCheckModal.newNodeData, null);
+    setDuplicateCheckModal(null);
+  };
+
+  const handleDuplicateCancel = () => {
+    setDuplicateCheckModal(null);
+    toast.info('Criação cancelada');
+  };
+
   const handleNodeCreation = async (nodeData: any) => {
     if (!user) {
       toast.error('Usuário não autenticado');
@@ -1275,149 +1472,31 @@ export const NetworkMatrix = () => {
     }
 
     saveToHistory();
+
+    // 1. VERIFICAR SE JÁ EXISTE NÓ COM MESMO NOME
+    const tableName = nodeCreationType === 'person' ? 'people' : 
+                     nodeCreationType === 'brand' ? 'brands' : 'projects';
     
-    // Set default fields for projects
-    if (nodeCreationType === 'project') {
-      const centerFlowId = (viewMode === 'single' && activeProjectId)
-        ? (projects.find(p => p.id === activeProjectId)?.flow_id ?? null)
-        : null;
-      const projectData = {
-        name: nodeData.name,
-        x: nodeCreationPosition.x,
-        y: nodeCreationPosition.y,
-        category: nodeData.category || 'M',
-        status: nodeData.projectStatus || nodeData.status || 'ativo',
-        deadline: nodeData.startDate || nodeData.deadline || null,
-        user_id: user.id,
-        ...(centerFlowId ? { flow_id: centerFlowId } : {})
-      };
-      
-      // Inserir no Supabase
-      const { data: insertedProject, error } = (await (supabase as any)
-        .from('projects')
-        .insert([projectData])
-        .select()
-        .maybeSingle());
-      
-      if (error || !insertedProject) {
-        console.error('Erro ao criar projeto:', error);
-        toast.error('Erro ao criar projeto');
-        return;
-      }
-      
-      // Atualizar com o ID real do banco
-      const newNode = {
-        ...insertedProject,
-        type: 'project',
-        workflows: nodeData.workflows || [],
-        isNewHighlight: true
-      };
-      
-      // Adicionar ao estado local
-      setProjects(prev => [...prev, newNode]);
-      setShowNodeCreationModal(false);
-      
-      // Apenas notificar o usuário - não criar flow automaticamente
-      if (viewMode === 'single' && activeProjectId) {
-        toast.success(`Projeto "${newNode.name}" adicionado ao flow atual!`);
-      } else {
-        toast.success(`Projeto "${newNode.name}" criado!`);
-      }
-    } else if (nodeCreationType === 'person') {
-      const personData = {
-        name: nodeData.name,
-        x: nodeCreationPosition.x,
-        y: nodeCreationPosition.y,
-        email: nodeData.email || null,
-        phone: nodeData.phone || null,
-        company: nodeData.company || null,
-        category: nodeData.category || null,
-        user_id: user.id,
-        home_project_id: viewMode === 'single' && activeProjectId ? activeProjectId : null
-      };
-      
-      // Inserir no Supabase
-      const { data: insertedPerson, error } = (await (supabase as any)
-        .from('people')
-        .insert([personData])
-        .select()
-        .maybeSingle());
-      
-      if (error || !insertedPerson) {
-        console.error('Erro ao criar pessoa:', error);
-        toast.error('Erro ao criar pessoa');
-        return;
-      }
-      
-      const newNode = {
-        ...insertedPerson,
-        type: 'person',
-        isNewHighlight: true,
-        ...(viewMode === 'single' && activeProjectId ? { homeProjectId: activeProjectId } : {})
-      };
-      
-      setPeople(prev => [...prev, newNode]);
-      setShowNodeCreationModal(false);
-      
-      toast.success(`${newNode.name} criado!`);
-      
-      // Center view on the new node
-      setTimeout(() => {
-        const zoom = state.zoom;
-        updateState({
-          pan: {
-            x: window.innerWidth / 2 - newNode.x * zoom,
-            y: window.innerHeight / 2 - newNode.y * zoom
-          }
-        });
-      }, 50);
-    } else if (nodeCreationType === 'brand') {
-      const brandData = {
-        name: nodeData.name,
-        x: nodeCreationPosition.x,
-        y: nodeCreationPosition.y,
-        website: nodeData.website || null,
-        category: nodeData.category || null,
-        user_id: user.id,
-        home_project_id: viewMode === 'single' && activeProjectId ? activeProjectId : null
-      };
-      
-      // Inserir no Supabase
-      const { data: insertedBrand, error } = (await (supabase as any)
-        .from('brands')
-        .insert([brandData])
-        .select()
-        .maybeSingle());
-      
-      if (error || !insertedBrand) {
-        console.error('Erro ao criar marca:', error);
-        toast.error('Erro ao criar marca');
-        return;
-      }
-      
-      const newNode = {
-        ...insertedBrand,
-        type: 'brand',
-        isNewHighlight: true,
-        ...(viewMode === 'single' && activeProjectId ? { homeProjectId: activeProjectId } : {})
-      };
-      
-      setBrands(prev => [...prev, newNode]);
-      setShowNodeCreationModal(false);
-      
-      toast.success(`${newNode.name} criado!`);
-      
-      // Center view on the new node
-      setTimeout(() => {
-        const zoom = state.zoom;
-        updateState({
-          pan: {
-            x: window.innerWidth / 2 - newNode.x * zoom,
-            y: window.innerHeight / 2 - newNode.y * zoom
-          }
-        });
-      }, 50);
+    const { data: existingNodes } = await supabase
+      .from(tableName)
+      .select('*')
+      .eq('name', nodeData.name.trim())
+      .eq('user_id', user.id)
+      .limit(1);
+
+    // 2. SE ENCONTRAR DUPLICATA, MOSTRAR DIALOG
+    if (existingNodes && existingNodes.length > 0) {
+      setDuplicateCheckModal({
+        show: true,
+        existingNode: existingNodes[0],
+        newNodeData: nodeData,
+        nodeType: nodeCreationType as 'person' | 'project' | 'brand'
+      });
+      return; // Pausar criação até usuário decidir
     }
+
+    // 3. SE NÃO HOUVER DUPLICATA, CRIAR NORMALMENTE
+    await handleCreateNode(nodeData, null);
   };
 
   const handleAddWorkflow = (name: string, color: string) => {
@@ -2067,6 +2146,17 @@ export const NetworkMatrix = () => {
             onOpenChange={setShowLinkedInImport}
             onImport={handleLinkedInImport}
             projects={projects}
+          />
+        )}
+
+        {duplicateCheckModal && (
+          <DuplicateCheckDialog
+            open={duplicateCheckModal.show}
+            existingNode={duplicateCheckModal.existingNode}
+            nodeType={duplicateCheckModal.nodeType}
+            onConfirmSame={handleDuplicateConfirmSame}
+            onConfirmDifferent={handleDuplicateConfirmDifferent}
+            onCancel={handleDuplicateCancel}
           />
         )}
 

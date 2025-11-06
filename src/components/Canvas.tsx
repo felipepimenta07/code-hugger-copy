@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, Target, Building2 } from 'lucide-react';
+import { User, Target, Building2, Copy } from 'lucide-react';
 import { ConnectionTooltip } from './ConnectionTooltip';
 
 interface CanvasProps {
@@ -966,6 +966,23 @@ export const Canvas: React.FC<CanvasProps> = ({
               >
                 {node.category}
               </text>
+              )}
+              
+              {/* Indicador de nó copiado */}
+              {node.original_node_id && (
+                <g>
+                  <circle
+                    cx={-nodeSize + 10}
+                    cy={-nodeSize + 10}
+                    r="12"
+                    fill="hsl(217 91% 60%)"
+                    stroke="white"
+                    strokeWidth="2"
+                  />
+                  <foreignObject x={-nodeSize + 10 - 6} y={-nodeSize + 10 - 6} width={12} height={12}>
+                    <Copy size={12} stroke="white" strokeWidth={2.5} />
+                  </foreignObject>
+                </g>
               )}
               
               {/* Badge Cyan (nível middle/outer) */}
