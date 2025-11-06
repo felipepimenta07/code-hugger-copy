@@ -493,10 +493,23 @@ export const NetworkMatrix = () => {
   // Helper to get nodes for Single View (filtered by flow_id)
   const getNodesForSingleView = (projectId: number) => {
     const currentFlowId = getCurrentFlowIdFromProjectId(projectId);
-    if (!currentFlowId) return [];
+    console.log('🔍 Single View Debug:', {
+      projectId,
+      currentFlowId,
+      allNodesCount: allNodes.length,
+      projectsCount: projects.length,
+      peopleCount: people.length,
+      brandsCount: brands.length
+    });
+    
+    if (!currentFlowId) {
+      console.log('❌ No flow_id found for project:', projectId);
+      return [];
+    }
     
     // Filtrar TODOS os nós que pertencem a este flow
     const flowNodes = allNodes.filter(node => node.flow_id === currentFlowId);
+    console.log('✅ Flow nodes found:', flowNodes.length, flowNodes);
     
     return flowNodes;
   };
