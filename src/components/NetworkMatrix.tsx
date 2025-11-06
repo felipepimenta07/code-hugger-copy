@@ -200,48 +200,6 @@ export const NetworkMatrix = () => {
     loadData();
   }, [user]);
 
-  // Função para salvar conexão no banco de dados
-  const saveConnectionToDatabase = async (connection: any) => {
-    if (!user) return;
-    
-    try {
-      const fromNode = allNodes.find(n => n.id === connection.from);
-      const toNode = allNodes.find(n => n.id === connection.to);
-      
-      const { data, error } = await supabase
-        .from('connections')
-        .insert({
-          user_id: user.id,
-          from_id: connection.from,
-          to_id: connection.to,
-          from_type: fromNode?.type || 'person',
-          to_type: toNode?.type || 'person',
-          connection_type: connection.type || 'strong',
-          flow_id: viewMode === 'single' ? activeProjectId : null
-        })
-        .select()
-        .single();
-      
-      if (error) throw error;
-      
-      // Adicionar ao estado local com formato normalizado
-      setAllConnections(prev => [...prev, {
-        id: data.id,
-        from: data.from_id,
-        to: data.to_id,
-        from_type: data.from_type,
-        to_type: data.to_type,
-        type: data.connection_type,
-        connection_type: data.connection_type
-      }]);
-      
-      toast.success('Conexão salva!');
-    } catch (error) {
-      console.error('Erro ao salvar conexão:', error);
-      toast.error('Erro ao salvar conexão');
-    }
-  };
-
   // Garantir que selecionar uma conexão limpa a seleção de nós
   useEffect(() => {
     if (selectedConnection !== null) {
@@ -738,6 +696,10 @@ export const NetworkMatrix = () => {
     const payload = toCreate.map(c => {
       const fromNode = allNodes.find(n => n.id === c.from);
       const toNode = allNodes.find(n => n.id === c.to);
+      // No Single View, usar o flow_id do projeto ativo; no Master, deixar null
+      const flowId = viewMode === 'single' 
+        ? projects.find(p => p.id === activeProjectId)?.flow_id 
+        : null;
       return {
         user_id: user.id,
         from_id: c.from,
@@ -745,7 +707,7 @@ export const NetworkMatrix = () => {
         from_type: fromNode?.type,
         to_type: toNode?.type,
         connection_type: c.type || 'strong',
-        flow_id: activeProjectId
+        flow_id: flowId
       };
     });
     
@@ -1826,7 +1788,6 @@ export const NetworkMatrix = () => {
           updateNodePosition={updateNodePosition}
           setConnections={setConnections}
           saveToHistory={saveToHistory}
-          onSaveConnection={saveConnectionToDatabase}
           projects={projects}
           flows={flows}
           allConnections={allConnections}

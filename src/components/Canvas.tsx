@@ -26,7 +26,6 @@ interface CanvasProps {
   allConnections?: any[];
   onGoToProject?: (id: number) => void;
   onWheel?: (e: React.WheelEvent) => void;
-  onSaveConnection?: (connection: any) => void;
 }
 
 const nodeColors = {
@@ -58,8 +57,7 @@ export const Canvas: React.FC<CanvasProps> = ({
   flows = [],
   allConnections = [],
   onGoToProject,
-  onWheel,
-  onSaveConnection
+  onWheel
 }) => {
   const [hoveredConnection, setHoveredConnection] = useState<{
     index: number;
@@ -220,21 +218,12 @@ export const Canvas: React.FC<CanvasProps> = ({
         );
         if (!exists) {
           saveToHistory();
-          
-          const newConnection = { 
+          setConnections(prev => [...prev, { 
             from: state.connectionStart.id, 
             to: targetNode.id,
             type: 'strong',
             directional: false
-          };
-          
-          // Salvar no banco de dados via prop
-          if (onSaveConnection) {
-            onSaveConnection(newConnection);
-          } else {
-            // Fallback: adicionar apenas ao estado local
-            setConnections(prev => [...prev, newConnection]);
-          }
+          }]);
         }
       }
     }
