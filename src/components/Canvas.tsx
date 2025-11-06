@@ -26,6 +26,7 @@ interface CanvasProps {
   allConnections?: any[];
   onGoToProject?: (id: number) => void;
   onWheel?: (e: React.WheelEvent) => void;
+  onSaveConnection?: (connection: any) => void;
 }
 
 const nodeColors = {
@@ -57,7 +58,8 @@ export const Canvas: React.FC<CanvasProps> = ({
   flows = [],
   allConnections = [],
   onGoToProject,
-  onWheel
+  onWheel,
+  onSaveConnection
 }) => {
   const [hoveredConnection, setHoveredConnection] = useState<{
     index: number;
@@ -98,6 +100,25 @@ export const Canvas: React.FC<CanvasProps> = ({
   
   const handleNodeMouseDown = (e: React.MouseEvent, nodeId: number) => {
     e.stopPropagation();
+    
+    // BLOQUEAR dragging no Master View - apenas permite seleção
+    if (viewMode === 'master') {
+      if (e.shiftKey) {
+        if (selectedNodes.includes(nodeId)) {
+          setSelectedNodes(selectedNodes.filter(id => id !== nodeId));
+        } else {
+          setSelectedNodes([...selectedNodes, nodeId]);
+        }
+      } else {
+        if (!selectedNodes.includes(nodeId)) {
+          setSelectedNodes([nodeId]);
+        }
+        updateState({ selectedNode: nodeId });
+      }
+      return;
+    }
+    
+    // Código original para Single View
     if (e.button === 0 && !(e.ctrlKey || e.metaKey)) {
       const node = nodes.find(n => n.id === nodeId);
       const rect = svgRef.current!.getBoundingClientRect();
@@ -167,6 +188,9 @@ export const Canvas: React.FC<CanvasProps> = ({
     const x = (e.clientX - rect.left - state.pan.x) / state.zoom;
     const y = (e.clientY - rect.top - state.pan.y) / state.zoom;
     
+    // BLOQUEAR movimento de nós no Master View
+    if (state.dragging && viewMode === 'master') return;
+    
     if (state.dragging) {
       const draggedNode = nodes.find(n => n.id === state.dragging);
       const dx = x - state.offset.x - draggedNode.x;
@@ -196,12 +220,21 @@ export const Canvas: React.FC<CanvasProps> = ({
         );
         if (!exists) {
           saveToHistory();
-          setConnections(prev => [...prev, { 
+          
+          const newConnection = { 
             from: state.connectionStart.id, 
             to: targetNode.id,
             type: 'strong',
             directional: false
-          }]);
+          };
+          
+          // Salvar no banco de dados via prop
+          if (onSaveConnection) {
+            onSaveConnection(newConnection);
+          } else {
+            // Fallback: adicionar apenas ao estado local
+            setConnections(prev => [...prev, newConnection]);
+          }
         }
       }
     }
