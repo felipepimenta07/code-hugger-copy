@@ -1356,6 +1356,13 @@ export const NetworkMatrix = () => {
       currentFlowId = null; // Forçar criação de novo flow
     }
 
+    // Proteção: em Single View sem flow selecionado, impedir criação por clique direito
+    if (!isCreatingFlowRoot && viewMode === 'single' && !currentFlowId) {
+      console.warn('Bloqueado: tentativa de criar nó em Single View sem flow selecionado.');
+      toast.error('Selecione um flow antes de criar nós (use o botão + para criar um novo flow).');
+      return null;
+    }
+
     // Se não houver flow_id (criando em Master View ou primeiro nó), criar novo flow
     if (!currentFlowId) {
       // Criar novo flow
@@ -1785,6 +1792,11 @@ export const NetworkMatrix = () => {
                   <TooltipTrigger asChild>
                     <button
                       onClick={() => {
+                        // Se não houver flow ativo, impedir troca
+                        if (!activeProjectId) {
+                          toast.error('Selecione um flow para entrar no Single View.');
+                          return;
+                        }
                         // Salvar estado atual do Master View antes de trocar
                         if (viewMode === 'master') {
                           setMasterViewState({
