@@ -20,6 +20,8 @@ interface KeyboardShortcutsProps {
   viewMode?: string;
   zoom?: number;
   deleteConnectionByIndex?: (index: number) => void;
+  setMasterViewState?: (state: any) => void;
+  autoOrganize?: () => void;
 }
 
 export const useKeyboardShortcuts = ({
@@ -42,6 +44,8 @@ export const useKeyboardShortcuts = ({
   viewMode,
   zoom,
   deleteConnectionByIndex,
+  setMasterViewState,
+  autoOrganize,
 }: KeyboardShortcutsProps) => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -97,34 +101,45 @@ export const useKeyboardShortcuts = ({
 
       // C - center view
       if (e.key === 'c' || e.key === 'C') {
-        const width = window.innerWidth;
-        const height = window.innerHeight - 100;
-        const nodesToCenter = viewMode === 'single' ? (nodes || []) : (allNodes || []);
+        // Resetar estado do Master View para forçar reorganização
+        if (setMasterViewState) {
+          setMasterViewState(null);
+        }
         
-        if (nodesToCenter.length > 0) {
-          const xs = nodesToCenter.map((n: any) => n.x);
-          const ys = nodesToCenter.map((n: any) => n.y);
-          const bounds = {
-            minX: Math.min(...xs) - 150,
-            maxX: Math.max(...xs) + 150,
-            minY: Math.min(...ys) - 150,
-            maxY: Math.max(...ys) + 150
-          };
+        // Se estiver no Master View, reorganiza
+        if (viewMode === 'master' && autoOrganize) {
+          autoOrganize();
+        } else {
+          // Se estiver no Single View, centraliza normalmente
+          const width = window.innerWidth;
+          const height = window.innerHeight - 100;
+          const nodesToCenter = viewMode === 'single' ? (nodes || []) : (allNodes || []);
           
-          const scaleX = (width * 0.85) / (bounds.maxX - bounds.minX);
-          const scaleY = (height * 0.85) / (bounds.maxY - bounds.minY);
-          const newZoom = Math.min(scaleX, scaleY, 1.2);
-          
-          const centerX = (bounds.minX + bounds.maxX) / 2;
-          const centerY = (bounds.minY + bounds.maxY) / 2;
-          
-          updateState({
-            zoom: newZoom,
-            pan: {
-              x: width / 2 - centerX * newZoom,
-              y: height / 2 - centerY * newZoom
-            }
-          });
+          if (nodesToCenter.length > 0) {
+            const xs = nodesToCenter.map((n: any) => n.x);
+            const ys = nodesToCenter.map((n: any) => n.y);
+            const bounds = {
+              minX: Math.min(...xs) - 150,
+              maxX: Math.max(...xs) + 150,
+              minY: Math.min(...ys) - 150,
+              maxY: Math.max(...ys) + 150
+            };
+            
+            const scaleX = (width * 0.85) / (bounds.maxX - bounds.minX);
+            const scaleY = (height * 0.85) / (bounds.maxY - bounds.minY);
+            const newZoom = Math.min(scaleX, scaleY, 1.2);
+            
+            const centerX = (bounds.minX + bounds.maxX) / 2;
+            const centerY = (bounds.minY + bounds.maxY) / 2;
+            
+            updateState({
+              zoom: newZoom,
+              pan: {
+                x: width / 2 - centerX * newZoom,
+                y: height / 2 - centerY * newZoom
+              }
+            });
+          }
         }
       }
     };
@@ -151,5 +166,7 @@ export const useKeyboardShortcuts = ({
     viewMode,
     zoom,
     deleteConnectionByIndex,
+    setMasterViewState,
+    autoOrganize,
   ]);
 };

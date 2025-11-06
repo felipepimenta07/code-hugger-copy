@@ -68,6 +68,13 @@ export const NetworkMatrix = () => {
   const [showAIInsights, setShowAIInsights] = useState(false);
   const [showFlowStarterModal, setShowFlowStarterModal] = useState(false);
   const [showLinkedInImport, setShowLinkedInImport] = useState(false);
+  
+  // Estado para memorizar visualização do Master View
+  const [masterViewState, setMasterViewState] = useState<{
+    zoom: number;
+    pan: { x: number; y: number };
+    hasBeenOrganized: boolean;
+  } | null>(null);
 
   const { state, updateState } = useNetworkState();
   const svgRef = useRef(null);
@@ -875,6 +882,17 @@ export const NetworkMatrix = () => {
   // Auto-centralizar quando voltar para Master View
   useEffect(() => {
     if (viewMode === 'master' && projects.length > 0 && allNodes.length > 0) {
+      
+      // Se já existe estado salvo do Master View, RESTAURAR ao invés de reorganizar
+      if (masterViewState && masterViewState.hasBeenOrganized) {
+        updateState({
+          zoom: masterViewState.zoom,
+          pan: masterViewState.pan
+        });
+        return; // NÃO reorganiza, apenas restaura a view
+      }
+      
+      // Se é a primeira vez (ou clicou em "Centralizar"), organiza tudo
       const timer = setTimeout(() => {
         // First organize master view
         const cols = Math.max(2, Math.ceil(Math.sqrt(projects.length)));
@@ -900,13 +918,21 @@ export const NetworkMatrix = () => {
             const optimalZoom = calculateOptimalZoom(bounds, rect.width, rect.height);
             const centerPan = calculateCenterPan(bounds, optimalZoom, rect.width, rect.height);
             updateState({ zoom: optimalZoom, pan: centerPan });
+            
+            // Salvar esse estado inicial como referência
+            setMasterViewState({
+              zoom: optimalZoom,
+              pan: centerPan,
+              hasBeenOrganized: true
+            });
+            
             toast.success('Nós organizados e centralizados!');
           }
         }, 150);
       }, 100);
       return () => clearTimeout(timer);
     }
-  }, [viewMode]);
+  }, [viewMode, masterViewState]);
 
   // Auto-centralizar quando entrar em Single View
   useEffect(() => {
@@ -1078,6 +1104,8 @@ export const NetworkMatrix = () => {
     viewMode,
     zoom: state.zoom,
     deleteConnectionByIndex: deleteConnection,
+    setMasterViewState,
+    autoOrganize,
   });
 
   const deleteNode = (nodeId) => {
@@ -1484,6 +1512,15 @@ export const NetworkMatrix = () => {
                   <TooltipTrigger asChild>
                     <button
                       onClick={() => {
+                        // Salvar estado atual do Master View antes de trocar
+                        if (viewMode === 'master') {
+                          setMasterViewState({
+                            zoom: state.zoom,
+                            pan: state.pan,
+                            hasBeenOrganized: true
+                          });
+                        }
+                        
                         setViewMode('single');
                         
                         // Centralizar quando mudar para single view
@@ -1794,21 +1831,20 @@ export const NetworkMatrix = () => {
           {/* Centralizar View (NOVO) */}
           <button
             onClick={() => {
-              const width = window.innerWidth;
-              const height = window.innerHeight - 100;
-              const currentNodes = viewMode === 'single' ? nodes : allNodes;
+              // Resetar estado do Master View para forçar reorganização
+              setMasterViewState(null);
               
-              if (currentNodes.length > 0) {
-                const bounds = calculateBounds(currentNodes);
-                const centerX = (bounds.minX + bounds.maxX) / 2;
-                const centerY = (bounds.minY + bounds.maxY) / 2;
-                
-                updateState({
-                  pan: {
-                    x: width / 2 - centerX * state.zoom,
-                    y: height / 2 - centerY * state.zoom
-                  }
-                });
+              // Se estiver no Master View, reorganiza imediatamente
+              if (viewMode === 'master') {
+                autoOrganize();
+              } else {
+                // Se estiver no Single View, centraliza nele mesmo
+                const width = window.innerWidth;
+                const height = window.innerHeight - 100;
+                const bounds = calculateBounds(nodes);
+                const zoom = calculateOptimalZoom(bounds, width, height);
+                const pan = calculateCenterPan(bounds, zoom, width, height);
+                updateState({ zoom, pan });
               }
             }}
             className="p-3.5 bg-accent text-accent-foreground rounded-full shadow-xl hover:scale-110 transition-all group relative"
