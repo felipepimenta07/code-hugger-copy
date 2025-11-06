@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { User, Target, Building2, Copy } from 'lucide-react';
 import { ConnectionTooltip } from './ConnectionTooltip';
 
@@ -95,6 +95,9 @@ export const Canvas: React.FC<CanvasProps> = ({
   };
   
   const nodeDepths = calculateNodeDepths();
+  
+  // Memorizar raio por flow durante a sessão para evitar variações ao alternar telas
+  const flowRadiiRef = useRef<Map<number, number>>(new Map());
   
   // Offsets estáveis por flow no Master View para evitar sobreposição
   const getFlowOffset = (flowId: number) => {
@@ -484,12 +487,21 @@ export const Canvas: React.FC<CanvasProps> = ({
           // Usar master_x/master_y para calcular centro do cluster no Master View
           const avgX = clusterNodes.reduce((sum, n) => sum + (n.master_x ?? n.x), 0) / clusterNodes.length;
           const avgY = clusterNodes.reduce((sum, n) => sum + (n.master_y ?? n.y), 0) / clusterNodes.length;
-          const maxDist = Math.max(...clusterNodes.map(n => {
-            const nodeX = n.master_x ?? n.x;
-            const nodeY = n.master_y ?? n.y;
-            return Math.sqrt((nodeX - avgX) ** 2 + (nodeY - avgY) ** 2);
-          }), 200);
-          const radius = maxDist + 150;
+          const maxDist = Math.max(
+            ...clusterNodes.map(n => {
+              const nodeX = n.master_x ?? n.x;
+              const nodeY = n.master_y ?? n.y;
+              return Math.hypot(nodeX - avgX, nodeY - avgY);
+            }),
+            200
+          );
+
+          // Raio atual calculado e raio estável memorizado (nunca diminui durante a sessão)
+          const currentRadius = maxDist + 150;
+          const prevRadius = flowRadiiRef.current.get(flow.id) ?? 0;
+          const stableRadius = Math.max(prevRadius, currentRadius);
+          if (stableRadius !== prevRadius) flowRadiiRef.current.set(flow.id, stableRadius);
+
           const { dx, dy } = getFlowOffset(flow.id);
           const renderX = avgX + dx;
           const renderY = avgY + dy;
@@ -500,7 +512,7 @@ export const Canvas: React.FC<CanvasProps> = ({
               <circle
                 cx={renderX}
                 cy={renderY}
-                r={radius * 0.4}
+                r={stableRadius * 0.4}
                 fill="none"
                 stroke="url(#gradientPinkPurple)"
                 strokeWidth="15"
@@ -511,7 +523,7 @@ export const Canvas: React.FC<CanvasProps> = ({
               <circle
                 cx={renderX}
                 cy={renderY}
-                r={radius + 40}
+                r={stableRadius + 40}
                 fill="#8b5cf615"
                 opacity="0.2"
               />
@@ -520,7 +532,7 @@ export const Canvas: React.FC<CanvasProps> = ({
               <circle
                 cx={renderX}
                 cy={renderY}
-                r={radius}
+                r={stableRadius}
                 fill="none"
                 stroke="#8b5cf6"
                 strokeWidth="2"
@@ -531,7 +543,7 @@ export const Canvas: React.FC<CanvasProps> = ({
               {/* Label do flow */}
               <text
                 x={renderX}
-                y={renderY - radius - 30}
+                y={renderY - stableRadius - 30}
                 textAnchor="middle"
                 fill="#8b5cf6"
                 fontSize="18"
