@@ -855,39 +855,71 @@ export const NetworkMatrix = () => {
     return result;
   };
 
-  const updateAllNodePositions = (layoutedNodes: any[]) => {
-    layoutedNodes.forEach(node => {
+  const updateAllNodePositions = async (layoutedNodes: any[]) => {
+    if (!user) return;
+    
+    // Determinar colunas baseado no viewMode
+    const xColumn = viewMode === 'master' ? 'master_x' : 'x';
+    const yColumn = viewMode === 'master' ? 'master_y' : 'y';
+    
+    for (const node of layoutedNodes) {
       const isProject = projects.find(p => p.id === node.id);
       const isPerson = people.find(p => p.id === node.id);
       const isBrand = brands.find(b => b.id === node.id);
       
+      let tableName: 'projects' | 'people' | 'brands' | null = null;
+      
       if (isProject) {
-        setProjects(prev => prev.map(p => p.id === node.id ? { ...p, x: node.x, y: node.y } : p));
+        tableName = 'projects';
+        setProjects(prev => prev.map(p => 
+          p.id === node.id 
+            ? { ...p, ...(viewMode === 'master' ? { master_x: node.x, master_y: node.y } : { x: node.x, y: node.y }) } 
+            : p
+        ));
       } else if (isPerson) {
-        setPeople(prev => prev.map(p => p.id === node.id ? { ...p, x: node.x, y: node.y } : p));
+        tableName = 'people';
+        setPeople(prev => prev.map(p => 
+          p.id === node.id 
+            ? { ...p, ...(viewMode === 'master' ? { master_x: node.x, master_y: node.y } : { x: node.x, y: node.y }) } 
+            : p
+        ));
       } else if (isBrand) {
-        setBrands(prev => prev.map(b => b.id === node.id ? { ...b, x: node.x, y: node.y } : b));
+        tableName = 'brands';
+        setBrands(prev => prev.map(b => 
+          b.id === node.id 
+            ? { ...b, ...(viewMode === 'master' ? { master_x: node.x, master_y: node.y } : { x: node.x, y: node.y }) } 
+            : b
+        ));
       }
-    });
+      
+      // Salvar no banco de dados
+      if (tableName) {
+        await supabase
+          .from(tableName)
+          .update({ [xColumn]: node.x, [yColumn]: node.y })
+          .eq('id', node.id)
+          .eq('user_id', user.id);
+      }
+    }
   };
 
-  const autoOrganizeSingle = (projectId: number | null) => {
+  const autoOrganizeSingle = async (projectId: number | null) => {
     if (!projectId) return;
     const nodesToLayout = getNodesForSingleView(projectId);
     if (nodesToLayout.length === 0) return;
 
     const layouted = applyRadialLayout(nodesToLayout, 500, 400);
-    updateAllNodePositions(layouted);
+    await updateAllNodePositions(layouted);
   };
 
-  const autoOrganize = () => {
+  const autoOrganize = async () => {
     if (viewMode === 'single') {
-      autoOrganizeSingle(activeProjectId);
+      await autoOrganizeSingle(activeProjectId);
     } else {
       // Master View: grid de clusters por projeto com centralização automática
       const cols = Math.max(2, Math.ceil(Math.sqrt(projects.length)));
       
-      projects.forEach((project, pIndex) => {
+      for (const [pIndex, project] of projects.entries()) {
         const clusterNodes = allNodesWithAnchors.filter(n => 
           n.anchorProjectId === project.id && n.id !== project.id
         );
@@ -896,8 +928,8 @@ export const NetworkMatrix = () => {
         const clusterX = col * 1400 + 700;
         const clusterY = row * 1200 + 600;
         const layouted = applyRadialLayout([project, ...clusterNodes], clusterX, clusterY);
-        updateAllNodePositions(layouted);
-      });
+        await updateAllNodePositions(layouted);
+      }
       
       // Centralizar view após organizar
       setTimeout(() => {
@@ -943,14 +975,20 @@ export const NetworkMatrix = () => {
 
   // Auto-organizar ao carregar a página
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (allNodes.length > 0) {
-        autoOrganize();
-      }
-    }, 100);
-    
-    return () => clearTimeout(timer);
-  }, []);
+    if (!isLoadingData && allNodes.length > 0 && viewMode === 'master') {
+      const timer = setTimeout(async () => {
+        // Verificar se precisa organizar (todas as posições master são 0,0)
+        const needsOrganization = projects.every(p => (p.master_x ?? 0) === 0 && (p.master_y ?? 0) === 0);
+        
+        if (needsOrganization) {
+          console.log('Organizando Master View automaticamente...');
+          await autoOrganize();
+        }
+      }, 500);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [isLoadingData, viewMode]);
 
   // Auto-centralizar quando voltar para Master View
   useEffect(() => {
@@ -1876,16 +1914,21 @@ export const NetworkMatrix = () => {
         <div className="fixed bottom-6 right-6 flex flex-col gap-3 z-30">
           {/* Reorganizar Nós */}
           <button
-            onClick={() => {
-              toast.info('Organizando nós...');
-              autoOrganize();
+            onClick={async () => {
+              const loadingToast = toast.loading('Organizando nós...');
+              try {
+                await autoOrganize();
+                toast.success('Nós organizados com sucesso!', { id: loadingToast });
+              } catch (error) {
+                toast.error('Erro ao organizar nós', { id: loadingToast });
+              }
             }}
             className="p-4 bg-primary text-primary-foreground rounded-full shadow-2xl hover:scale-110 transition-all group relative"
             title="Reorganizar Nós (A)"
           >
             <LayoutGrid size={22} className="group-hover:scale-110 transition-transform" />
             <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 bg-popover text-popover-foreground px-3 py-1.5 rounded-lg text-sm font-medium shadow-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-              Reorganizar Nós
+              Reorganizar Nós {viewMode === 'master' ? '(Master View)' : '(Single View)'}
             </span>
           </button>
           
@@ -1903,13 +1946,13 @@ export const NetworkMatrix = () => {
           
           {/* Centralizar View (NOVO) */}
           <button
-            onClick={() => {
+            onClick={async () => {
               // Resetar estado do Master View para forçar reorganização
               setMasterViewState(null);
               
               // Se estiver no Master View, reorganiza imediatamente
               if (viewMode === 'master') {
-                autoOrganize();
+                await autoOrganize();
               } else {
                 // Se estiver no Single View, centraliza nele mesmo
                 const width = window.innerWidth;
