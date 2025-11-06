@@ -1480,13 +1480,11 @@ export const NetworkMatrix = () => {
       setBrands(prev => [...prev, newNode]);
     }
 
-    // Se criou flow root via botão "+", mudar para Single View
+    // Se criou flow root via botão "+", mudar para Single View imediatamente
     if (isCreatingFlowRoot) {
-      setTimeout(() => {
-        setActiveProjectId(insertedNode.id);
-        setViewMode('single');
-        setIsCreatingFlowRoot(false); // Reset flag
-      }, 100);
+      setActiveProjectId(insertedNode.id);
+      setViewMode('single');
+      setIsCreatingFlowRoot(false); // Reset flag
     }
 
     setShowNodeCreationModal(false);
