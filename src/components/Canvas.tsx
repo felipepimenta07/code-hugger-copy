@@ -419,12 +419,15 @@ export const Canvas: React.FC<CanvasProps> = ({
           const rootNode = getRootNode();
           if (!rootNode) return null;
           
+          const displayX = viewMode === 'master' ? (rootNode.master_x ?? rootNode.x) : rootNode.x;
+          const displayY = viewMode === 'master' ? (rootNode.master_y ?? rootNode.y) : rootNode.y;
+          
           return (
             <g key={`ring-${flow.id}`}>
               {/* Anel rosa/roxo interno (decorativo) */}
               <circle
-                cx={rootNode.x}
-                cy={rootNode.y}
+                cx={displayX}
+                cy={displayY}
                 r={140}
                 fill="none"
                 stroke="url(#gradientPinkPurple)"
@@ -437,10 +440,10 @@ export const Canvas: React.FC<CanvasProps> = ({
                 const angle = (i * Math.PI * 2) / 48;
                 const innerRadius = 130;
                 const outerRadius = 165;
-                const x1 = rootNode.x + innerRadius * Math.cos(angle);
-                const y1 = rootNode.y + innerRadius * Math.sin(angle);
-                const x2 = rootNode.x + outerRadius * Math.cos(angle);
-                const y2 = rootNode.y + outerRadius * Math.sin(angle);
+                const x1 = displayX + innerRadius * Math.cos(angle);
+                const y1 = displayY + innerRadius * Math.sin(angle);
+                const x2 = displayX + outerRadius * Math.cos(angle);
+                const y2 = displayY + outerRadius * Math.sin(angle);
                 
                 return (
                   <line
@@ -624,9 +627,15 @@ export const Canvas: React.FC<CanvasProps> = ({
             opacity = 1;
           }
           
-          const controlX = (from.x + to.x) / 2;
-          const controlY = (from.y + to.y) / 2 - 80;
-          const pathData = `M ${from.x},${from.y} Q ${controlX},${controlY} ${to.x},${to.y}`;
+          // Usar coordenadas corretas para conexões baseadas no viewMode
+          const fromX = viewMode === 'master' ? (from.master_x ?? from.x) : from.x;
+          const fromY = viewMode === 'master' ? (from.master_y ?? from.y) : from.y;
+          const toX = viewMode === 'master' ? (to.master_x ?? to.x) : to.x;
+          const toY = viewMode === 'master' ? (to.master_y ?? to.y) : to.y;
+          
+          const controlX = (fromX + toX) / 2;
+          const controlY = (fromY + toY) / 2 - 80;
+          const pathData = `M ${fromX},${fromY} Q ${controlX},${controlY} ${toX},${toY}`;
           
           // Gerar tooltip inteligente para conexões cross-flow
           let tooltipText = '';
@@ -677,8 +686,12 @@ export const Canvas: React.FC<CanvasProps> = ({
                     }}
                     onMouseEnter={(e) => {
                       const rect = svgRef.current!.getBoundingClientRect();
-                      const midX = ((from.x + to.x) / 2) * state.zoom + state.pan.x + rect.left;
-                      const midY = ((from.y + to.y) / 2 - 80) * state.zoom + state.pan.y + rect.top;
+                      const fromX = viewMode === 'master' ? (from.master_x ?? from.x) : from.x;
+                      const toX = viewMode === 'master' ? (to.master_x ?? to.x) : to.x;
+                      const fromY = viewMode === 'master' ? (from.master_y ?? from.y) : from.y;
+                      const toY = viewMode === 'master' ? (to.master_y ?? to.y) : to.y;
+                      const midX = ((fromX + toX) / 2) * state.zoom + state.pan.x + rect.left;
+                      const midY = ((fromY + toY) / 2 - 80) * state.zoom + state.pan.y + rect.top;
                       setHoveredConnection({ index: idx, position: { x: midX, y: midY } });
                     }}
                     onMouseLeave={() => setHoveredConnection(null)}
@@ -710,8 +723,12 @@ export const Canvas: React.FC<CanvasProps> = ({
                     }}
                     onMouseEnter={(e) => {
                       const rect = svgRef.current!.getBoundingClientRect();
-                      const midX = ((from.x + to.x) / 2) * state.zoom + state.pan.x + rect.left;
-                      const midY = ((from.y + to.y) / 2 - 80) * state.zoom + state.pan.y + rect.top;
+                      const fromX = viewMode === 'master' ? (from.master_x ?? from.x) : from.x;
+                      const toX = viewMode === 'master' ? (to.master_x ?? to.x) : to.x;
+                      const fromY = viewMode === 'master' ? (from.master_y ?? from.y) : from.y;
+                      const toY = viewMode === 'master' ? (to.master_y ?? to.y) : to.y;
+                      const midX = ((fromX + toX) / 2) * state.zoom + state.pan.x + rect.left;
+                      const midY = ((fromY + toY) / 2 - 80) * state.zoom + state.pan.y + rect.top;
                       setHoveredConnection({ index: idx, position: { x: midX, y: midY } });
                     }}
                     onMouseLeave={() => setHoveredConnection(null)}
@@ -754,6 +771,10 @@ export const Canvas: React.FC<CanvasProps> = ({
           const isInPath = highlightedPath.includes(node.id);
           const connectionCount = connections.filter(c => c.from === node.id || c.to === node.id).length;
           
+          // Usar coordenadas corretas baseadas no viewMode
+          const displayX = viewMode === 'master' ? (node.master_x ?? node.x) : node.x;
+          const displayY = viewMode === 'master' ? (node.master_y ?? node.y) : node.y;
+          
           // Tamanho por nível hierárquico
           let baseSize = 40;
           if ((node as any).level === 'center') baseSize = 70;
@@ -769,7 +790,7 @@ export const Canvas: React.FC<CanvasProps> = ({
           return (
             <g 
               key={node.id} 
-              transform={`translate(${node.x}, ${node.y})`}
+              transform={`translate(${displayX}, ${displayY})`}
               onMouseDown={(e) => handleNodeMouseDown(e, node.id)}
               onClick={(e) => handleNodeClick(e, node.id)}
               onDoubleClick={(e) => handleNodeDoubleClick(e, node.id)}
