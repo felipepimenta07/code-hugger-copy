@@ -484,10 +484,21 @@ export const NetworkMatrix = () => {
     [allNodes, anchors]
   );
 
-  // Helper: Get flow_id from project_id
-  const getCurrentFlowIdFromProjectId = (projectId: number): number | null => {
-    const project = projects.find(p => p.id === projectId);
-    return project?.flow_id ?? null;
+  // Helper: Get flow_id from any node type (project, person, or brand)
+  const getCurrentFlowIdFromProjectId = (id: number): number | null => {
+    // Check in projects first
+    const projectFlow = projects.find(p => p.id === id)?.flow_id;
+    if (projectFlow) return projectFlow;
+    
+    // Then check in people
+    const personFlow = people.find(p => p.id === id)?.flow_id;
+    if (personFlow) return personFlow;
+    
+    // Finally check in brands
+    const brandFlow = brands.find(b => b.id === id)?.flow_id;
+    if (brandFlow) return brandFlow;
+    
+    return null;
   };
 
   // Helper to get nodes for Single View (filtered by flow_id)
