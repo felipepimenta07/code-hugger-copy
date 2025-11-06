@@ -212,15 +212,6 @@ export const Canvas: React.FC<CanvasProps> = ({
       const targetNode = nodes.find(n => Math.sqrt((n.x - x) ** 2 + (n.y - y) ** 2) < 45);
       
       if (targetNode && targetNode.id !== state.connectionStart.id) {
-        // BLOQUEAR conexões projeto-para-projeto
-        const fromNode = nodes.find(n => n.id === state.connectionStart.id);
-        if (fromNode?.type === 'project' && targetNode.type === 'project') {
-          updateState({ 
-            isDraggingConnection: false, 
-            connectionStart: null
-          });
-          return;
-        }
         
         const exists = connections.some(c => 
           (c.from === state.connectionStart.id && c.to === targetNode.id) || 
@@ -537,16 +528,7 @@ export const Canvas: React.FC<CanvasProps> = ({
           const to = nodes.find(n => n.id === conn.to);
           if (!from || !to) return null;
           
-          // Allow project-to-project connections in single view when one is the center
-          if (from.type === 'project' && to.type === 'project') {
-            // In Single View: render only if one is the center; In Master View: always render
-            if (viewMode === 'single') {
-              const centerId = nodes.length > 0 ? nodes[0].id : null;
-              if (!(centerId && (from.id === centerId || to.id === centerId))) {
-                return null;
-              }
-            }
-          }
+          // Permitir conexões projeto↔projeto também no Single View
           
           // Encontrar índice correto em allConnections
           const globalIdx = allConnections.findIndex(c => 

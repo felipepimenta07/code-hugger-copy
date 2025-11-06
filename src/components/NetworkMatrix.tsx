@@ -1792,7 +1792,44 @@ export const NetworkMatrix = () => {
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <button
-                      onClick={() => setViewMode('master')}
+                      onClick={() => {
+                        setViewMode('master');
+                        // Centralizar Master View no nó raiz do flow atual (se houver)
+                        setTimeout(() => {
+                          try {
+                            const width = window.innerWidth;
+                            const height = window.innerHeight - 100;
+                            let centerX = 0, centerY = 0;
+                            let found = false;
+                            if (activeProjectId) {
+                              const currentFlowId = getCurrentFlowIdFromProjectId(activeProjectId);
+                              const flow = flows.find(f => f.id === currentFlowId);
+                              if (flow) {
+                                const getRoot = () => {
+                                  if (flow.center_type === 'project') return projects.find(p => p.id === flow.center_id);
+                                  if (flow.center_type === 'person') return people.find(p => p.id === flow.center_id);
+                                  if (flow.center_type === 'brand') return brands.find(b => b.id === flow.center_id);
+                                  return null;
+                                };
+                                const root = getRoot();
+                                if (root) {
+                                  // Usar master_x/master_y quando disponível
+                                  centerX = (root.master_x ?? root.x ?? 0);
+                                  centerY = (root.master_y ?? root.y ?? 0);
+                                  found = true;
+                                }
+                              }
+                            }
+                            if (!found && allNodes.length > 0) {
+                              centerX = allNodes[0].x ?? 0;
+                              centerY = allNodes[0].y ?? 0;
+                            }
+                            const zoom = state.zoom;
+                            const pan = { x: width / 2 - centerX * zoom, y: height / 2 - centerY * zoom };
+                            updateState({ pan });
+                          } catch {}
+                        }, 50);
+                      }}
                       className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                         viewMode === 'master' 
                           ? 'bg-purple-600 border border-purple-500 text-white shadow-lg' 
