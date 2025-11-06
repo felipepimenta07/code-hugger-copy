@@ -105,18 +105,35 @@ export const Canvas: React.FC<CanvasProps> = ({
     // Calcular raio do cluster deste flow (usando master_x/master_y) para separar por tamanho real
     const clusterNodes = nodes.filter(n => n.flow_id === flowId);
     let radius = 200; // fallback
+    
     if (clusterNodes.length > 0) {
-      const avgX = clusterNodes.reduce((sum, n) => sum + (n.master_x ?? n.x), 0) / clusterNodes.length;
-      const avgY = clusterNodes.reduce((sum, n) => sum + (n.master_y ?? n.y), 0) / clusterNodes.length;
-      const maxDist = Math.max(
-        ...clusterNodes.map(n => {
-          const nx = n.master_x ?? n.x;
-          const ny = n.master_y ?? n.y;
-          return Math.hypot(nx - avgX, ny - avgY);
-        }),
-        200
-      );
-      radius = maxDist + 150; // mesmo cálculo usado para o círculo externo pontilhado
+      try {
+        const validNodes = clusterNodes.filter(n => 
+          typeof (n.master_x ?? n.x) === 'number' && 
+          typeof (n.master_y ?? n.y) === 'number' &&
+          isFinite(n.master_x ?? n.x) &&
+          isFinite(n.master_y ?? n.y)
+        );
+        
+        if (validNodes.length > 0) {
+          const avgX = validNodes.reduce((sum, n) => sum + (n.master_x ?? n.x), 0) / validNodes.length;
+          const avgY = validNodes.reduce((sum, n) => sum + (n.master_y ?? n.y), 0) / validNodes.length;
+          
+          const maxDist = Math.max(
+            ...validNodes.map(n => {
+              const nx = n.master_x ?? n.x;
+              const ny = n.master_y ?? n.y;
+              return Math.hypot(nx - avgX, ny - avgY);
+            }),
+            200
+          );
+          
+          radius = Math.min(maxDist + 150, 500); // limitar raio máximo
+        }
+      } catch (e) {
+        console.error('Erro ao calcular offset do flow:', e);
+        radius = 200;
+      }
     }
 
     // Garantir 100px de folga ENTRE as bordas dos círculos maiores (que usam radius + 40)
@@ -124,7 +141,13 @@ export const Canvas: React.FC<CanvasProps> = ({
     const base = 50; // 2*50 = 100px de folga
     const magnitude = radius + 40 + base;
 
-    return { dx: Math.cos(angle) * magnitude, dy: Math.sin(angle) * magnitude };
+    const dx = Math.cos(angle) * magnitude;
+    const dy = Math.sin(angle) * magnitude;
+    
+    return { 
+      dx: isFinite(dx) ? dx : 0, 
+      dy: isFinite(dy) ? dy : 0 
+    };
   };
 
   const getNodeFlowId = (n: any) => n?.flow_id ?? (n?.type === 'project' ? n.id : null);
