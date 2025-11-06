@@ -97,59 +97,73 @@ export const Canvas: React.FC<CanvasProps> = ({
   const nodeDepths = calculateNodeDepths();
   
   // Offsets estáveis por flow no Master View para evitar sobreposição
+  // Agora organizados em linha horizontal (lado a lado), com folga mínima de 100px entre os círculos maiores
   const getFlowOffset = (flowId: number) => {
     if (!flows || flows.length === 0) return { dx: 0, dy: 0 };
-    const idx = Math.max(0, flows.findIndex(f => f.id === flowId));
-    const angle = (idx / Math.max(flows.length, 1)) * Math.PI * 2;
 
-    // Calcular raio do cluster deste flow (usando master_x/master_y) para separar por tamanho real
-    const clusterNodes = nodes.filter(n => n.flow_id === flowId);
-    let radius = 200; // fallback
-    
-    if (clusterNodes.length > 0) {
-      try {
-        const validNodes = clusterNodes.filter(n => 
-          typeof (n.master_x ?? n.x) === 'number' && 
-          typeof (n.master_y ?? n.y) === 'number' &&
-          isFinite(n.master_x ?? n.x) &&
-          isFinite(n.master_y ?? n.y)
-        );
-        
-        if (validNodes.length > 0) {
-          const avgX = validNodes.reduce((sum, n) => sum + (n.master_x ?? n.x), 0) / validNodes.length;
-          const avgY = validNodes.reduce((sum, n) => sum + (n.master_y ?? n.y), 0) / validNodes.length;
-          
-          const maxDist = Math.max(
-            ...validNodes.map(n => {
-              const nx = n.master_x ?? n.x;
-              const ny = n.master_y ?? n.y;
-              return Math.hypot(nx - avgX, ny - avgY);
-            }),
-            200
+    const base = 50; // 2*50 = 100px de folga entre bordas externas
+
+    // Helper seguro para calcular o raio efetivo de um flow
+    const calcRadius = (id: number) => {
+      const clusterNodes = nodes.filter(n => n.flow_id === id);
+      let r = 200; // fallback
+      if (clusterNodes.length > 0) {
+        try {
+          const valid = clusterNodes.filter(n =>
+            typeof (n.master_x ?? n.x) === 'number' &&
+            typeof (n.master_y ?? n.y) === 'number' &&
+            isFinite(n.master_x ?? n.x) &&
+            isFinite(n.master_y ?? n.y)
           );
-          
-          radius = Math.min(maxDist + 150, 500); // limitar raio máximo
+          if (valid.length > 0) {
+            const avgX = valid.reduce((s, n) => s + (n.master_x ?? n.x), 0) / valid.length;
+            const avgY = valid.reduce((s, n) => s + (n.master_y ?? n.y), 0) / valid.length;
+            const maxDist = Math.max(
+              ...valid.map(n => {
+                const nx = n.master_x ?? n.x;
+                const ny = n.master_y ?? n.y;
+                return Math.hypot(nx - avgX, ny - avgY);
+              }),
+              200
+            );
+            r = Math.min(maxDist + 150, 600);
+          }
+        } catch (e) {
+          console.error('Erro ao calcular raio do flow:', e);
+          r = 200;
         }
-      } catch (e) {
-        console.error('Erro ao calcular offset do flow:', e);
-        radius = 200;
       }
-    }
+      return r;
+    };
 
-    // Garantir 100px de folga ENTRE as bordas dos círculos maiores (que usam radius + 40)
-    // Distância centro-a-centro entre dois flows opostos = (radius+40+base) + (radius'+40+base) => folga = 2*base
-    const base = 50; // 2*50 = 100px de folga
-    const magnitude = radius + 40 + base;
+    // Preparar larguras efetivas (raio do cluster + anel externo 40px)
+    const infos = flows.map(f => {
+      const r = calcRadius(f.id);
+      return { id: f.id, width: r + 40 };
+    });
 
-    const dx = Math.cos(angle) * magnitude;
-    const dy = Math.sin(angle) * magnitude;
-    
-    return { 
-      dx: isFinite(dx) ? dx : 0, 
-      dy: isFinite(dy) ? dy : 0 
+    const idx = Math.max(0, flows.findIndex(f => f.id === flowId));
+
+    // Calcular posições dos centros em linha: c[i] = c[i-1] + w[i-1] + w[i] + 2*base
+    const centers: number[] = [];
+    infos.forEach((info, i) => {
+      if (i === 0) centers[i] = 0;
+      else centers[i] = centers[i - 1] + infos[i - 1].width + info.width + 2 * base;
+    });
+
+    // Recentralizar em torno de 0 para que o conjunto fique equilibrado na tela
+    const start = centers[0] - infos[0].width;
+    const end = centers[infos.length - 1] + infos[infos.length - 1].width;
+    const mid = (start + end) / 2;
+
+    const dx = centers[idx] - mid;
+    const dy = 0; // manter na mesma linha (sem deslocamento vertical)
+
+    return {
+      dx: isFinite(dx) ? dx : 0,
+      dy: 0,
     };
   };
-
   const getNodeFlowId = (n: any) => n?.flow_id ?? (n?.type === 'project' ? n.id : null);
   
   const handleNodeMouseDown = (e: React.MouseEvent, nodeId: number) => {
