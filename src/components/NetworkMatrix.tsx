@@ -484,93 +484,26 @@ export const NetworkMatrix = () => {
     [allNodes, anchors]
   );
 
-  // Helper: determine if a non-project node belongs to a project (strict isolation)
-  const belongsToProject = (n: any, pid: number) =>
-    n?.type !== 'project' && (
-      (n as any).homeProjectId === pid ||
-      (n as any).anchorProjectId === pid ||
-      allConnections.some(c => (c.from === n.id && c.to === pid) || (c.to === n.id && c.from === pid))
-    );
+  // Helper: Get flow_id from project_id
+  const getCurrentFlowIdFromProjectId = (projectId: number): number | null => {
+    const project = projects.find(p => p.id === projectId);
+    return project?.flow_id ?? null;
+  };
 
-  // Helper to get nodes for Single View (isolated per project, no cross-project traversal)
+  // Helper to get nodes for Single View (filtered by flow_id)
   const getNodesForSingleView = (projectId: number) => {
-    const byId = new Map(allNodesWithAnchors.map(n => [n.id, n]));
-    const projectNode = byId.get(projectId);
-    if (!projectNode) return [];
+    const currentFlowId = getCurrentFlowIdFromProjectId(projectId);
+    if (!currentFlowId) return [];
     
-    // Start with the active project
-    const included = new Set<number>([projectId]);
+    // Filtrar TODOS os nós que pertencem a este flow
+    const flowNodes = allNodes.filter(node => node.flow_id === currentFlowId);
     
-    // 1. Add people/brands AND projects directly connected to the project
-    allConnections.forEach(c => {
-      if (c.from === projectId) {
-        const node = byId.get(c.to);
-        if (node) included.add(c.to); // Include all types, including projects
-      }
-      if (c.to === projectId) {
-        const node = byId.get(c.from);
-        if (node) included.add(c.from); // Include all types, including projects
-      }
-    });
-    
-    // 2. Add connections between people/brands already included (within project only)
-    let changed = true;
-    let iterations = 0;
-    const maxIterations = 3; // limit depth for performance
-    
-    while (changed && iterations < maxIterations) {
-      changed = false;
-      iterations++;
-      
-      allConnections.forEach(c => {
-        const fromNode = byId.get(c.from);
-        const toNode = byId.get(c.to);
-        
-        // Connection between two non-projects where at least one is already included
-        if (fromNode?.type !== 'project' && toNode?.type !== 'project') {
-          if (included.has(c.from) && !included.has(c.to) && toNode && belongsToProject(toNode, projectId)) {
-            included.add(c.to);
-            changed = true;
-          }
-          if (included.has(c.to) && !included.has(c.from) && fromNode && belongsToProject(fromNode, projectId)) {
-            included.add(c.from);
-            changed = true;
-          }
-        }
-      });
-    }
-    
-    // 3. Include ALL non-project nodes that belong to this project (even without active connections)
-    allNodesWithAnchors.forEach(n => {
-      if (n.type !== 'project' && belongsToProject(n, projectId)) {
-        included.add(n.id);
-      }
-    });
-
-    // 4. Include sibling projects that share the same flow_id as the center (if any)
-    const centerFlowId = (projectNode as any).flow_id;
-    if (centerFlowId) {
-      allNodesWithAnchors.forEach(n => {
-        if (n.type === 'project' && n.id !== projectId && (n as any).flow_id === centerFlowId) {
-          included.add(n.id);
-        }
-      });
-    }
-    
-    // Return nodes: project first, then others
-    return [projectNode, ...Array.from(included).filter(id => id !== projectId).map(id => byId.get(id)!).filter(Boolean)];
+    return flowNodes;
   };
 
   // Filtrar nós e conexões por projeto/modo
   const nodes = viewMode === 'master'
-    ? allNodesWithAnchors
-        .filter(n => n.type === 'project' || n.anchorProjectId !== null) // Ocultar nós órfãos
-        .map(n => {
-          const project = projects.find(p => p.id === n.anchorProjectId);
-          // Se o nó é um projeto, usa o flow_id dele; se não, usa o flow_id do projeto âncora
-          const flowId = n.type === 'project' ? n.flow_id : project?.flow_id;
-          return { ...n, projectId: project?.id, projectColor: project ? '#8b5cf6' : '#6366f1', flow_id: flowId };
-        })
+    ? allNodes // Mostrar TODOS os nós no Master View
     : (activeProjectId ? getNodesForSingleView(activeProjectId) : []);
 
   // Para o PathIndicator
@@ -585,10 +518,19 @@ export const NetworkMatrix = () => {
   const connections = viewMode === 'master'
     ? allConnections
     : allConnections.filter(c => {
-        const fromNode = nodes.find(n => n.id === c.from);
-        const toNode = nodes.find(n => n.id === c.to);
+        // Verificar se ambos os nós da conexão pertencem ao flow atual
+        const currentFlowId = activeProjectId ? getCurrentFlowIdFromProjectId(activeProjectId) : null;
         
-        // Mostrar conexão apenas se ambos os nós estão visíveis
+        const fromNode = allNodes.find(n => 
+          n.id === c.from && 
+          n.flow_id === currentFlowId
+        );
+        
+        const toNode = allNodes.find(n => 
+          n.id === c.to && 
+          n.flow_id === currentFlowId
+        );
+        
         return fromNode && toNode;
       });
 
@@ -917,11 +859,92 @@ export const NetworkMatrix = () => {
     const nodesToLayout = getNodesForSingleView(projectId);
     if (nodesToLayout.length === 0) return;
 
-    const layouted = applyRadialLayout(nodesToLayout, 500, 400);
+    // Encontrar o nó central (centro do flow)
+    const currentFlowId = getCurrentFlowIdFromProjectId(projectId);
+    const flow = flows.find(f => f.id === currentFlowId);
+    
+    let centerNode = nodesToLayout.find(n => n.id === flow?.center_id && n.type === flow?.center_type);
+    if (!centerNode) {
+      centerNode = nodesToLayout[0]; // Fallback: primeiro nó
+    }
+    
+    // Reordenar para ter centro primeiro
+    const reorderedNodes = [
+      centerNode,
+      ...nodesToLayout.filter(n => n.id !== centerNode.id)
+    ];
+
+    const layouted = applyRadialLayout(reorderedNodes, 500, 300);
     await updateAllNodePositions(layouted);
   };
 
+  // Auto-organização Master View: flows como "sistemas solares"
+  const autoOrganizeMaster = async () => {
+    if (!user) return;
+    
+    // Agrupar nós por flow_id
+    const nodesByFlow = new Map<number, any[]>();
+    
+    allNodes.forEach(node => {
+      if (!node.flow_id) return;
+      
+      if (!nodesByFlow.has(node.flow_id)) {
+        nodesByFlow.set(node.flow_id, []);
+      }
+      nodesByFlow.get(node.flow_id)!.push(node);
+    });
+    
+    // Organizar cada flow em um "sistema solar"
+    const flowIds = Array.from(nodesByFlow.keys());
+    const cols = Math.max(2, Math.ceil(Math.sqrt(flowIds.length)));
+    const flowSpacing = 1500; // Espaçamento entre flows
+    
+    const allLayoutedNodes: any[] = [];
+    
+    for (const [index, flowId] of flowIds.entries()) {
+      const flowNodes = nodesByFlow.get(flowId) || [];
+      if (flowNodes.length === 0) continue;
+      
+      // Posição do centro deste flow no grid
+      const row = Math.floor(index / cols);
+      const col = index % cols;
+      const flowCenterX = col * flowSpacing + 500;
+      const flowCenterY = row * flowSpacing + 300;
+      
+      // Encontrar o nó central (centro do flow)
+      const flow = flows.find(f => f.id === flowId);
+      let centerNode = flowNodes.find(n => n.id === flow?.center_id && n.type === flow?.center_type);
+      if (!centerNode) {
+        centerNode = flowNodes[0]; // Fallback
+      }
+      
+      // Reordenar: centro primeiro
+      const reorderedFlowNodes = [
+        centerNode,
+        ...flowNodes.filter(n => n.id !== centerNode.id)
+      ];
+      
+      // Aplicar layout radial para este flow
+      const layouted = applyRadialLayout(reorderedFlowNodes, flowCenterX, flowCenterY);
+      allLayoutedNodes.push(...layouted);
+    }
+    
+    // Atualizar todas as posições no banco
+    await updateAllNodePositions(allLayoutedNodes);
+    
+    toast.success('Flows organizados em sistemas solares!');
+  };
+
   const autoOrganize = async () => {
+    if (viewMode === 'single') {
+      await autoOrganizeSingle(activeProjectId);
+    } else {
+      await autoOrganizeMaster();
+    }
+  };
+
+  // Manter função antiga para compatibilidade (não usada mais)
+  const autoOrganizeOld = async () => {
     if (viewMode === 'single') {
       await autoOrganizeSingle(activeProjectId);
     } else {
@@ -929,7 +952,7 @@ export const NetworkMatrix = () => {
       const cols = Math.max(2, Math.ceil(Math.sqrt(projects.length)));
       
       for (const [pIndex, project] of projects.entries()) {
-        const clusterNodes = allNodesWithAnchors.filter(n => 
+        const clusterNodes = allNodesWithAnchors.filter(n =>
           n.anchorProjectId === project.id && n.id !== project.id
         );
         const col = pIndex % cols;
@@ -1326,10 +1349,16 @@ export const NetworkMatrix = () => {
     }
 
     // Preparar dados base - mapear campos corretamente por tipo
+    // Se é novo flow (primeiro nó), centralizar na tela
+    const centerX = isNewFlow ? 500 : nodeCreationPosition.x;
+    const centerY = isNewFlow ? 300 : nodeCreationPosition.y;
+    
     let baseData: any = {
       name: nodeData.name,
-      x: nodeCreationPosition.x,
-      y: nodeCreationPosition.y,
+      x: centerX,
+      y: centerY,
+      master_x: centerX, // Sincronizar master_x/master_y com x/y
+      master_y: centerY,
       user_id: user.id,
       flow_id: currentFlowId,
       category: nodeData.category || null,
