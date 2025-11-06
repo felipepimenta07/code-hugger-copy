@@ -188,6 +188,37 @@ export const NetworkMatrix = () => {
         
         if (projectsRes.data && projectsRes.data.length > 0) {
           setActiveProjectId(projectsRes.data[0].id);
+          
+          // Auto-organizar Master View na primeira vez (se todas as posições master forem 0,0)
+          const needsMasterOrganization = 
+            projectsRes.data.every((p: any) => (p.master_x ?? 0) === 0 && (p.master_y ?? 0) === 0) &&
+            (!peopleRes.data || peopleRes.data.every((p: any) => (p.master_x ?? 0) === 0 && (p.master_y ?? 0) === 0)) &&
+            (!brandsRes.data || brandsRes.data.every((b: any) => (b.master_x ?? 0) === 0 && (b.master_y ?? 0) === 0));
+          
+          if (needsMasterOrganization) {
+            console.log('Organizando Master View automaticamente...');
+            
+            // Aplicar radial layout nos projetos
+            const centerX = 400;
+            const centerY = 300;
+            const radius = 250;
+            const angleStep = (2 * Math.PI) / projectsRes.data.length;
+            
+            for (let i = 0; i < projectsRes.data.length; i++) {
+              const proj = projectsRes.data[i];
+              const angle = i * angleStep;
+              const newX = centerX + radius * Math.cos(angle);
+              const newY = centerY + radius * Math.sin(angle);
+              
+              await supabase
+                .from('projects')
+                .update({ master_x: newX, master_y: newY })
+                .eq('id', proj.id)
+                .eq('user_id', user.id);
+            }
+            
+            toast.success('Master View organizado automaticamente');
+          }
         }
       } catch (error) {
         console.error('Erro ao carregar dados:', error);
@@ -207,8 +238,16 @@ export const NetworkMatrix = () => {
     }
   }, [selectedConnection]);
 
-  // Combinar todos os nós
-  const allNodes = [...projects, ...people, ...brands];
+  // Combinar todos os nós e mapear posições corretas baseado no viewMode
+  const allNodesRaw = [...projects, ...people, ...brands];
+  const allNodes = React.useMemo(() => 
+    allNodesRaw.map(node => ({
+      ...node,
+      x: viewMode === 'master' ? (node.master_x ?? node.x) : node.x,
+      y: viewMode === 'master' ? (node.master_y ?? node.y) : node.y,
+    })),
+    [allNodesRaw, viewMode]
+  );
   
   // Carregar design salvo ao iniciar
   React.useEffect(() => {
@@ -619,6 +658,8 @@ export const NetworkMatrix = () => {
 
   // Função para atualizar posição de nós (corrige dragging) and clear highlight
   const updateNodePosition = async (nodeId: number, deltaX: number, deltaY: number) => {
+    if (!user) return;
+    
     const isProject = projects.find(p => p.id === nodeId);
     const isPerson = people.find(p => p.id === nodeId);
     const isBrand = brands.find(b => b.id === nodeId);
@@ -626,40 +667,68 @@ export const NetworkMatrix = () => {
     let newX: number, newY: number;
     let tableName: 'projects' | 'people' | 'brands' | null = null;
     
+    // Determinar colunas a atualizar baseado no viewMode
+    const xColumn = viewMode === 'master' ? 'master_x' : 'x';
+    const yColumn = viewMode === 'master' ? 'master_y' : 'y';
+    
     if (isProject) {
-      newX = isProject.x + deltaX;
-      newY = isProject.y + deltaY;
+      const currentX = viewMode === 'master' ? (isProject.master_x ?? isProject.x) : isProject.x;
+      const currentY = viewMode === 'master' ? (isProject.master_y ?? isProject.y) : isProject.y;
+      newX = currentX + deltaX;
+      newY = currentY + deltaY;
       tableName = 'projects';
       
       setProjects(prev => prev.map(p => 
-        p.id === nodeId ? { ...p, x: newX, y: newY, isNewHighlight: false } : p
+        p.id === nodeId 
+          ? { 
+              ...p, 
+              ...(viewMode === 'master' ? { master_x: newX, master_y: newY } : { x: newX, y: newY }),
+              isNewHighlight: false 
+            } 
+          : p
       ));
     } else if (isPerson) {
-      newX = isPerson.x + deltaX;
-      newY = isPerson.y + deltaY;
+      const currentX = viewMode === 'master' ? (isPerson.master_x ?? isPerson.x) : isPerson.x;
+      const currentY = viewMode === 'master' ? (isPerson.master_y ?? isPerson.y) : isPerson.y;
+      newX = currentX + deltaX;
+      newY = currentY + deltaY;
       tableName = 'people';
       
       setPeople(prev => prev.map(p => 
-        p.id === nodeId ? { ...p, x: newX, y: newY, isNewHighlight: false } : p
+        p.id === nodeId 
+          ? { 
+              ...p,
+              ...(viewMode === 'master' ? { master_x: newX, master_y: newY } : { x: newX, y: newY }),
+              isNewHighlight: false 
+            } 
+          : p
       ));
     } else if (isBrand) {
-      newX = isBrand.x + deltaX;
-      newY = isBrand.y + deltaY;
+      const currentX = viewMode === 'master' ? (isBrand.master_x ?? isBrand.x) : isBrand.x;
+      const currentY = viewMode === 'master' ? (isBrand.master_y ?? isBrand.y) : isBrand.y;
+      newX = currentX + deltaX;
+      newY = currentY + deltaY;
       tableName = 'brands';
       
       setBrands(prev => prev.map(b => 
-        b.id === nodeId ? { ...b, x: newX, y: newY, isNewHighlight: false } : b
+        b.id === nodeId 
+          ? { 
+              ...b,
+              ...(viewMode === 'master' ? { master_x: newX, master_y: newY } : { x: newX, y: newY }),
+              isNewHighlight: false 
+            } 
+          : b
       ));
     } else {
       return; // Nó não encontrado
     }
     
-    // Salvar no Supabase apenas no Single View (não bloqueia a UI)
-    if (tableName && viewMode === 'single' && user) {
+    // Salvar no Supabase (ambas as views salvam, mas em colunas diferentes)
+    if (tableName && user) {
       try {
         const { error } = await supabase
           .from(tableName)
-          .update({ x: newX, y: newY })
+          .update({ [xColumn]: newX, [yColumn]: newY })
           .eq('id', nodeId)
           .eq('user_id', user.id);
         

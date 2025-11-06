@@ -49,6 +49,8 @@ export type Database = {
           category: string | null
           created_at: string
           id: number
+          master_x: number | null
+          master_y: number | null
           name: string
           user_id: string
           website: string | null
@@ -59,6 +61,8 @@ export type Database = {
           category?: string | null
           created_at?: string
           id?: never
+          master_x?: number | null
+          master_y?: number | null
           name: string
           user_id: string
           website?: string | null
@@ -69,6 +73,8 @@ export type Database = {
           category?: string | null
           created_at?: string
           id?: never
+          master_x?: number | null
+          master_y?: number | null
           name?: string
           user_id?: string
           website?: string | null
@@ -155,6 +161,8 @@ export type Database = {
           created_at: string
           email: string | null
           id: number
+          master_x: number | null
+          master_y: number | null
           name: string
           phone: string | null
           user_id: string
@@ -167,6 +175,8 @@ export type Database = {
           created_at?: string
           email?: string | null
           id?: never
+          master_x?: number | null
+          master_y?: number | null
           name: string
           phone?: string | null
           user_id: string
@@ -179,6 +189,8 @@ export type Database = {
           created_at?: string
           email?: string | null
           id?: never
+          master_x?: number | null
+          master_y?: number | null
           name?: string
           phone?: string | null
           user_id?: string
@@ -281,6 +293,8 @@ export type Database = {
           deadline: string | null
           flow_id: number | null
           id: number
+          master_x: number | null
+          master_y: number | null
           name: string
           status: string | null
           user_id: string
@@ -293,6 +307,8 @@ export type Database = {
           deadline?: string | null
           flow_id?: number | null
           id?: never
+          master_x?: number | null
+          master_y?: number | null
           name: string
           status?: string | null
           user_id: string
@@ -305,6 +321,8 @@ export type Database = {
           deadline?: string | null
           flow_id?: number | null
           id?: never
+          master_x?: number | null
+          master_y?: number | null
           name?: string
           status?: string | null
           user_id?: string
