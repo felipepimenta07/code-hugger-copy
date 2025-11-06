@@ -468,11 +468,14 @@ export const Canvas: React.FC<CanvasProps> = ({
           const clusterNodes = nodes.filter(n => n.flow_id === flow.id);
           if (clusterNodes.length === 0) return null;
           
-          const avgX = clusterNodes.reduce((sum, n) => sum + n.x, 0) / clusterNodes.length;
-          const avgY = clusterNodes.reduce((sum, n) => sum + n.y, 0) / clusterNodes.length;
-          const maxDist = Math.max(...clusterNodes.map(n => 
-            Math.sqrt((n.x - avgX) ** 2 + (n.y - avgY) ** 2)
-          ), 200);
+          // Usar master_x/master_y para calcular centro do cluster no Master View
+          const avgX = clusterNodes.reduce((sum, n) => sum + (n.master_x ?? n.x), 0) / clusterNodes.length;
+          const avgY = clusterNodes.reduce((sum, n) => sum + (n.master_y ?? n.y), 0) / clusterNodes.length;
+          const maxDist = Math.max(...clusterNodes.map(n => {
+            const nodeX = n.master_x ?? n.x;
+            const nodeY = n.master_y ?? n.y;
+            return Math.sqrt((nodeX - avgX) ** 2 + (nodeY - avgY) ** 2);
+          }), 200);
           const radius = maxDist + 150;
 
           return (
