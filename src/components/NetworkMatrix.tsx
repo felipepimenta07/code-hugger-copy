@@ -18,7 +18,7 @@ import { ProjectManagerPanel } from './ProjectManagerPanel';
 import { AIInsightsPanel } from './AIInsightsPanel';
 import { FlowStarterModal } from './FlowStarterModal';
 import { PathIndicator } from './PathIndicator';
-import { QATestButton } from './QATestButton';
+
 import { ResetButton } from './ResetButton';
 import { useNetworkState } from '@/hooks/useNetworkState';
 import { useNetworkHistory } from '@/hooks/useNetworkHistory';
@@ -1977,7 +1977,6 @@ export const NetworkMatrix = () => {
           />
         )}
 
-        <QATestButton />
         {user && <ResetButton onResetComplete={reloadData} userId={user.id} />}
       </div>
     </div>

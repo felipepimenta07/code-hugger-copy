@@ -196,7 +196,7 @@ export const Canvas: React.FC<CanvasProps> = ({
         );
         if (!exists) {
           saveToHistory();
-          setConnections([...connections, { 
+          setConnections(prev => [...prev, { 
             from: state.connectionStart.id, 
             to: targetNode.id,
             type: 'strong',
