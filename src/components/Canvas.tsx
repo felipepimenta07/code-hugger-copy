@@ -96,6 +96,17 @@ export const Canvas: React.FC<CanvasProps> = ({
   
   const nodeDepths = calculateNodeDepths();
   
+  // Offsets estáveis por flow no Master View para evitar sobreposição
+  const getFlowOffset = (flowId: number) => {
+    if (!flows || flows.length === 0) return { dx: 0, dy: 0 };
+    const idx = Math.max(0, flows.findIndex(f => f.id === flowId));
+    const angle = (idx / Math.max(flows.length, 1)) * Math.PI * 2;
+    const radius = 160; // separação sutil: próximos, mas não sobrepostos
+    return { dx: Math.cos(angle) * radius, dy: Math.sin(angle) * radius };
+  };
+
+  const getNodeFlowId = (n: any) => n?.flow_id ?? (n?.type === 'project' ? n.id : null);
+  
   const handleNodeMouseDown = (e: React.MouseEvent, nodeId: number) => {
     e.stopPropagation();
     
@@ -244,7 +255,7 @@ export const Canvas: React.FC<CanvasProps> = ({
   const handleCanvasContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
     if (viewMode === 'master') return;
-    const rect = svgRef.current!.getBoundingClientRect();
+                      const rect = svgRef.current!.getBoundingClientRect();
     const x = (e.clientX - rect.left - state.pan.x) / state.zoom;
     const y = (e.clientY - rect.top - state.pan.y) / state.zoom;
     const clickedNode = nodes.find(n => Math.sqrt((n.x - x) ** 2 + (n.y - y) ** 2) < 45);
@@ -419,8 +430,11 @@ export const Canvas: React.FC<CanvasProps> = ({
           const rootNode = getRootNode();
           if (!rootNode) return null;
           
-          const displayX = viewMode === 'master' ? (rootNode.master_x ?? rootNode.x) : rootNode.x;
-          const displayY = viewMode === 'master' ? (rootNode.master_y ?? rootNode.y) : rootNode.y;
+          const baseX = viewMode === 'master' ? (rootNode.master_x ?? rootNode.x) : rootNode.x;
+          const baseY = viewMode === 'master' ? (rootNode.master_y ?? rootNode.y) : rootNode.y;
+          const { dx, dy } = viewMode === 'master' ? getFlowOffset(flow.id) : { dx: 0, dy: 0 };
+          const displayX = baseX + dx;
+          const displayY = baseY + dy;
           
           return (
             <g key={`ring-${flow.id}`}>
@@ -477,13 +491,16 @@ export const Canvas: React.FC<CanvasProps> = ({
             return Math.sqrt((nodeX - avgX) ** 2 + (nodeY - avgY) ** 2);
           }), 200);
           const radius = maxDist + 150;
-
-          return (
+          const { dx, dy } = getFlowOffset(flow.id);
+          const renderX = avgX + dx;
+          const renderY = avgY + dy;
+ 
+           return (
             <g key={flow.id}>
               {/* Anel rosa/roxo decorativo */}
               <circle
-                cx={avgX}
-                cy={avgY}
+                cx={renderX}
+                cy={renderY}
                 r={radius * 0.4}
                 fill="none"
                 stroke="url(#gradientPinkPurple)"
@@ -493,8 +510,8 @@ export const Canvas: React.FC<CanvasProps> = ({
               
               {/* Círculo preenchido */}
               <circle
-                cx={avgX}
-                cy={avgY}
+                cx={renderX}
+                cy={renderY}
                 r={radius + 40}
                 fill="#8b5cf615"
                 opacity="0.2"
@@ -502,8 +519,8 @@ export const Canvas: React.FC<CanvasProps> = ({
               
               {/* Círculo pontilhado externo */}
               <circle
-                cx={avgX}
-                cy={avgY}
+                cx={renderX}
+                cy={renderY}
                 r={radius}
                 fill="none"
                 stroke="#8b5cf6"
@@ -514,8 +531,8 @@ export const Canvas: React.FC<CanvasProps> = ({
               
               {/* Label do flow */}
               <text
-                x={avgX}
-                y={avgY - radius - 30}
+                x={renderX}
+                y={renderY - radius - 30}
                 textAnchor="middle"
                 fill="#8b5cf6"
                 fontSize="18"
@@ -630,11 +647,19 @@ export const Canvas: React.FC<CanvasProps> = ({
             opacity = 1;
           }
           
-          // Usar coordenadas corretas para conexões baseadas no viewMode
-          const fromX = viewMode === 'master' ? (from.master_x ?? from.x) : from.x;
-          const fromY = viewMode === 'master' ? (from.master_y ?? from.y) : from.y;
-          const toX = viewMode === 'master' ? (to.master_x ?? to.x) : to.x;
-          const toY = viewMode === 'master' ? (to.master_y ?? to.y) : to.y;
+          // Usar coordenadas corretas para conexões baseadas no viewMode + offset por flow no Master View
+          const baseFromX = viewMode === 'master' ? (from.master_x ?? from.x) : from.x;
+          const baseFromY = viewMode === 'master' ? (from.master_y ?? from.y) : from.y;
+          const baseToX = viewMode === 'master' ? (to.master_x ?? to.x) : to.x;
+          const baseToY = viewMode === 'master' ? (to.master_y ?? to.y) : to.y;
+          const fromFlowId = getNodeFlowId(from);
+          const toFlowId = getNodeFlowId(to);
+          const fromOff = viewMode === 'master' && fromFlowId ? getFlowOffset(fromFlowId) : { dx: 0, dy: 0 };
+          const toOff = viewMode === 'master' && toFlowId ? getFlowOffset(toFlowId) : { dx: 0, dy: 0 };
+          const fromX = baseFromX + fromOff.dx;
+          const fromY = baseFromY + fromOff.dy;
+          const toX = baseToX + toOff.dx;
+          const toY = baseToY + toOff.dy;
           
           const controlX = (fromX + toX) / 2;
           const controlY = (fromY + toY) / 2 - 80;
@@ -689,10 +714,14 @@ export const Canvas: React.FC<CanvasProps> = ({
                     }}
                     onMouseEnter={(e) => {
                       const rect = svgRef.current!.getBoundingClientRect();
-                      const fromX = viewMode === 'master' ? (from.master_x ?? from.x) : from.x;
-                      const toX = viewMode === 'master' ? (to.master_x ?? to.x) : to.x;
-                      const fromY = viewMode === 'master' ? (from.master_y ?? from.y) : from.y;
-                      const toY = viewMode === 'master' ? (to.master_y ?? to.y) : to.y;
+                      const fromFlowId = getNodeFlowId(from);
+                      const toFlowId = getNodeFlowId(to);
+                      const fromOff = viewMode === 'master' && fromFlowId ? getFlowOffset(fromFlowId) : { dx: 0, dy: 0 };
+                      const toOff = viewMode === 'master' && toFlowId ? getFlowOffset(toFlowId) : { dx: 0, dy: 0 };
+                      const fromX = (viewMode === 'master' ? (from.master_x ?? from.x) : from.x) + fromOff.dx;
+                      const toX = (viewMode === 'master' ? (to.master_x ?? to.x) : to.x) + toOff.dx;
+                      const fromY = (viewMode === 'master' ? (from.master_y ?? from.y) : from.y) + fromOff.dy;
+                      const toY = (viewMode === 'master' ? (to.master_y ?? to.y) : to.y) + toOff.dy;
                       const midX = ((fromX + toX) / 2) * state.zoom + state.pan.x + rect.left;
                       const midY = ((fromY + toY) / 2 - 80) * state.zoom + state.pan.y + rect.top;
                       setHoveredConnection({ index: idx, position: { x: midX, y: midY } });
@@ -726,10 +755,14 @@ export const Canvas: React.FC<CanvasProps> = ({
                     }}
                     onMouseEnter={(e) => {
                       const rect = svgRef.current!.getBoundingClientRect();
-                      const fromX = viewMode === 'master' ? (from.master_x ?? from.x) : from.x;
-                      const toX = viewMode === 'master' ? (to.master_x ?? to.x) : to.x;
-                      const fromY = viewMode === 'master' ? (from.master_y ?? from.y) : from.y;
-                      const toY = viewMode === 'master' ? (to.master_y ?? to.y) : to.y;
+                      const fromFlowId = getNodeFlowId(from);
+                      const toFlowId = getNodeFlowId(to);
+                      const fromOff = viewMode === 'master' && fromFlowId ? getFlowOffset(fromFlowId) : { dx: 0, dy: 0 };
+                      const toOff = viewMode === 'master' && toFlowId ? getFlowOffset(toFlowId) : { dx: 0, dy: 0 };
+                      const fromX = (viewMode === 'master' ? (from.master_x ?? from.x) : from.x) + fromOff.dx;
+                      const toX = (viewMode === 'master' ? (to.master_x ?? to.x) : to.x) + toOff.dx;
+                      const fromY = (viewMode === 'master' ? (from.master_y ?? from.y) : from.y) + fromOff.dy;
+                      const toY = (viewMode === 'master' ? (to.master_y ?? to.y) : to.y) + toOff.dy;
                       const midX = ((fromX + toX) / 2) * state.zoom + state.pan.x + rect.left;
                       const midY = ((fromY + toY) / 2 - 80) * state.zoom + state.pan.y + rect.top;
                       setHoveredConnection({ index: idx, position: { x: midX, y: midY } });
@@ -774,9 +807,11 @@ export const Canvas: React.FC<CanvasProps> = ({
           const isInPath = highlightedPath.includes(node.id);
           const connectionCount = connections.filter(c => c.from === node.id || c.to === node.id).length;
           
-          // Usar coordenadas corretas baseadas no viewMode
-          const displayX = viewMode === 'master' ? (node.master_x ?? node.x) : node.x;
-          const displayY = viewMode === 'master' ? (node.master_y ?? node.y) : node.y;
+          // Usar coordenadas corretas baseadas no viewMode + offset por flow no Master View
+          const flowId = getNodeFlowId(node);
+          const off = viewMode === 'master' && flowId ? getFlowOffset(flowId) : { dx: 0, dy: 0 };
+          const displayX = (viewMode === 'master' ? (node.master_x ?? node.x) : node.x) + off.dx;
+          const displayY = (viewMode === 'master' ? (node.master_y ?? node.y) : node.y) + off.dy;
           
           // Tamanho por nível hierárquico
           let baseSize = 40;
