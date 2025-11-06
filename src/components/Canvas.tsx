@@ -212,6 +212,16 @@ export const Canvas: React.FC<CanvasProps> = ({
       const targetNode = nodes.find(n => Math.sqrt((n.x - x) ** 2 + (n.y - y) ** 2) < 45);
       
       if (targetNode && targetNode.id !== state.connectionStart.id) {
+        // BLOQUEAR conexões projeto-para-projeto
+        const fromNode = nodes.find(n => n.id === state.connectionStart.id);
+        if (fromNode?.type === 'project' && targetNode.type === 'project') {
+          updateState({ 
+            isDraggingConnection: false, 
+            connectionStart: null
+          });
+          return;
+        }
+        
         const exists = connections.some(c => 
           (c.from === state.connectionStart.id && c.to === targetNode.id) || 
           (c.from === targetNode.id && c.to === state.connectionStart.id)
@@ -405,6 +415,58 @@ export const Canvas: React.FC<CanvasProps> = ({
             </g>
           );
         })()}
+        
+        {/* Anéis Decorativos Radiais (Master View - para cada nó raiz) */}
+        {viewMode === 'master' && flows && flows.length > 0 && flows.map(flow => {
+          const getRootNode = () => {
+            if (flow.center_type === 'project') return projects?.find(p => p.id === flow.center_id);
+            if (flow.center_type === 'person') return nodes.find(n => n.id === flow.center_id && n.type === 'person');
+            if (flow.center_type === 'brand') return nodes.find(n => n.id === flow.center_id && n.type === 'brand');
+            return null;
+          };
+          
+          const rootNode = getRootNode();
+          if (!rootNode) return null;
+          
+          return (
+            <g key={`ring-${flow.id}`}>
+              {/* Anel rosa/roxo interno (decorativo) */}
+              <circle
+                cx={rootNode.x}
+                cy={rootNode.y}
+                r={140}
+                fill="none"
+                stroke="url(#gradientPinkPurple)"
+                strokeWidth="35"
+                opacity="0.25"
+              />
+              
+              {/* Sun Rays - Traços radiais */}
+              {Array.from({ length: 48 }).map((_, i) => {
+                const angle = (i * Math.PI * 2) / 48;
+                const innerRadius = 130;
+                const outerRadius = 165;
+                const x1 = rootNode.x + innerRadius * Math.cos(angle);
+                const y1 = rootNode.y + innerRadius * Math.sin(angle);
+                const x2 = rootNode.x + outerRadius * Math.cos(angle);
+                const y2 = rootNode.y + outerRadius * Math.sin(angle);
+                
+                return (
+                  <line
+                    key={i}
+                    x1={x1}
+                    y1={y1}
+                    x2={x2}
+                    y2={y2}
+                    stroke="rgba(139, 92, 246, 0.6)"
+                    strokeWidth="2"
+                    opacity={(i % 2 === 0) ? 0.8 : 0.4}
+                  />
+                );
+              })}
+            </g>
+          );
+        })}
         
         
         {/* Clusters no Master View (por flow) */}
