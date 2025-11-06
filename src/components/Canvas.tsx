@@ -477,10 +477,12 @@ export const Canvas: React.FC<CanvasProps> = ({
           
           // Allow project-to-project connections in single view when one is the center
           if (from.type === 'project' && to.type === 'project') {
-            const centerId = viewMode === 'single' && nodes.length > 0 ? nodes[0].id : null;
-            // Only render if in single view and one of them is the center project
-            if (!(viewMode === 'single' && centerId && (from.id === centerId || to.id === centerId))) {
-              return null;
+            // In Single View: render only if one is the center; In Master View: always render
+            if (viewMode === 'single') {
+              const centerId = nodes.length > 0 ? nodes[0].id : null;
+              if (!(centerId && (from.id === centerId || to.id === centerId))) {
+                return null;
+              }
             }
           }
           
