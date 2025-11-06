@@ -1669,6 +1669,7 @@ export const NetworkMatrix = () => {
           viewMode={viewMode}
           onCreateNode={(type) => {
             if (state.contextMenu) {
+              setIsCreatingFlowRoot(false); // Garantir que não é flow root
               setNodeCreationType(type as 'person' | 'project' | 'brand');
               setNodeCreationPosition({
                 x: state.contextMenu.canvasX,
@@ -1740,6 +1741,7 @@ export const NetworkMatrix = () => {
           onClose={() => {
             setShowNodeCreationModal(false);
             setEditingNodeInModal(null);
+            setIsCreatingFlowRoot(false); // Reset flag ao fechar
           }}
           onCreate={editingNodeInModal ? handleNodeUpdate : handleNodeCreation}
           editingNode={editingNodeInModal}
