@@ -1325,15 +1325,28 @@ export const NetworkMatrix = () => {
       isNewFlow = true;
     }
 
-    // Preparar dados base
-    const baseData = {
-      ...nodeData,
+    // Preparar dados base - mapear campos corretamente por tipo
+    let baseData: any = {
+      name: nodeData.name,
       x: nodeCreationPosition.x,
       y: nodeCreationPosition.y,
       user_id: user.id,
       flow_id: currentFlowId,
+      category: nodeData.category || null,
       ...(originalNodeId ? { original_node_id: originalNodeId } : {})
     };
+
+    // Adicionar campos específicos por tipo
+    if (nodeType === 'project') {
+      baseData.status = nodeData.projectStatus || nodeData.status || 'ativo';
+      baseData.deadline = nodeData.startDate || nodeData.deadline || null;
+    } else if (nodeType === 'person') {
+      baseData.email = nodeData.email || null;
+      baseData.phone = nodeData.phone || null;
+      baseData.company = nodeData.company || null;
+    } else if (nodeType === 'brand') {
+      baseData.website = nodeData.website || null;
+    }
 
     // Inserir no banco
     const tableName = nodeType === 'person' ? 'people' : 
