@@ -103,7 +103,17 @@ export const Canvas: React.FC<CanvasProps> = ({
     if (!flows || flows.length === 0) return { dx: 0, dy: 0 };
     const idx = Math.max(0, flows.findIndex(f => f.id === flowId));
     const angle = (idx / Math.max(flows.length, 1)) * Math.PI * 2;
-    const radius = 320; // separação fixa entre flows
+
+    // Raio dinâmico: garante que os anéis grandes não se sobreponham e fiquem o mais próximos possível
+    const count = Math.max(flows.length, 1);
+    let radius = 0;
+    if (count > 1) {
+      const filledRadius = MASTER_RING_RADIUS + 40; // 280 (raio do maior círculo decorativo)
+      const gap = 16; // pequeno espaço entre os círculos para não encostar
+      const neededChord = 2 * filledRadius + gap; // distância mínima entre centros adjacentes
+      radius = neededChord / (2 * Math.sin(Math.PI / count)); // R = chord / (2*sin(pi/n))
+    }
+
     return { dx: Math.cos(angle) * radius, dy: Math.sin(angle) * radius };
   };
   const getNodeFlowId = (n: any) => n?.flow_id ?? (n?.type === 'project' ? n.id : null);
@@ -126,11 +136,11 @@ export const Canvas: React.FC<CanvasProps> = ({
         clusterNodes[0];
       
       // Centro do cluster = posição do nó central + offset do flow
-      const baseX = centerNode.master_x ?? centerNode.x;
-      const baseY = centerNode.master_y ?? centerNode.y;
+      const anchorX = 0;
+      const anchorY = 0;
       const { dx, dy } = getFlowOffset(flow.id);
-      const cx = baseX + dx;
-      const cy = baseY + dy;
+      const cx = anchorX + dx;
+      const cy = anchorY + dy;
       
       // Posição do central
       map.set(centerNode.id, { x: cx, y: cy });
