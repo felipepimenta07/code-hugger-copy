@@ -28,6 +28,8 @@ interface CanvasProps {
   onWheel?: (e: React.WheelEvent) => void;
 }
 
+const MASTER_RING_RADIUS = 240;
+
 const nodeColors = {
   person: { primary: 'hsl(var(--node-person))', glow: 'hsl(var(--node-person-glow))', secondary: 'hsl(var(--node-person-secondary))' },
   project: { primary: 'hsl(var(--node-project))', glow: 'hsl(var(--node-project-glow))', secondary: 'hsl(var(--node-project-secondary))' },
@@ -105,6 +107,58 @@ export const Canvas: React.FC<CanvasProps> = ({
     return { dx: Math.cos(angle) * radius, dy: Math.sin(angle) * radius };
   };
   const getNodeFlowId = (n: any) => n?.flow_id ?? (n?.type === 'project' ? n.id : null);
+  
+  // Layout determinístico para Master View
+  const masterLayoutMap = React.useMemo(() => {
+    if (viewMode !== 'master' || !flows?.length) return new Map<number, {x:number, y:number}>();
+    
+    const map = new Map<number, {x:number, y:number}>();
+    const typeOrder = (t?: string) => (t === 'project' ? 0 : t === 'brand' ? 1 : 2);
+    
+    flows.forEach(flow => {
+      const clusterNodes = nodes.filter(n => getNodeFlowId(n) === flow.id);
+      if (!clusterNodes.length) return;
+      
+      // Encontrar nó central
+      const centerNode = 
+        clusterNodes.find(n => n.id === flow.center_id && n.type === flow.center_type) ||
+        clusterNodes.find(n => n.type === 'project') ||
+        clusterNodes[0];
+      
+      // Centro do cluster = posição do nó central + offset do flow
+      const baseX = centerNode.master_x ?? centerNode.x;
+      const baseY = centerNode.master_y ?? centerNode.y;
+      const { dx, dy } = getFlowOffset(flow.id);
+      const cx = baseX + dx;
+      const cy = baseY + dy;
+      
+      // Posição do central
+      map.set(centerNode.id, { x: cx, y: cy });
+      
+      // Distribuição uniforme dos demais nós
+      const others = clusterNodes.filter(n => n.id !== centerNode.id);
+      const sorted = [...others].sort((a, b) => {
+        const t = typeOrder(a.type) - typeOrder(b.type);
+        if (t !== 0) return t;
+        const na = (a.name || '').localeCompare(b.name || '');
+        if (na !== 0) return na;
+        return a.id - b.id;
+      });
+      
+      const N = Math.max(sorted.length, 1);
+      const start = -Math.PI / 2; // começa no topo
+      const step = (2 * Math.PI) / N;
+      
+      sorted.forEach((n, i) => {
+        const angle = start + i * step;
+        const x = cx + MASTER_RING_RADIUS * Math.cos(angle);
+        const y = cy + MASTER_RING_RADIUS * Math.sin(angle);
+        map.set(n.id, { x, y });
+      });
+    });
+    
+    return map;
+  }, [viewMode, flows, nodes]);
   
   const handleNodeMouseDown = (e: React.MouseEvent, nodeId: number) => {
     e.stopPropagation();
@@ -419,28 +473,23 @@ export const Canvas: React.FC<CanvasProps> = ({
         
         {/* Anéis Decorativos Radiais (Master View - para cada nó raiz) */}
         {viewMode === 'master' && flows && flows.length > 0 && flows.map(flow => {
-          const getRootNode = () => {
-            if (flow.center_type === 'project') return projects?.find(p => p.id === flow.center_id);
-            if (flow.center_type === 'person') return nodes.find(n => n.id === flow.center_id && n.type === 'person');
-            if (flow.center_type === 'brand') return nodes.find(n => n.id === flow.center_id && n.type === 'brand');
-            return null;
-          };
+          const clusterNodes = nodes.filter(n => getNodeFlowId(n) === flow.id);
+          if (!clusterNodes.length) return null;
           
-          const rootNode = getRootNode();
-          if (!rootNode) return null;
+          const centerNode = 
+            clusterNodes.find(n => n.id === flow.center_id && n.type === flow.center_type) ||
+            clusterNodes.find(n => n.type === 'project') ||
+            clusterNodes[0];
           
-          const baseX = viewMode === 'master' ? (rootNode.master_x ?? rootNode.x) : rootNode.x;
-          const baseY = viewMode === 'master' ? (rootNode.master_y ?? rootNode.y) : rootNode.y;
-          const { dx, dy } = viewMode === 'master' ? getFlowOffset(flow.id) : { dx: 0, dy: 0 };
-          const displayX = baseX + dx;
-          const displayY = baseY + dy;
+          const pos = masterLayoutMap.get(centerNode.id);
+          if (!pos) return null;
           
           return (
             <g key={`ring-${flow.id}`}>
               {/* Anel rosa/roxo interno (decorativo) */}
               <circle
-                cx={displayX}
-                cy={displayY}
+                cx={pos.x}
+                cy={pos.y}
                 r={140}
                 fill="none"
                 stroke="url(#gradientPinkPurple)"
@@ -453,10 +502,10 @@ export const Canvas: React.FC<CanvasProps> = ({
                 const angle = (i * Math.PI * 2) / 48;
                 const innerRadius = 130;
                 const outerRadius = 165;
-                const x1 = displayX + innerRadius * Math.cos(angle);
-                const y1 = displayY + innerRadius * Math.sin(angle);
-                const x2 = displayX + outerRadius * Math.cos(angle);
-                const y2 = displayY + outerRadius * Math.sin(angle);
+                const x1 = pos.x + innerRadius * Math.cos(angle);
+                const y1 = pos.y + innerRadius * Math.sin(angle);
+                const x2 = pos.x + outerRadius * Math.cos(angle);
+                const y2 = pos.y + outerRadius * Math.sin(angle);
                 
                 return (
                   <line
@@ -478,35 +527,27 @@ export const Canvas: React.FC<CanvasProps> = ({
         
         {/* Clusters no Master View (por flow) */}
         {viewMode === 'master' && flows.map(flow => {
-          const clusterNodes = nodes.filter(n => n.flow_id === flow.id);
+          const clusterNodes = nodes.filter(n => getNodeFlowId(n) === flow.id);
           if (clusterNodes.length === 0) return null;
           
-          // Usar master_x/master_y para calcular centro do cluster no Master View
-          const avgX = clusterNodes.reduce((sum, n) => sum + (n.master_x ?? n.x), 0) / clusterNodes.length;
-          const avgY = clusterNodes.reduce((sum, n) => sum + (n.master_y ?? n.y), 0) / clusterNodes.length;
-          const maxDist = Math.max(
-            ...clusterNodes.map(n => {
-              const nodeX = n.master_x ?? n.x;
-              const nodeY = n.master_y ?? n.y;
-              return Math.hypot(nodeX - avgX, nodeY - avgY);
-            }),
-            200
-          );
-
-          // Raio sempre baseado no tamanho atual do cluster
-          const radius = maxDist + 150;
-
-          const { dx, dy } = getFlowOffset(flow.id);
-          const renderX = avgX + dx;
-          const renderY = avgY + dy;
+          const centerNode = 
+            clusterNodes.find(n => n.id === flow.center_id && n.type === flow.center_type) ||
+            clusterNodes.find(n => n.type === 'project') ||
+            clusterNodes[0];
+          
+          const pos = masterLayoutMap.get(centerNode.id);
+          if (!pos) return null;
+          
+          const dottedRadius = MASTER_RING_RADIUS;
+          const filledRadius = MASTER_RING_RADIUS + 40;
  
            return (
             <g key={flow.id}>
               {/* Anel rosa/roxo decorativo */}
               <circle
-                cx={renderX}
-                cy={renderY}
-                r={radius * 0.4}
+                cx={pos.x}
+                cy={pos.y}
+                r={140}
                 fill="none"
                 stroke="url(#gradientPinkPurple)"
                 strokeWidth="15"
@@ -515,18 +556,18 @@ export const Canvas: React.FC<CanvasProps> = ({
               
               {/* Círculo preenchido */}
               <circle
-                cx={renderX}
-                cy={renderY}
-                r={radius + 40}
+                cx={pos.x}
+                cy={pos.y}
+                r={filledRadius}
                 fill="#8b5cf615"
                 opacity="0.2"
               />
               
               {/* Círculo pontilhado externo */}
               <circle
-                cx={renderX}
-                cy={renderY}
-                r={radius}
+                cx={pos.x}
+                cy={pos.y}
+                r={dottedRadius}
                 fill="none"
                 stroke="#8b5cf6"
                 strokeWidth="2"
@@ -536,8 +577,8 @@ export const Canvas: React.FC<CanvasProps> = ({
               
               {/* Label do flow */}
               <text
-                x={renderX}
-                y={renderY - radius - 30}
+                x={pos.x}
+                y={pos.y - dottedRadius - 30}
                 textAnchor="middle"
                 fill="#8b5cf6"
                 fontSize="18"
@@ -646,16 +687,16 @@ export const Canvas: React.FC<CanvasProps> = ({
           }
           
           // Usar coordenadas corretas para conexões baseadas no viewMode + offset por flow no Master View
-          const baseFromX = viewMode === 'master' ? (from.master_x ?? from.x) : from.x;
-          const baseFromY = viewMode === 'master' ? (from.master_y ?? from.y) : from.y;
-          const baseToX = viewMode === 'master' ? (to.master_x ?? to.x) : to.x;
-          const baseToY = viewMode === 'master' ? (to.master_y ?? to.y) : to.y;
-          const fromOff = viewMode === 'master' && fromFlowId ? getFlowOffset(fromFlowId) : { dx: 0, dy: 0 };
-          const toOff = viewMode === 'master' && toFlowId ? getFlowOffset(toFlowId) : { dx: 0, dy: 0 };
-          const fromX = baseFromX + fromOff.dx;
-          const fromY = baseFromY + fromOff.dy;
-          const toX = baseToX + toOff.dx;
-          const toY = baseToY + toOff.dy;
+          const getDisplayPos = (n: any) => {
+            if (viewMode === 'master') {
+              const pos = masterLayoutMap.get(n.id);
+              return pos ?? { x: n.x, y: n.y };
+            }
+            return { x: n.x, y: n.y };
+          };
+          
+          const { x: fromX, y: fromY } = getDisplayPos(from);
+          const { x: toX, y: toY } = getDisplayPos(to);
           
           const controlX = (fromX + toX) / 2;
           const controlY = (fromY + toY) / 2 - 80;
@@ -710,14 +751,8 @@ export const Canvas: React.FC<CanvasProps> = ({
                     }}
                     onMouseEnter={(e) => {
                       const rect = svgRef.current!.getBoundingClientRect();
-                      const fromFlowId = getNodeFlowId(from);
-                      const toFlowId = getNodeFlowId(to);
-                      const fromOff = viewMode === 'master' && fromFlowId ? getFlowOffset(fromFlowId) : { dx: 0, dy: 0 };
-                      const toOff = viewMode === 'master' && toFlowId ? getFlowOffset(toFlowId) : { dx: 0, dy: 0 };
-                      const fromX = (viewMode === 'master' ? (from.master_x ?? from.x) : from.x) + fromOff.dx;
-                      const toX = (viewMode === 'master' ? (to.master_x ?? to.x) : to.x) + toOff.dx;
-                      const fromY = (viewMode === 'master' ? (from.master_y ?? from.y) : from.y) + fromOff.dy;
-                      const toY = (viewMode === 'master' ? (to.master_y ?? to.y) : to.y) + toOff.dy;
+                      const { x: fromX, y: fromY } = getDisplayPos(from);
+                      const { x: toX, y: toY } = getDisplayPos(to);
                       const midX = ((fromX + toX) / 2) * state.zoom + state.pan.x + rect.left;
                       const midY = ((fromY + toY) / 2 - 80) * state.zoom + state.pan.y + rect.top;
                       setHoveredConnection({ index: idx, position: { x: midX, y: midY } });
@@ -751,14 +786,8 @@ export const Canvas: React.FC<CanvasProps> = ({
                     }}
                     onMouseEnter={(e) => {
                       const rect = svgRef.current!.getBoundingClientRect();
-                      const fromFlowId = getNodeFlowId(from);
-                      const toFlowId = getNodeFlowId(to);
-                      const fromOff = viewMode === 'master' && fromFlowId ? getFlowOffset(fromFlowId) : { dx: 0, dy: 0 };
-                      const toOff = viewMode === 'master' && toFlowId ? getFlowOffset(toFlowId) : { dx: 0, dy: 0 };
-                      const fromX = (viewMode === 'master' ? (from.master_x ?? from.x) : from.x) + fromOff.dx;
-                      const toX = (viewMode === 'master' ? (to.master_x ?? to.x) : to.x) + toOff.dx;
-                      const fromY = (viewMode === 'master' ? (from.master_y ?? from.y) : from.y) + fromOff.dy;
-                      const toY = (viewMode === 'master' ? (to.master_y ?? to.y) : to.y) + toOff.dy;
+                      const { x: fromX, y: fromY } = getDisplayPos(from);
+                      const { x: toX, y: toY } = getDisplayPos(to);
                       const midX = ((fromX + toX) / 2) * state.zoom + state.pan.x + rect.left;
                       const midY = ((fromY + toY) / 2 - 80) * state.zoom + state.pan.y + rect.top;
                       setHoveredConnection({ index: idx, position: { x: midX, y: midY } });
@@ -804,10 +833,15 @@ export const Canvas: React.FC<CanvasProps> = ({
           const connectionCount = connections.filter(c => c.from === node.id || c.to === node.id).length;
           
           // Usar coordenadas corretas baseadas no viewMode + offset por flow no Master View
-          const flowId = getNodeFlowId(node);
-          const off = viewMode === 'master' && flowId ? getFlowOffset(flowId) : { dx: 0, dy: 0 };
-          const displayX = (viewMode === 'master' ? (node.master_x ?? node.x) : node.x) + off.dx;
-          const displayY = (viewMode === 'master' ? (node.master_y ?? node.y) : node.y) + off.dy;
+          let displayX, displayY;
+          if (viewMode === 'master') {
+            const pos = masterLayoutMap.get(node.id);
+            displayX = pos?.x ?? node.x;
+            displayY = pos?.y ?? node.y;
+          } else {
+            displayX = node.x;
+            displayY = node.y;
+          }
           
           // Tamanho por nível hierárquico
           let baseSize = 40;
