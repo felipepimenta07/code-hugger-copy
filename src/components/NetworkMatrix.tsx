@@ -45,6 +45,7 @@ export const NetworkMatrix = () => {
   const [allConnections, setAllConnections] = useState([]);
   const [workflows, setWorkflows] = useState([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
+  const [autoOrganizeEnabled, setAutoOrganizeEnabled] = useState(true);
 
   const [activeProjectId, setActiveProjectId] = useState<number | null>(null);
   const [viewMode, setViewMode] = useState('master');
@@ -1934,6 +1935,34 @@ export const NetworkMatrix = () => {
               </TooltipProvider>
             </div>
             
+            {/* Toggle de Organização Automática */}
+            {viewMode === 'single' && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => setAutoOrganizeEnabled(!autoOrganizeEnabled)}
+                      className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                        autoOrganizeEnabled 
+                          ? 'bg-green-600 text-white' 
+                          : 'bg-gray-700 text-gray-300'
+                      }`}
+                    >
+                      <LayoutGrid className="inline mr-2" size={16} />
+                      Auto-Organizar: {autoOrganizeEnabled ? 'ON' : 'OFF'}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>
+                      {autoOrganizeEnabled 
+                        ? 'Organização automática está ligada' 
+                        : 'Organização automática está desligada - você tem controle total do layout'}
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+            
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -2173,8 +2202,38 @@ export const NetworkMatrix = () => {
           }}
         />
 
-        {/* Botões flutuantes de ação */}
+          {/* Botões flutuantes de ação */}
         <div className="fixed bottom-6 right-6 flex flex-col gap-3 z-30">
+          {/* Criar Novo Nó - APENAS SINGLE VIEW */}
+          {viewMode === 'single' && (
+            <button
+              onClick={(e) => {
+                const rect = svgRef.current?.getBoundingClientRect();
+                if (rect) {
+                  const canvasX = (rect.width / 2 - state.pan.x) / state.zoom;
+                  const canvasY = (rect.height / 2 - state.pan.y) / state.zoom;
+                  
+                  updateState({
+                    contextMenu: {
+                      x: e.clientX,
+                      y: e.clientY,
+                      canvasX,
+                      canvasY,
+                      type: 'canvas'
+                    }
+                  });
+                }
+              }}
+              className="p-4 bg-blue-600 text-white rounded-full shadow-2xl hover:scale-110 transition-all group relative"
+              title="Criar Novo Nó"
+            >
+              <Plus size={22} className="group-hover:scale-110 transition-transform" />
+              <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 bg-popover text-popover-foreground px-3 py-1.5 rounded-lg text-sm font-medium shadow-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                Criar Novo Nó
+              </span>
+            </button>
+          )}
+          
           {/* Reorganizar Nós - Apenas no Single View */}
           {viewMode === 'single' && (
             <button
@@ -2197,19 +2256,7 @@ export const NetworkMatrix = () => {
             </button>
           )}
           
-          {/* Salvar Design */}
-          <button
-            onClick={saveCurrentDesign}
-            className="p-4 bg-green-600 text-white rounded-full shadow-2xl hover:scale-110 transition-all group relative"
-            title="Salvar Design (S)"
-          >
-            <Save size={22} className="group-hover:scale-110 transition-transform" />
-            <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 bg-popover text-popover-foreground px-3 py-1.5 rounded-lg text-sm font-medium shadow-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-              Salvar Design
-            </span>
-          </button>
-          
-          {/* Centralizar View */}
+          {/* Centralizar View - SEMPRE VISÍVEL */}
           <button
             onClick={() => {
               // Apenas centralizar, sem reorganizar
@@ -2230,36 +2277,54 @@ export const NetworkMatrix = () => {
             </span>
           </button>
           
-          {/* Encontrar Caminho */}
-          <button
-            onClick={() => setShowPathFinder(true)}
-            className="p-3.5 bg-secondary text-foreground rounded-full shadow-xl hover:scale-110 transition-all group relative"
-            title="Encontrar Caminho (P)"
-          >
-            <Route size={20} />
-            <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 bg-popover text-popover-foreground px-3 py-1.5 rounded-lg text-sm font-medium shadow-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-              Encontrar Caminho
-            </span>
-          </button>
+          {/* Salvar Design - APENAS SINGLE VIEW */}
+          {viewMode === 'single' && (
+            <button
+              onClick={saveCurrentDesign}
+              className="p-4 bg-green-600 text-white rounded-full shadow-2xl hover:scale-110 transition-all group relative"
+              title="Salvar Design (S)"
+            >
+              <Save size={22} className="group-hover:scale-110 transition-transform" />
+              <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 bg-popover text-popover-foreground px-3 py-1.5 rounded-lg text-sm font-medium shadow-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                Salvar Design
+              </span>
+            </button>
+          )}
           
-          {/* Encaixar Tudo */}
-          <button
-            onClick={() => {
-              const width = window.innerWidth;
-              const height = window.innerHeight - 100;
-              const bounds = calculateBounds(viewMode === 'single' ? nodes : allNodes);
-              const zoom = calculateOptimalZoom(bounds, width, height);
-              const pan = calculateCenterPan(bounds, zoom, width, height);
-              updateState({ zoom, pan });
-            }}
-            className="p-3.5 bg-secondary text-foreground rounded-full shadow-xl hover:scale-110 transition-all group relative"
-            title="Encaixar Tudo (F)"
-          >
-            <Maximize2 size={20} />
-            <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 bg-popover text-popover-foreground px-3 py-1.5 rounded-lg text-sm font-medium shadow-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-              Encaixar Tudo
-            </span>
-          </button>
+          {/* Encontrar Caminho - APENAS SINGLE VIEW */}
+          {viewMode === 'single' && (
+            <button
+              onClick={() => setShowPathFinder(true)}
+              className="p-3.5 bg-secondary text-foreground rounded-full shadow-xl hover:scale-110 transition-all group relative"
+              title="Encontrar Caminho (P)"
+            >
+              <Route size={20} />
+              <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 bg-popover text-popover-foreground px-3 py-1.5 rounded-lg text-sm font-medium shadow-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                Encontrar Caminho
+              </span>
+            </button>
+          )}
+          
+          {/* Encaixar Tudo - APENAS SINGLE VIEW */}
+          {viewMode === 'single' && (
+            <button
+              onClick={() => {
+                const width = window.innerWidth;
+                const height = window.innerHeight - 100;
+                const bounds = calculateBounds(viewMode === 'single' ? nodes : allNodes);
+                const zoom = calculateOptimalZoom(bounds, width, height);
+                const pan = calculateCenterPan(bounds, zoom, width, height);
+                updateState({ zoom, pan });
+              }}
+              className="p-3.5 bg-secondary text-foreground rounded-full shadow-xl hover:scale-110 transition-all group relative"
+              title="Encaixar Tudo (F)"
+            >
+              <Maximize2 size={20} />
+              <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 bg-popover text-popover-foreground px-3 py-1.5 rounded-lg text-sm font-medium shadow-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                Encaixar Tudo
+              </span>
+            </button>
+          )}
         </div>
 
         <Drawer open={state.showSidebar && state.editingNode !== null} onOpenChange={(open) => {

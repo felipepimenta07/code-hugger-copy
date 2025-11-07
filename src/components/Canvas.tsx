@@ -481,6 +481,101 @@ export const Canvas: React.FC<CanvasProps> = ({
           );
         })()}
         
+        {/* Linhas entre Flows com Empresas Compartilhadas (Master View) */}
+        {viewMode === 'master' && (() => {
+          const flowConnections: Array<{ flowA: number; flowB: number; companies: string[] }> = [];
+          const peopleByFlow = new Map<number, any[]>();
+          
+          // Agrupar pessoas por flow
+          nodes.forEach(node => {
+            if (node.type === 'person' && node.company) {
+              const flowId = getNodeFlowId(node);
+              if (!peopleByFlow.has(flowId)) peopleByFlow.set(flowId, []);
+              peopleByFlow.get(flowId)!.push(node);
+            }
+          });
+          
+          // Encontrar empresas compartilhadas entre flows
+          const flowIds = Array.from(peopleByFlow.keys());
+          for (let i = 0; i < flowIds.length; i++) {
+            for (let j = i + 1; j < flowIds.length; j++) {
+              const peopleA = peopleByFlow.get(flowIds[i])!;
+              const peopleB = peopleByFlow.get(flowIds[j])!;
+              const sharedCompanies = peopleA
+                .filter(a => peopleB.some(b => b.company === a.company))
+                .map(p => p.company)
+                .filter((v, i, a) => a.indexOf(v) === i); // unique
+              
+              if (sharedCompanies.length > 0) {
+                flowConnections.push({ flowA: flowIds[i], flowB: flowIds[j], companies: sharedCompanies });
+              }
+            }
+          }
+          
+          // Renderizar linhas entre flows
+          return flowConnections.map((fc, idx) => {
+            const flowANodes = nodes.filter(n => getNodeFlowId(n) === fc.flowA);
+            const flowBNodes = nodes.filter(n => getNodeFlowId(n) === fc.flowB);
+            if (flowANodes.length === 0 || flowBNodes.length === 0) return null;
+            
+            const flowA = flows?.find(f => f.id === fc.flowA);
+            const flowB = flows?.find(f => f.id === fc.flowB);
+            if (!flowA || !flowB) return null;
+            
+            const centerA = 
+              flowANodes.find(n => n.id === flowA.center_id && n.type === flowA.center_type) ||
+              flowANodes.find(n => n.type === 'project') ||
+              flowANodes[0];
+            const centerB = 
+              flowBNodes.find(n => n.id === flowB.center_id && n.type === flowB.center_type) ||
+              flowBNodes.find(n => n.type === 'project') ||
+              flowBNodes[0];
+            
+            const posA = masterLayoutMap.get(centerA.id);
+            const posB = masterLayoutMap.get(centerB.id);
+            if (!posA || !posB) return null;
+            
+            return (
+              <g key={`flow-conn-${idx}`}>
+                <path
+                  d={`M ${posA.x} ${posA.y} L ${posB.x} ${posB.y}`}
+                  stroke="#8b5cf6"
+                  strokeWidth="2"
+                  strokeDasharray="8,8"
+                  opacity="0.3"
+                  className="pointer-events-auto cursor-pointer hover:opacity-60"
+                  onMouseEnter={(e) => {
+                    const rect = svgRef.current?.getBoundingClientRect();
+                    if (rect) {
+                      setHoveredConnection({ 
+                        index: -1000 - idx, 
+                        position: { x: e.clientX - rect.left, y: e.clientY - rect.top }
+                      });
+                    }
+                  }}
+                  onMouseLeave={() => setHoveredConnection(null)}
+                />
+                {hoveredConnection?.index === -1000 - idx && (
+                  <foreignObject 
+                    x={hoveredConnection.position.x - 100} 
+                    y={hoveredConnection.position.y - 60} 
+                    width="200" 
+                    height="80"
+                    className="pointer-events-none"
+                  >
+                    <div className="bg-popover text-popover-foreground px-3 py-2 rounded-lg shadow-lg text-xs">
+                      <strong>Empresas em comum:</strong>
+                      <ul className="mt-1">
+                        {fc.companies.map(c => <li key={c}>• {c}</li>)}
+                      </ul>
+                    </div>
+                  </foreignObject>
+                )}
+              </g>
+            );
+          });
+        })()}
+        
         {/* Anéis Decorativos Radiais (Master View - para cada nó raiz) */}
         {viewMode === 'master' && flows && flows.length > 0 && flows.map(flow => {
           const clusterNodes = nodes.filter(n => getNodeFlowId(n) === flow.id);
