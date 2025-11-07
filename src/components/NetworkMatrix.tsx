@@ -1410,8 +1410,45 @@ export const NetworkMatrix = () => {
 
     // Preparar dados base - mapear campos corretamente por tipo
     // Se é novo flow (primeiro nó), centralizar na tela
-    const centerX = isNewFlow ? 500 : nodeCreationPosition.x;
-    const centerY = isNewFlow ? 300 : nodeCreationPosition.y;
+    let centerX = isNewFlow ? 500 : nodeCreationPosition.x;
+    let centerY = isNewFlow ? 300 : nodeCreationPosition.y;
+    
+    // MASTER VIEW: calcular posição em círculo ao redor do centro do flow
+    if (viewMode === 'master' && !isNewFlow && currentFlowId) {
+      const flow = flows.find(f => f.id === currentFlowId);
+      if (flow) {
+        // Buscar nó centro do flow
+        let centerNode: any = null;
+        if (flow.center_type === 'project') {
+          centerNode = projects.find(p => p.id === flow.center_id);
+        } else if (flow.center_type === 'person') {
+          centerNode = people.find(p => p.id === flow.center_id);
+        } else if (flow.center_type === 'brand') {
+          centerNode = brands.find(b => b.id === flow.center_id);
+        }
+
+        if (centerNode) {
+          // Usar master_x/master_y do centro
+          const flowCenterX = centerNode.master_x ?? centerNode.x ?? 500;
+          const flowCenterY = centerNode.master_y ?? centerNode.y ?? 300;
+
+          // Contar nós existentes no flow (excluindo o centro)
+          const existingNodesCount = [
+            ...projects.filter(p => p.flow_id === currentFlowId && p.id !== flow.center_id),
+            ...people.filter(p => p.flow_id === currentFlowId && p.id !== flow.center_id),
+            ...brands.filter(b => b.flow_id === currentFlowId && b.id !== flow.center_id)
+          ].length;
+
+          // Calcular posição do novo nó em círculo
+          const radius = 200;
+          const angleStep = (2 * Math.PI) / Math.max(existingNodesCount + 1, 1);
+          const angle = existingNodesCount * angleStep - Math.PI / 2;
+          
+          centerX = flowCenterX + radius * Math.cos(angle);
+          centerY = flowCenterY + radius * Math.sin(angle);
+        }
+      }
+    }
     
     let baseData: any = {
       name: nodeData.name,
@@ -1482,91 +1519,6 @@ export const NetworkMatrix = () => {
     return insertedNode;
   };
 
-  // Helper: Reorganizar nós de um flow específico em círculo (Master View)
-  const reorganizeFlowNodes = async (flowId: number) => {
-    if (!user || viewMode !== 'master') return;
-
-    // Buscar flow e seu centro
-    const flow = flows.find(f => f.id === flowId);
-    if (!flow) return;
-
-    // Buscar nó centro do flow
-    let centerNode: any = null;
-    if (flow.center_type === 'project') {
-      centerNode = projects.find(p => p.id === flow.center_id);
-    } else if (flow.center_type === 'person') {
-      centerNode = people.find(p => p.id === flow.center_id);
-    } else if (flow.center_type === 'brand') {
-      centerNode = brands.find(b => b.id === flow.center_id);
-    }
-
-    if (!centerNode) return;
-
-    // Buscar todos os nós do flow
-    const flowNodes = [
-      ...projects.filter(p => p.flow_id === flowId && p.id !== flow.center_id),
-      ...people.filter(p => p.flow_id === flowId && p.id !== flow.center_id),
-      ...brands.filter(b => b.flow_id === flowId && b.id !== flow.center_id)
-    ];
-
-    // Usar master_x/master_y do centro ou fallback para x/y
-    const centerX = centerNode.master_x ?? centerNode.x ?? 500;
-    const centerY = centerNode.master_y ?? centerNode.y ?? 300;
-
-    // Distribuir nós em círculo ao redor do centro
-    const radius = 200;
-    const angleStep = (2 * Math.PI) / Math.max(flowNodes.length, 1);
-    
-    const updates: Array<{ table: string; id: number; x: number; y: number }> = [];
-
-    flowNodes.forEach((node, index) => {
-      const angle = index * angleStep - Math.PI / 2;
-      const newX = centerX + radius * Math.cos(angle);
-      const newY = centerY + radius * Math.sin(angle);
-      
-      const table = node.type === 'project' ? 'projects' : 
-                   node.type === 'person' ? 'people' : 'brands';
-      
-      updates.push({ table, id: node.id, x: newX, y: newY });
-    });
-
-    // Atualizar no banco de dados
-    for (const update of updates) {
-      if (update.table === 'projects') {
-        await supabase
-          .from('projects')
-          .update({ master_x: update.x, master_y: update.y })
-          .eq('id', update.id);
-      } else if (update.table === 'people') {
-        await supabase
-          .from('people')
-          .update({ master_x: update.x, master_y: update.y })
-          .eq('id', update.id);
-      } else if (update.table === 'brands') {
-        await supabase
-          .from('brands')
-          .update({ master_x: update.x, master_y: update.y })
-          .eq('id', update.id);
-      }
-    }
-
-    // Atualizar estado local
-    setProjects(prev => prev.map(p => {
-      const upd = updates.find(u => u.table === 'projects' && u.id === p.id);
-      return upd ? { ...p, master_x: upd.x, master_y: upd.y } : p;
-    }));
-    
-    setPeople(prev => prev.map(p => {
-      const upd = updates.find(u => u.table === 'people' && u.id === p.id);
-      return upd ? { ...p, master_x: upd.x, master_y: upd.y } : p;
-    }));
-    
-    setBrands(prev => prev.map(b => {
-      const upd = updates.find(u => u.table === 'brands' && u.id === b.id);
-      return upd ? { ...b, master_x: upd.x, master_y: upd.y } : b;
-    }));
-  };
-
   // Função separada para criação efetiva do nó
   const handleCreateNode = async (nodeData: any, originalNodeId: number | null) => {
     const insertedNode = await createNodeInDatabase(
@@ -1598,13 +1550,6 @@ export const NetworkMatrix = () => {
       setActiveProjectId(insertedNode.id);
       setViewMode('single');
       setIsCreatingFlowRoot(false); // Reset flag
-    }
-
-    // IMPORTANTE: Reorganizar nós do flow em círculo no Master View
-    if (viewMode === 'master' && insertedNode.flow_id && !isCreatingFlowRoot) {
-      setTimeout(() => {
-        reorganizeFlowNodes(insertedNode.flow_id);
-      }, 100);
     }
 
     setShowNodeCreationModal(false);
