@@ -103,7 +103,7 @@ export const Canvas: React.FC<CanvasProps> = ({
     if (!flows || flows.length === 0) return { dx: 0, dy: 0 };
     const idx = Math.max(0, flows.findIndex(f => f.id === flowId));
     const angle = (idx / Math.max(flows.length, 1)) * Math.PI * 2;
-    const radius = 400; // separação fixa entre flows
+    const radius = 300; // separação fixa entre flows
     return { dx: Math.cos(angle) * radius, dy: Math.sin(angle) * radius };
   };
   const getNodeFlowId = (n: any) => n?.flow_id ?? (n?.type === 'project' ? n.id : null);
