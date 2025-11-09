@@ -91,6 +91,7 @@ export const NetworkMatrix = () => {
 
   const { state, updateState } = useNetworkState();
   const svgRef = useRef(null);
+  const isDraggingRef = useRef(false);
 
   // Função para recarregar dados após reset
   const reloadData = async (options?: { forceReset?: boolean }) => {
@@ -162,6 +163,11 @@ export const NetworkMatrix = () => {
       setIsLoadingData(false);
     }
   };
+
+  // Monitorar drag para prevenir reloads durante arrasto
+  useEffect(() => {
+    isDraggingRef.current = state.dragging !== null;
+  }, [state.dragging]);
 
   // Carregar dados do Supabase
   useEffect(() => {
@@ -299,22 +305,30 @@ export const NetworkMatrix = () => {
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'flows', filter: `user_id=eq.${user.id}` },
-        () => reloadData()
+        () => {
+          if (!isDraggingRef.current) reloadData();
+        }
       )
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'people', filter: `user_id=eq.${user.id}` },
-        () => reloadData()
+        () => {
+          if (!isDraggingRef.current) reloadData();
+        }
       )
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'projects', filter: `user_id=eq.${user.id}` },
-        () => reloadData()
+        () => {
+          if (!isDraggingRef.current) reloadData();
+        }
       )
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'brands', filter: `user_id=eq.${user.id}` },
-        () => reloadData()
+        () => {
+          if (!isDraggingRef.current) reloadData();
+        }
       )
       .on(
         'postgres_changes',
