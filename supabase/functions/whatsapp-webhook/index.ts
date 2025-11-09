@@ -55,6 +55,7 @@ async function sendWhatsAppMessage(to: string, text: string) {
   try { data = await response.json(); } catch (_) {}
   if (!response.ok) {
     console.error('WhatsApp API error (text):', response.status, data);
+    return { ok: false, status: response.status, data, error: data?.error };
   }
   return { ok: response.ok, status: response.status, data };
 }
@@ -164,11 +165,25 @@ serve(async (req) => {
             qr_code_token: null
           }).eq('id', connection.id);
 
-          await sendWhatsAppMessage(from, 
+          const sendResult = await sendWhatsAppMessage(from, 
             '✅ *Conectado com sucesso!*\n\n' +
             'Agora você pode compartilhar contatos comigo.\n\n' +
             'Basta usar o botão de compartilhar contato do WhatsApp!'
           );
+
+          // Log notification if message failed to deliver
+          if (sendResult.error) {
+            await supabase.from('whatsapp_notifications').insert({
+              user_id: connection.user_id,
+              type: 'delivery_failed',
+              title: 'Mensagem de confirmação não entregue',
+              message: sendResult.error.message || 'Erro desconhecido',
+              data: { 
+                error_code: sendResult.error.code,
+                error_details: sendResult.error.error_data 
+              }
+            });
+          }
 
           return new Response('OK', { status: 200 });
         } else {

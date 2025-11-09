@@ -17,7 +17,43 @@ export default function WhatsAppIntegration() {
   const [checkingConnection, setCheckingConnection] = useState(true);
 
   useEffect(() => {
-    checkConnection();
+    const setupConnection = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      checkConnection();
+
+      // Real-time listener for connection status
+      const channel = supabase
+        .channel('whatsapp_connection_status')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'whatsapp_connections',
+            filter: `user_id=eq.${user.id}`
+          },
+          (payload) => {
+            console.log('Connection status changed:', payload);
+            const newRecord = payload.new as any;
+            if (newRecord?.is_active) {
+              setIsConnected(true);
+              setPhoneNumber(newRecord.phone_number);
+              toast.success('WhatsApp conectado!', {
+                description: `Número ${newRecord.phone_number} ativo`
+              });
+            }
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    };
+
+    setupConnection();
   }, []);
 
   const checkConnection = async () => {
@@ -80,17 +116,52 @@ export default function WhatsAppIntegration() {
   };
 
   const disconnect = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-    await supabase
-      .from('whatsapp_connections')
-      .update({ is_active: false })
-      .eq('user_id', user.id);
+      const { error } = await supabase
+        .from('whatsapp_connections')
+        .update({ is_active: false })
+        .eq('user_id', user.id);
 
-    setIsConnected(false);
-    setPhoneNumber(null);
-    toast.success('WhatsApp desconectado');
+      if (error) throw error;
+
+      setIsConnected(false);
+      setPhoneNumber(null);
+      toast.success('WhatsApp desconectado com sucesso');
+    } catch (error) {
+      console.error('Error disconnecting:', error);
+      toast.error('Erro ao desconectar');
+    }
+  };
+
+  const sendTestMessage = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase.functions.invoke('whatsapp-test', {
+        body: { message: 'Teste de conexão - Network Matrix' }
+      });
+
+      if (error) throw error;
+
+      if (data.success) {
+        toast.success('Mensagem enviada!', {
+          description: 'Verifique seu WhatsApp'
+        });
+      } else {
+        toast.error('Falha no envio', {
+          description: data.error?.message || 'Erro desconhecido'
+        });
+      }
+    } catch (error: any) {
+      console.error('Test message error:', error);
+      toast.error('Erro ao enviar mensagem de teste', {
+        description: error.message
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (checkingConnection) {
@@ -133,9 +204,28 @@ export default function WhatsAppIntegration() {
                   </ol>
                 </div>
 
-                <Button variant="destructive" onClick={disconnect}>
-                  Desconectar WhatsApp
-                </Button>
+                <div className="grid grid-cols-2 gap-3">
+                  <Button 
+                    onClick={sendTestMessage}
+                    disabled={loading}
+                    variant="outline"
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Enviando...
+                      </>
+                    ) : (
+                      'Enviar Teste'
+                    )}
+                  </Button>
+                  <Button 
+                    onClick={disconnect}
+                    variant="destructive"
+                  >
+                    Desconectar
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -208,16 +298,25 @@ export default function WhatsAppIntegration() {
                                 toast.success('Número copiado!');
                               }}
                             >
-                              <Copy size={14} />
-                            </Button>
-                          </div>
-                        </li>
-                        <li className="mt-2">Envie: <strong>CONECTAR {activationCode}</strong></li>
-                        <li>Aguarde a confirmação!</li>
-                      </ol>
-                    </div>
+                      <Copy size={14} />
+                    </Button>
                   </div>
-                )}
+                </li>
+                <li className="mt-2">Envie: <strong>CONECTAR {activationCode}</strong></li>
+                <li>Aguarde a confirmação!</li>
+              </ol>
+            </div>
+
+            <div className="mt-4 p-4 border border-border rounded-lg bg-muted/30">
+              <p className="text-sm text-muted-foreground mb-2">
+                ⏳ Aguardando mensagem CONECTAR...
+              </p>
+              <p className="text-xs text-muted-foreground">
+                A conexão será ativada automaticamente quando você enviar a mensagem
+              </p>
+            </div>
+          </div>
+        )}
               </TabsContent>
 
               <TabsContent value="qrcode" className="space-y-4">
