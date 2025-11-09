@@ -8,6 +8,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { MessageCircle, Check, Copy, Loader2 } from 'lucide-react';
 
 export default function WhatsAppIntegration() {
+  const WHATSAPP_NUMBER = '+1 555 152 9965';
   const [activationCode, setActivationCode] = useState<string | null>(null);
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -192,8 +193,26 @@ export default function WhatsAppIntegration() {
                     <div className="bg-muted p-4 rounded-lg">
                       <h3 className="font-semibold mb-2">Passos:</h3>
                       <ol className="list-decimal list-inside space-y-1 text-sm">
-                        <li>Salve o número da Network Matrix no seu WhatsApp</li>
-                        <li>Envie: <strong>CONECTAR {activationCode}</strong></li>
+                        <li>
+                          Salve o número da Network Matrix no seu WhatsApp:
+                          <div className="flex items-center gap-2 mt-1.5 ml-4">
+                            <code className="bg-background px-3 py-1 rounded text-base font-mono font-semibold">
+                              {WHATSAPP_NUMBER}
+                            </code>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-8 w-8"
+                              onClick={() => {
+                                navigator.clipboard.writeText(WHATSAPP_NUMBER);
+                                toast.success('Número copiado!');
+                              }}
+                            >
+                              <Copy size={14} />
+                            </Button>
+                          </div>
+                        </li>
+                        <li className="mt-2">Envie: <strong>CONECTAR {activationCode}</strong></li>
                         <li>Aguarde a confirmação!</li>
                       </ol>
                     </div>
@@ -217,7 +236,26 @@ export default function WhatsAppIntegration() {
                     <div className="bg-muted p-4 rounded-lg">
                       <h3 className="font-semibold mb-2">Passos:</h3>
                       <ol className="list-decimal list-inside space-y-1 text-sm">
-                        <li>Aponte a câmera do WhatsApp para o QR Code</li>
+                        <li>
+                          Salve o número da Network Matrix no seu WhatsApp:
+                          <div className="flex items-center gap-2 mt-1.5 ml-4">
+                            <code className="bg-background px-3 py-1 rounded text-base font-mono font-semibold">
+                              {WHATSAPP_NUMBER}
+                            </code>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-8 w-8"
+                              onClick={() => {
+                                navigator.clipboard.writeText(WHATSAPP_NUMBER);
+                                toast.success('Número copiado!');
+                              }}
+                            >
+                              <Copy size={14} />
+                            </Button>
+                          </div>
+                        </li>
+                        <li className="mt-2">Aponte a câmera do WhatsApp para o QR Code</li>
                         <li>Ou clique no link que abrir</li>
                         <li>Envie a mensagem de conexão</li>
                         <li>Aguarde a confirmação!</li>
