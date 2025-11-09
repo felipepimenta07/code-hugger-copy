@@ -39,7 +39,12 @@ async function sendWhatsAppMessage(to: string, text: string) {
     })
   });
 
-  return response.json();
+  let data: any = null;
+  try { data = await response.json(); } catch (_) {}
+  if (!response.ok) {
+    console.error('WhatsApp API error (text):', response.status, data);
+  }
+  return { ok: response.ok, status: response.status, data };
 }
 
 async function sendInteractiveButtons(to: string, text: string, buttons: any[]) {
@@ -64,7 +69,12 @@ async function sendInteractiveButtons(to: string, text: string, buttons: any[]) 
     })
   });
 
-  return response.json();
+  let data: any = null;
+  try { data = await response.json(); } catch (_) {}
+  if (!response.ok) {
+    console.error('WhatsApp API error (interactive):', response.status, data);
+  }
+  return { ok: response.ok, status: response.status, data };
 }
 
 serve(async (req) => {
@@ -105,15 +115,24 @@ serve(async (req) => {
     console.log(`Message from ${from}, type: ${messageType}`);
 
     if (messageType === 'text') {
-      const text = message.text.body.toUpperCase();
+      const originalText = (message.text?.body || '').trim();
+      const upperText = originalText.toUpperCase();
       
-      if (text.startsWith('CONECTAR ')) {
-        const code = text.replace('CONECTAR ', '').trim();
-        
+      if (upperText.startsWith('CONECTAR')) {
+        const codeRaw = originalText.slice('CONECTAR'.length).trim();
+        if (codeRaw.length === 0) {
+          await sendWhatsAppMessage(from,
+            'ℹ️ Envie no formato: CONECTAR <CÓDIGO>\nEx.: CONECTAR ABC123'
+          );
+          return new Response('OK', { status: 200 });
+        }
+
+        const codeUpper = codeRaw.toUpperCase();
+
         const { data: connection } = await supabase
           .from('whatsapp_connections')
           .select('*')
-          .or(`activation_code.eq.${code},qr_code_token.eq.${code}`)
+          .or(`activation_code.eq.${codeUpper},qr_code_token.eq.${codeRaw}`)
           .gt('expires_at', new Date().toISOString())
           .maybeSingle();
 
