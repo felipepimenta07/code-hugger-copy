@@ -91,6 +91,10 @@ export const NetworkMatrix = () => {
 
   const { state, updateState } = useNetworkState();
   const svgRef = useRef(null);
+  
+  // Refs para manter Single View "grudado" (não sair sozinho)
+  const stickySingleRef = useRef(false);
+  const stickyCenterIdRef = useRef<number | null>(null);
 
   // Função para recarregar dados (com preservação opcional da visualização)
   const reloadData = async (opts: { preserveView?: boolean } = { preserveView: true }) => {
@@ -101,6 +105,7 @@ export const NetworkMatrix = () => {
     const prevActiveId = activeProjectId;
     const prevPan = state.pan;
     const prevZoom = state.zoom;
+    const wasSticky = stickySingleRef.current;
 
     setIsLoadingData(true);
     try {
@@ -156,9 +161,30 @@ export const NetworkMatrix = () => {
         setViewMode('master');
         setSelectedNodes([]);
         setSelectedConnection(null);
+        stickySingleRef.current = false;
+        stickyCenterIdRef.current = null;
       } else {
-        // Preservar visualização se possível
-        if (prevViewMode === 'single' && prevActiveId) {
+        // Preservar visualização se sticky ou se estava no Single
+        if (wasSticky && prevViewMode === 'single' && prevActiveId) {
+          const centerExists =
+            (projectsRes.data?.some((p: any) => p.id === prevActiveId) ?? false) ||
+            (peopleRes.data?.some((p: any) => p.id === prevActiveId) ?? false) ||
+            (brandsRes.data?.some((b: any) => b.id === prevActiveId) ?? false);
+
+          if (centerExists) {
+            console.debug('🔒 Preservando Single View (sticky)', { prevActiveId, centerExists });
+            // NÃO alterar viewMode/activeProjectId - manter como está
+            // Apenas restaurar pan/zoom
+            updateState({ zoom: prevZoom, pan: prevPan });
+          } else {
+            console.debug('❌ Centro deletado, saindo do Single View', { prevActiveId });
+            setActiveProjectId(null);
+            setViewMode('master');
+            stickySingleRef.current = false;
+            stickyCenterIdRef.current = null;
+          }
+        } else if (prevViewMode === 'single' && prevActiveId) {
+          // Não-sticky mas estava no Single: verificar se centro existe
           const centerExists =
             (projectsRes.data?.some((p: any) => p.id === prevActiveId) ?? false) ||
             (peopleRes.data?.some((p: any) => p.id === prevActiveId) ?? false) ||
@@ -171,9 +197,6 @@ export const NetworkMatrix = () => {
             setActiveProjectId(null);
             setViewMode('master');
           }
-        } else {
-          setActiveProjectId(null);
-          setViewMode('master');
         }
         // Restaurar pan/zoom anteriores
         updateState({ zoom: prevZoom, pan: prevPan });
@@ -351,17 +374,47 @@ export const NetworkMatrix = () => {
       .on(
         'postgres_changes',
         { event: 'DELETE', schema: 'public', table: 'people', filter: `user_id=eq.${user.id}` },
-        () => reloadData({ preserveView: true })
+        (payload) => {
+          // Se o centro do Single View foi deletado, desativar sticky
+          if (payload.old.id === activeProjectId) {
+            console.debug('🗑️ Centro deletado (person):', payload.old.id);
+            stickySingleRef.current = false;
+            stickyCenterIdRef.current = null;
+            setViewMode('master');
+            setActiveProjectId(null);
+          }
+          reloadData({ preserveView: true });
+        }
       )
       .on(
         'postgres_changes',
         { event: 'DELETE', schema: 'public', table: 'projects', filter: `user_id=eq.${user.id}` },
-        () => reloadData({ preserveView: true })
+        (payload) => {
+          // Se o centro do Single View foi deletado, desativar sticky
+          if (payload.old.id === activeProjectId) {
+            console.debug('🗑️ Centro deletado (project):', payload.old.id);
+            stickySingleRef.current = false;
+            stickyCenterIdRef.current = null;
+            setViewMode('master');
+            setActiveProjectId(null);
+          }
+          reloadData({ preserveView: true });
+        }
       )
       .on(
         'postgres_changes',
         { event: 'DELETE', schema: 'public', table: 'brands', filter: `user_id=eq.${user.id}` },
-        () => reloadData({ preserveView: true })
+        (payload) => {
+          // Se o centro do Single View foi deletado, desativar sticky
+          if (payload.old.id === activeProjectId) {
+            console.debug('🗑️ Centro deletado (brand):', payload.old.id);
+            stickySingleRef.current = false;
+            stickyCenterIdRef.current = null;
+            setViewMode('master');
+            setActiveProjectId(null);
+          }
+          reloadData({ preserveView: true });
+        }
       )
       .on(
         'postgres_changes',
@@ -1277,6 +1330,12 @@ export const NetworkMatrix = () => {
     if (viewMode !== 'single' || !activeProjectId) return;
     // Evita sair durante carregamento de dados (realtime/refresh)
     if (isLoadingData) return;
+    
+    // Se sticky está ativo, NUNCA sair automaticamente (só com ação explícita)
+    if (stickySingleRef.current && stickyCenterIdRef.current === activeProjectId) {
+      console.debug('🔒 Single View protegido (sticky ativo)');
+      return;
+    }
 
     // Verificar se o nó central ainda existe nas coleções (projects, people ou brands)
     const centerExists = 
@@ -1286,8 +1345,11 @@ export const NetworkMatrix = () => {
     
     // Só sair do flow se o centro foi realmente DELETADO (não existe mais)
     if (!centerExists) {
+      console.debug('❌ Centro não existe mais, saindo do Single View');
       setActiveProjectId(null);
       setViewMode('master');
+      stickySingleRef.current = false;
+      stickyCenterIdRef.current = null;
     }
   }, [viewMode, activeProjectId, projects, people, brands, isLoadingData]);
 
@@ -1967,7 +2029,7 @@ export const NetworkMatrix = () => {
       )}
 
       {/* Header */}
-      <div className="bg-card/80 backdrop-blur-xl border-b border-border px-6 py-4 z-50">
+      <div className="sticky top-0 left-0 right-0 bg-card/80 backdrop-blur-xl border-b border-border px-6 py-4 z-50">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-6">
             <div>
@@ -1983,6 +2045,9 @@ export const NetworkMatrix = () => {
                   <TooltipTrigger asChild>
                     <button
                       onClick={() => {
+                        console.debug('🔄 Voltando ao Master View (ação explícita, desativando sticky)');
+                        stickySingleRef.current = false;
+                        stickyCenterIdRef.current = null;
                         setViewMode('master');
                         setActiveProjectId(null);
                         // Centralizar Master View sempre em (0,0)
@@ -2132,7 +2197,12 @@ export const NetworkMatrix = () => {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button 
-                    onClick={() => setShowFlowsManager(true)}
+                    onClick={() => {
+                      console.debug('📋 Abrindo Gerenciar Flows (desativando sticky)');
+                      stickySingleRef.current = false;
+                      stickyCenterIdRef.current = null;
+                      setShowFlowsManager(true);
+                    }}
                     variant="outline" 
                     size="icon" 
                     className="rounded-lg hover:bg-primary/10"
@@ -2271,7 +2341,12 @@ export const NetworkMatrix = () => {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button 
-                    onClick={() => setShowFlowsManager(!showFlowsManager)}
+                    onClick={() => {
+                      console.debug('📋 Toggle Gerenciar Flows (desativando sticky)');
+                      stickySingleRef.current = false;
+                      stickyCenterIdRef.current = null;
+                      setShowFlowsManager(!showFlowsManager);
+                    }}
                     className={`p-2 rounded-lg transition-all ${showFlowsManager ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'}`}>
                     <Layers size={18} />
                   </button>
@@ -2355,6 +2430,9 @@ export const NetworkMatrix = () => {
             setShowNodeCreationModal(true);
           }}
           onGoToProject={(id) => {
+            console.debug('🚀 Entrando no Single View (onGoToProject)', { id });
+            stickySingleRef.current = true;
+            stickyCenterIdRef.current = id;
             setActiveProjectId(id);
             setViewMode('single');
             // useEffect will handle centering automatically
@@ -2548,6 +2626,9 @@ export const NetworkMatrix = () => {
             onSelectFlow={(flowId) => {
               const selectedFlow = flows.find(f => f.id === flowId);
               if (selectedFlow) {
+                console.debug('🚀 Entrando no Single View (onSelectFlow)', { flowId, centerId: selectedFlow.center_id });
+                stickySingleRef.current = true;
+                stickyCenterIdRef.current = selectedFlow.center_id;
                 setActiveProjectId(selectedFlow.center_id);
                 setViewMode('single');
                 setShowFlowsManager(false);
