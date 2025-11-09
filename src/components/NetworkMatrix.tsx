@@ -91,22 +91,11 @@ export const NetworkMatrix = () => {
 
   const { state, updateState } = useNetworkState();
   const svgRef = useRef(null);
-  
-  // Refs para manter Single View "grudado" (não sair sozinho)
-  const stickySingleRef = useRef(false);
-  const stickyCenterIdRef = useRef<number | null>(null);
 
-  // Função para recarregar dados (com preservação opcional da visualização)
-  const reloadData = async (opts: { preserveView?: boolean } = { preserveView: true }) => {
+  // Função para recarregar dados após reset
+  const reloadData = async () => {
     if (!user) return;
     
-    // Memorizar estado anterior para possível restauração
-    const prevViewMode = viewMode as 'master' | 'single';
-    const prevActiveId = activeProjectId;
-    const prevPan = state.pan;
-    const prevZoom = state.zoom;
-    const wasSticky = stickySingleRef.current;
-
     setIsLoadingData(true);
     try {
       const sb = supabase as any;
@@ -155,53 +144,12 @@ export const NetworkMatrix = () => {
         setFlows([]);
       }
       
-      if (!opts.preserveView) {
-        // Reset padrão
-        setActiveProjectId(null);
-        setViewMode('master');
-        setSelectedNodes([]);
-        setSelectedConnection(null);
-        stickySingleRef.current = false;
-        stickyCenterIdRef.current = null;
-      } else {
-        // Preservar visualização se sticky ou se estava no Single
-        if (wasSticky && prevViewMode === 'single' && prevActiveId) {
-          const centerExists =
-            (projectsRes.data?.some((p: any) => p.id === prevActiveId) ?? false) ||
-            (peopleRes.data?.some((p: any) => p.id === prevActiveId) ?? false) ||
-            (brandsRes.data?.some((b: any) => b.id === prevActiveId) ?? false);
-
-          if (centerExists) {
-            console.debug('🔒 Preservando Single View (sticky)', { prevActiveId, centerExists });
-            // NÃO alterar viewMode/activeProjectId - manter como está
-            // Apenas restaurar pan/zoom
-            updateState({ zoom: prevZoom, pan: prevPan });
-          } else {
-            console.debug('❌ Centro deletado, saindo do Single View', { prevActiveId });
-            setActiveProjectId(null);
-            setViewMode('master');
-            stickySingleRef.current = false;
-            stickyCenterIdRef.current = null;
-          }
-        } else if (prevViewMode === 'single' && prevActiveId) {
-          // Não-sticky mas estava no Single: verificar se centro existe
-          const centerExists =
-            (projectsRes.data?.some((p: any) => p.id === prevActiveId) ?? false) ||
-            (peopleRes.data?.some((p: any) => p.id === prevActiveId) ?? false) ||
-            (brandsRes.data?.some((b: any) => b.id === prevActiveId) ?? false);
-
-          if (centerExists) {
-            setActiveProjectId(prevActiveId);
-            setViewMode('single');
-          } else {
-            setActiveProjectId(null);
-            setViewMode('master');
-          }
-        }
-        // Restaurar pan/zoom anteriores
-        updateState({ zoom: prevZoom, pan: prevPan });
-      }
-
+      // Resetar view
+      setActiveProjectId(null);
+      setViewMode('master');
+      setSelectedNodes([]);
+      setSelectedConnection(null);
+      
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
       toast.error('Erro ao carregar dados');
@@ -308,7 +256,7 @@ export const NetworkMatrix = () => {
         (payload) => {
           console.log('Novo flow detectado:', payload.new);
           toast.success('Novo flow criado!');
-          reloadData({ preserveView: true });
+          reloadData();
         }
       )
       .on(
@@ -316,7 +264,7 @@ export const NetworkMatrix = () => {
         { event: 'INSERT', schema: 'public', table: 'people', filter: `user_id=eq.${user.id}` },
         (payload) => {
           console.log('Nova pessoa detectada:', payload.new);
-          reloadData({ preserveView: true });
+          reloadData();
         }
       )
       .on(
@@ -324,7 +272,7 @@ export const NetworkMatrix = () => {
         { event: 'INSERT', schema: 'public', table: 'projects', filter: `user_id=eq.${user.id}` },
         (payload) => {
           console.log('Novo projeto detectado:', payload.new);
-          reloadData({ preserveView: true });
+          reloadData();
         }
       )
       .on(
@@ -332,7 +280,7 @@ export const NetworkMatrix = () => {
         { event: 'INSERT', schema: 'public', table: 'brands', filter: `user_id=eq.${user.id}` },
         (payload) => {
           console.log('Nova marca detectada:', payload.new);
-          reloadData({ preserveView: true });
+          reloadData();
         }
       )
       .on(
@@ -340,86 +288,56 @@ export const NetworkMatrix = () => {
         { event: 'INSERT', schema: 'public', table: 'connections', filter: `user_id=eq.${user.id}` },
         (payload) => {
           console.log('Nova conexão detectada:', payload.new);
-          reloadData({ preserveView: true });
+          reloadData();
         }
       )
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'flows', filter: `user_id=eq.${user.id}` },
-        () => reloadData({ preserveView: true })
+        () => reloadData()
       )
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'people', filter: `user_id=eq.${user.id}` },
-        () => reloadData({ preserveView: true })
+        () => reloadData()
       )
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'projects', filter: `user_id=eq.${user.id}` },
-        () => reloadData({ preserveView: true })
+        () => reloadData()
       )
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'brands', filter: `user_id=eq.${user.id}` },
-        () => reloadData({ preserveView: true })
+        () => reloadData()
       )
       .on(
         'postgres_changes',
         { event: 'DELETE', schema: 'public', table: 'flows', filter: `user_id=eq.${user.id}` },
         () => {
           toast.info('Flow removido');
-          reloadData({ preserveView: true });
+          reloadData();
         }
       )
       .on(
         'postgres_changes',
         { event: 'DELETE', schema: 'public', table: 'people', filter: `user_id=eq.${user.id}` },
-        (payload) => {
-          // Se o centro do Single View foi deletado, desativar sticky
-          if (payload.old.id === activeProjectId) {
-            console.debug('🗑️ Centro deletado (person):', payload.old.id);
-            stickySingleRef.current = false;
-            stickyCenterIdRef.current = null;
-            setViewMode('master');
-            setActiveProjectId(null);
-          }
-          reloadData({ preserveView: true });
-        }
+        () => reloadData()
       )
       .on(
         'postgres_changes',
         { event: 'DELETE', schema: 'public', table: 'projects', filter: `user_id=eq.${user.id}` },
-        (payload) => {
-          // Se o centro do Single View foi deletado, desativar sticky
-          if (payload.old.id === activeProjectId) {
-            console.debug('🗑️ Centro deletado (project):', payload.old.id);
-            stickySingleRef.current = false;
-            stickyCenterIdRef.current = null;
-            setViewMode('master');
-            setActiveProjectId(null);
-          }
-          reloadData({ preserveView: true });
-        }
+        () => reloadData()
       )
       .on(
         'postgres_changes',
         { event: 'DELETE', schema: 'public', table: 'brands', filter: `user_id=eq.${user.id}` },
-        (payload) => {
-          // Se o centro do Single View foi deletado, desativar sticky
-          if (payload.old.id === activeProjectId) {
-            console.debug('🗑️ Centro deletado (brand):', payload.old.id);
-            stickySingleRef.current = false;
-            stickyCenterIdRef.current = null;
-            setViewMode('master');
-            setActiveProjectId(null);
-          }
-          reloadData({ preserveView: true });
-        }
+        () => reloadData()
       )
       .on(
         'postgres_changes',
         { event: 'DELETE', schema: 'public', table: 'connections', filter: `user_id=eq.${user.id}` },
-        () => reloadData({ preserveView: true })
+        () => reloadData()
       )
       .subscribe();
 
@@ -1327,43 +1245,15 @@ export const NetworkMatrix = () => {
 
   // Guarda contra reset do flow quando o centro perde conexões
   useEffect(() => {
-    if (viewMode !== 'single' || !activeProjectId) return;
-    // Evita sair durante carregamento de dados (realtime/refresh)
-    if (isLoadingData) return;
-    
-    // Se sticky está ativo, NUNCA sair automaticamente (só com ação explícita)
-    if (stickySingleRef.current && stickyCenterIdRef.current === activeProjectId) {
-      console.debug('🔒 Single View protegido (sticky ativo)');
-      return;
+    if (viewMode === 'single' && activeProjectId) {
+      const isCenterStillVisible = allNodesWithAnchors.some(n => n.id === activeProjectId);
+      // Só sair do flow se o centro foi realmente removido do estado
+      if (!isCenterStillVisible) {
+        setActiveProjectId(null);
+        setViewMode('master');
+      }
     }
-
-    // Verificar se o nó central ainda existe nas coleções (projects, people ou brands)
-    const centerExists = 
-      projects.some(p => p.id === activeProjectId) ||
-      people.some(p => p.id === activeProjectId) ||
-      brands.some(b => b.id === activeProjectId);
-    
-    // Só sair do flow se o centro foi realmente DELETADO (não existe mais)
-    if (!centerExists) {
-      console.debug('❌ Centro não existe mais, saindo do Single View');
-      setActiveProjectId(null);
-      setViewMode('master');
-      stickySingleRef.current = false;
-      stickyCenterIdRef.current = null;
-    }
-  }, [viewMode, activeProjectId, projects, people, brands, isLoadingData]);
-
-  // Centralizar Master View após carregamento/entrada
-  useEffect(() => {
-    if (viewMode === 'master' && !isLoadingData) {
-      const rect = svgRef.current?.getBoundingClientRect();
-      const width = rect?.width ?? window.innerWidth;
-      const height = rect?.height ?? window.innerHeight - 100;
-      const zoom = 0.5;
-      const pan = { x: width / 2, y: height / 2 };
-      updateState({ zoom, pan });
-    }
-  }, [viewMode, isLoadingData]);
+  }, [viewMode, activeProjectId, allNodesWithAnchors]);
 
   // 🧩 Protege o nó central de sumir após deletar conexões
   useEffect(() => {
@@ -2029,7 +1919,7 @@ export const NetworkMatrix = () => {
       )}
 
       {/* Header */}
-      <div className="sticky top-0 left-0 right-0 bg-card/80 backdrop-blur-xl border-b border-border px-6 py-4 z-50">
+      <div className="bg-card/80 backdrop-blur-xl border-b border-border px-6 py-4 z-20">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-6">
             <div>
@@ -2045,21 +1935,41 @@ export const NetworkMatrix = () => {
                   <TooltipTrigger asChild>
                     <button
                       onClick={() => {
-                        console.debug('🔄 Voltando ao Master View (ação explícita, desativando sticky)');
-                        stickySingleRef.current = false;
-                        stickyCenterIdRef.current = null;
                         setViewMode('master');
-                        setActiveProjectId(null);
-                        // Centralizar Master View sempre em (0,0)
+                        // Centralizar Master View no nó raiz do flow atual (se houver)
                         setTimeout(() => {
-                          const width = window.innerWidth;
-                          const height = window.innerHeight - 100;
-                          const zoom = 0.5; // zoom padrão do master view
-                          const pan = { 
-                            x: width / 2, 
-                            y: height / 2 
-                          };
-                          updateState({ zoom, pan });
+                          try {
+                            const width = window.innerWidth;
+                            const height = window.innerHeight - 100;
+                            let centerX = 0, centerY = 0;
+                            let found = false;
+                            if (activeProjectId) {
+                              const currentFlowId = getCurrentFlowIdFromProjectId(activeProjectId);
+                              const flow = flows.find(f => f.id === currentFlowId);
+                              if (flow) {
+                                const getRoot = () => {
+                                  if (flow.center_type === 'project') return projects.find(p => p.id === flow.center_id);
+                                  if (flow.center_type === 'person') return people.find(p => p.id === flow.center_id);
+                                  if (flow.center_type === 'brand') return brands.find(b => b.id === flow.center_id);
+                                  return null;
+                                };
+                                const root = getRoot();
+                                if (root) {
+                                  // Usar master_x/master_y quando disponível
+                                  centerX = (root.master_x ?? root.x ?? 0);
+                                  centerY = (root.master_y ?? root.y ?? 0);
+                                  found = true;
+                                }
+                              }
+                            }
+                            if (!found && allNodes.length > 0) {
+                              centerX = allNodes[0].x ?? 0;
+                              centerY = allNodes[0].y ?? 0;
+                            }
+                            const zoom = state.zoom;
+                            const pan = { x: width / 2 - centerX * zoom, y: height / 2 - centerY * zoom };
+                            updateState({ pan });
+                          } catch {}
                         }, 50);
                       }}
                       className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
@@ -2197,12 +2107,7 @@ export const NetworkMatrix = () => {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button 
-                    onClick={() => {
-                      console.debug('📋 Abrindo Gerenciar Flows (desativando sticky)');
-                      stickySingleRef.current = false;
-                      stickyCenterIdRef.current = null;
-                      setShowFlowsManager(true);
-                    }}
+                    onClick={() => setShowFlowsManager(true)}
                     variant="outline" 
                     size="icon" 
                     className="rounded-lg hover:bg-primary/10"
@@ -2308,22 +2213,10 @@ export const NetworkMatrix = () => {
                   <button onClick={() => {
                     const width = window.innerWidth;
                     const height = window.innerHeight - 100;
-                    
-                    if (viewMode === 'master') {
-                      // No Master View, sempre centralizar em (0,0) com zoom 0.5
-                      const zoom = 0.5;
-                      const pan = { 
-                        x: width / 2, 
-                        y: height / 2 
-                      };
-                      updateState({ zoom, pan });
-                    } else {
-                      // No Single View, ajustar para mostrar todos os nós
-                      const bounds = calculateBounds(nodes);
-                      const zoom = calculateOptimalZoom(bounds, width, height);
-                      const pan = calculateCenterPan(bounds, zoom, width, height);
-                      updateState({ zoom, pan });
-                    }
+                    const bounds = calculateBounds(viewMode === 'single' ? nodes : allNodes);
+                    const zoom = calculateOptimalZoom(bounds, width, height);
+                    const pan = calculateCenterPan(bounds, zoom, width, height);
+                    updateState({ zoom, pan });
                   }} 
                     className="p-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-all">
                     <Maximize2 size={18} />
@@ -2341,12 +2234,7 @@ export const NetworkMatrix = () => {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button 
-                    onClick={() => {
-                      console.debug('📋 Toggle Gerenciar Flows (desativando sticky)');
-                      stickySingleRef.current = false;
-                      stickyCenterIdRef.current = null;
-                      setShowFlowsManager(!showFlowsManager);
-                    }}
+                    onClick={() => setShowFlowsManager(!showFlowsManager)}
                     className={`p-2 rounded-lg transition-all ${showFlowsManager ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'}`}>
                     <Layers size={18} />
                   </button>
@@ -2430,9 +2318,6 @@ export const NetworkMatrix = () => {
             setShowNodeCreationModal(true);
           }}
           onGoToProject={(id) => {
-            console.debug('🚀 Entrando no Single View (onGoToProject)', { id });
-            stickySingleRef.current = true;
-            stickyCenterIdRef.current = id;
             setActiveProjectId(id);
             setViewMode('single');
             // useEffect will handle centering automatically
@@ -2626,9 +2511,6 @@ export const NetworkMatrix = () => {
             onSelectFlow={(flowId) => {
               const selectedFlow = flows.find(f => f.id === flowId);
               if (selectedFlow) {
-                console.debug('🚀 Entrando no Single View (onSelectFlow)', { flowId, centerId: selectedFlow.center_id });
-                stickySingleRef.current = true;
-                stickyCenterIdRef.current = selectedFlow.center_id;
                 setActiveProjectId(selectedFlow.center_id);
                 setViewMode('single');
                 setShowFlowsManager(false);

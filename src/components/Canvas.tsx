@@ -116,7 +116,7 @@ export const Canvas: React.FC<CanvasProps> = ({
 
     return { dx: Math.cos(angle) * radius, dy: Math.sin(angle) * radius };
   };
-  const getNodeFlowId = (n: any) => n?.flow_id ?? null;
+  const getNodeFlowId = (n: any) => n?.flow_id ?? (n?.type === 'project' ? n.id : null);
   
   // Layout determinístico para Master View
   const masterLayoutMap = React.useMemo(() => {
