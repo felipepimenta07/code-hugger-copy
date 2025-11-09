@@ -92,10 +92,16 @@ export const NetworkMatrix = () => {
   const { state, updateState } = useNetworkState();
   const svgRef = useRef(null);
 
-  // Função para recarregar dados após reset
-  const reloadData = async () => {
+  // Função para recarregar dados (com preservação opcional da visualização)
+  const reloadData = async (opts: { preserveView?: boolean } = { preserveView: true }) => {
     if (!user) return;
     
+    // Memorizar estado anterior para possível restauração
+    const prevViewMode = viewMode as 'master' | 'single';
+    const prevActiveId = activeProjectId;
+    const prevPan = state.pan;
+    const prevZoom = state.zoom;
+
     setIsLoadingData(true);
     try {
       const sb = supabase as any;
@@ -144,12 +150,35 @@ export const NetworkMatrix = () => {
         setFlows([]);
       }
       
-      // Resetar view
-      setActiveProjectId(null);
-      setViewMode('master');
-      setSelectedNodes([]);
-      setSelectedConnection(null);
-      
+      if (!opts.preserveView) {
+        // Reset padrão
+        setActiveProjectId(null);
+        setViewMode('master');
+        setSelectedNodes([]);
+        setSelectedConnection(null);
+      } else {
+        // Preservar visualização se possível
+        if (prevViewMode === 'single' && prevActiveId) {
+          const centerExists =
+            (projectsRes.data?.some((p: any) => p.id === prevActiveId) ?? false) ||
+            (peopleRes.data?.some((p: any) => p.id === prevActiveId) ?? false) ||
+            (brandsRes.data?.some((b: any) => b.id === prevActiveId) ?? false);
+
+          if (centerExists) {
+            setActiveProjectId(prevActiveId);
+            setViewMode('single');
+          } else {
+            setActiveProjectId(null);
+            setViewMode('master');
+          }
+        } else {
+          setActiveProjectId(null);
+          setViewMode('master');
+        }
+        // Restaurar pan/zoom anteriores
+        updateState({ zoom: prevZoom, pan: prevPan });
+      }
+
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
       toast.error('Erro ao carregar dados');
@@ -256,7 +285,7 @@ export const NetworkMatrix = () => {
         (payload) => {
           console.log('Novo flow detectado:', payload.new);
           toast.success('Novo flow criado!');
-          reloadData();
+          reloadData({ preserveView: true });
         }
       )
       .on(
@@ -264,7 +293,7 @@ export const NetworkMatrix = () => {
         { event: 'INSERT', schema: 'public', table: 'people', filter: `user_id=eq.${user.id}` },
         (payload) => {
           console.log('Nova pessoa detectada:', payload.new);
-          reloadData();
+          reloadData({ preserveView: true });
         }
       )
       .on(
@@ -272,7 +301,7 @@ export const NetworkMatrix = () => {
         { event: 'INSERT', schema: 'public', table: 'projects', filter: `user_id=eq.${user.id}` },
         (payload) => {
           console.log('Novo projeto detectado:', payload.new);
-          reloadData();
+          reloadData({ preserveView: true });
         }
       )
       .on(
@@ -280,7 +309,7 @@ export const NetworkMatrix = () => {
         { event: 'INSERT', schema: 'public', table: 'brands', filter: `user_id=eq.${user.id}` },
         (payload) => {
           console.log('Nova marca detectada:', payload.new);
-          reloadData();
+          reloadData({ preserveView: true });
         }
       )
       .on(
@@ -288,56 +317,56 @@ export const NetworkMatrix = () => {
         { event: 'INSERT', schema: 'public', table: 'connections', filter: `user_id=eq.${user.id}` },
         (payload) => {
           console.log('Nova conexão detectada:', payload.new);
-          reloadData();
+          reloadData({ preserveView: true });
         }
       )
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'flows', filter: `user_id=eq.${user.id}` },
-        () => reloadData()
+        () => reloadData({ preserveView: true })
       )
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'people', filter: `user_id=eq.${user.id}` },
-        () => reloadData()
+        () => reloadData({ preserveView: true })
       )
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'projects', filter: `user_id=eq.${user.id}` },
-        () => reloadData()
+        () => reloadData({ preserveView: true })
       )
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'brands', filter: `user_id=eq.${user.id}` },
-        () => reloadData()
+        () => reloadData({ preserveView: true })
       )
       .on(
         'postgres_changes',
         { event: 'DELETE', schema: 'public', table: 'flows', filter: `user_id=eq.${user.id}` },
         () => {
           toast.info('Flow removido');
-          reloadData();
+          reloadData({ preserveView: true });
         }
       )
       .on(
         'postgres_changes',
         { event: 'DELETE', schema: 'public', table: 'people', filter: `user_id=eq.${user.id}` },
-        () => reloadData()
+        () => reloadData({ preserveView: true })
       )
       .on(
         'postgres_changes',
         { event: 'DELETE', schema: 'public', table: 'projects', filter: `user_id=eq.${user.id}` },
-        () => reloadData()
+        () => reloadData({ preserveView: true })
       )
       .on(
         'postgres_changes',
         { event: 'DELETE', schema: 'public', table: 'brands', filter: `user_id=eq.${user.id}` },
-        () => reloadData()
+        () => reloadData({ preserveView: true })
       )
       .on(
         'postgres_changes',
         { event: 'DELETE', schema: 'public', table: 'connections', filter: `user_id=eq.${user.id}` },
-        () => reloadData()
+        () => reloadData({ preserveView: true })
       )
       .subscribe();
 
@@ -1938,7 +1967,7 @@ export const NetworkMatrix = () => {
       )}
 
       {/* Header */}
-      <div className="bg-card/80 backdrop-blur-xl border-b border-border px-6 py-4 z-20">
+      <div className="bg-card/80 backdrop-blur-xl border-b border-border px-6 py-4 z-50">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-6">
             <div>
