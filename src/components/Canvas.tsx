@@ -230,14 +230,18 @@ export const Canvas: React.FC<CanvasProps> = ({
       return;
     }
     
-    // No Master View: mantém comportamento atual (navegar para o projeto)
+    // No Master View: navegar para o flow (verificando se é nó central)
     if (onGoToProject) {
-      // Se o nó for um projeto, entra diretamente nele
-      if (node.type === 'project') {
-        onGoToProject(node.id);
-      } 
-      // Se for pessoa ou marca, encontra o projeto do flow atual
-      else if (node.flow_id) {
+      // Primeiro: verificar se este nó é o centro de algum flow
+      const centerFlow = flows.find(f => 
+        f.center_id === node.id && f.center_type === node.type
+      );
+      
+      if (centerFlow) {
+        // É um nó central → ir para Single View deste flow
+        onGoToProject(centerFlow.id);
+      } else if (node.flow_id) {
+        // Não é centro, mas pertence a um flow → ir para aquele flow
         onGoToProject(node.flow_id);
       }
     }
