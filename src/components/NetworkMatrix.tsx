@@ -778,7 +778,7 @@ export const NetworkMatrix = () => {
   };
 
   // Função para atualizar posição de nós (corrige dragging) and clear highlight
-  const updateNodePosition = async (nodeId: number, deltaX: number, deltaY: number) => {
+  const updateNodePosition = async (nodeId: number, deltaX: number, deltaY: number, saveToDb: boolean = false) => {
     if (!user) return;
     
     const isProject = projects.find(p => p.id === nodeId);
@@ -844,8 +844,8 @@ export const NetworkMatrix = () => {
       return; // Nó não encontrado
     }
     
-    // Salvar no Supabase (ambas as views salvam, mas em colunas diferentes)
-    if (tableName && user) {
+    // Salvar no Supabase APENAS quando saveToDb = true (ao finalizar drag)
+    if (saveToDb && tableName && user) {
       try {
         const { error } = await supabase
           .from(tableName)
@@ -2550,6 +2550,38 @@ export const NetworkMatrix = () => {
                     updateState({ zoom, pan });
                   }
                 }, 300);
+              }
+            }}
+            onDeleteFlow={async (flowId) => {
+              try {
+                if (!user) return;
+                
+                // Deletar o flow do banco
+                const { error } = await supabase
+                  .from('flows')
+                  .delete()
+                  .eq('id', flowId)
+                  .eq('user_id', user.id);
+                
+                if (error) {
+                  console.error('Erro ao deletar flow:', error);
+                  toast.error('Erro ao deletar flow');
+                  return;
+                }
+                
+                // Atualizar estado local
+                setFlows(prev => prev.filter(f => f.id !== flowId));
+                toast.success('Flow deletado com sucesso');
+                
+                // Se estava visualizando esse flow, voltar ao Master
+                const deletedFlow = flows.find(f => f.id === flowId);
+                if (deletedFlow && activeProjectId === deletedFlow.center_id) {
+                  setViewMode('master');
+                  setActiveProjectId(null);
+                }
+              } catch (error) {
+                console.error('Erro ao deletar flow:', error);
+                toast.error('Erro ao deletar flow');
               }
             }}
           />

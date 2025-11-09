@@ -17,7 +17,7 @@ interface CanvasProps {
   highlightedPath: number[];
   hoveredNode: number | null;
   setHoveredNode: (node: number | null) => void;
-  updateNodePosition: (nodeId: number, deltaX: number, deltaY: number) => void;
+  updateNodePosition: (nodeId: number, deltaX: number, deltaY: number, saveToDb?: boolean) => void;
   setConnections: (updater: any) => void;
   saveToHistory: () => void;
   onOpenEditModal?: (node: any) => void;
@@ -275,8 +275,9 @@ export const Canvas: React.FC<CanvasProps> = ({
       const dx = x - state.offset.x - draggedNode.x;
       const dy = y - state.offset.y - draggedNode.y;
       
+      // Durante o drag: NÃO salvar no DB
       selectedNodes.forEach(nodeId => {
-        updateNodePosition(nodeId, dx, dy);
+        updateNodePosition(nodeId, dx, dy, false);
       });
     } else if (state.isPanning) {
       updateState({ pan: { x: e.clientX - state.panStart.x, y: e.clientY - state.panStart.y } });
@@ -311,6 +312,19 @@ export const Canvas: React.FC<CanvasProps> = ({
     }
     
     if (state.dragging) {
+      // Ao finalizar o drag: SALVAR no DB
+      const draggedNode = nodes.find(n => n.id === state.dragging);
+      if (draggedNode) {
+        const rect = svgRef.current!.getBoundingClientRect();
+        const x = (e.clientX - rect.left - state.pan.x) / state.zoom;
+        const y = (e.clientY - rect.top - state.pan.y) / state.zoom;
+        const dx = x - state.offset.x - draggedNode.x;
+        const dy = y - state.offset.y - draggedNode.y;
+        
+        selectedNodes.forEach(nodeId => {
+          updateNodePosition(nodeId, dx, dy, true);
+        });
+      }
       saveToHistory();
     }
     

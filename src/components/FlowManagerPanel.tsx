@@ -3,7 +3,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Search, Target, Users, Building2, Briefcase, Calendar } from 'lucide-react';
+import { Search, Target, Users, Building2, Briefcase, Calendar, Trash2 } from 'lucide-react';
 
 interface Flow {
   id: number;
@@ -24,12 +24,13 @@ interface FlowManagerPanelProps {
   onOpenChange: (open: boolean) => void;
   flows: Flow[];
   onSelectFlow: (flowId: number) => void;
+  onDeleteFlow: (flowId: number) => void;
 }
 
 type FilterType = 'all' | 'person' | 'project' | 'brand';
 type SortType = 'newest' | 'oldest';
 
-export const FlowManagerPanel = ({ open, onOpenChange, flows, onSelectFlow }: FlowManagerPanelProps) => {
+export const FlowManagerPanel = ({ open, onOpenChange, flows, onSelectFlow, onDeleteFlow }: FlowManagerPanelProps) => {
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState<FilterType>('all');
   const [sortType, setSortType] = useState<SortType>('newest');
@@ -197,17 +198,31 @@ export const FlowManagerPanel = ({ open, onOpenChange, flows, onSelectFlow }: Fl
                     </div>
                   )}
 
-                  <Button
-                    size="sm"
-                    className="w-full gap-2"
-                    onClick={() => {
-                      onSelectFlow(flow.id);
-                      onOpenChange(false);
-                    }}
-                  >
-                    <Target className="h-3 w-3" />
-                    Ver Flow
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      className="flex-1 gap-2"
+                      onClick={() => {
+                        onSelectFlow(flow.id);
+                        onOpenChange(false);
+                      }}
+                    >
+                      <Target className="h-3 w-3" />
+                      Ver Flow
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (confirm(`Deseja deletar o flow "${flow.name}"? Esta ação não pode ser desfeita.`)) {
+                          onDeleteFlow(flow.id);
+                        }
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               ))
             )}
