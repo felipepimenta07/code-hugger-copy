@@ -6,6 +6,11 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+function cleanPhoneNumber(phone: string): string {
+  // Remove tudo exceto dígitos
+  return phone.replace(/[^\d]/g, '');
+}
+
 function parseVCard(vcard: string) {
   const lines = vcard.split('\n');
   const contact: any = { name: '', phone: '' };
@@ -24,8 +29,15 @@ function parseVCard(vcard: string) {
 async function sendWhatsAppMessage(to: string, text: string) {
   const WHATSAPP_TOKEN = Deno.env.get('WHATSAPP_ACCESS_TOKEN');
   const PHONE_NUMBER_ID = Deno.env.get('WHATSAPP_PHONE_NUMBER_ID');
+  const cleanTo = cleanPhoneNumber(to);
+  
+  console.log('📤 Sending message:', {
+    original_to: to,
+    cleaned_to: cleanTo,
+    phone_number_id: PHONE_NUMBER_ID
+  });
 
-  const response = await fetch(`https://graph.facebook.com/v17.0/${PHONE_NUMBER_ID}/messages`, {
+  const response = await fetch(`https://graph.facebook.com/v18.0/${PHONE_NUMBER_ID}/messages`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${WHATSAPP_TOKEN}`,
@@ -33,7 +45,7 @@ async function sendWhatsAppMessage(to: string, text: string) {
     },
     body: JSON.stringify({
       messaging_product: 'whatsapp',
-      to,
+      to: cleanTo,
       type: 'text',
       text: { body: text }
     })
@@ -50,8 +62,15 @@ async function sendWhatsAppMessage(to: string, text: string) {
 async function sendInteractiveButtons(to: string, text: string, buttons: any[]) {
   const WHATSAPP_TOKEN = Deno.env.get('WHATSAPP_ACCESS_TOKEN');
   const PHONE_NUMBER_ID = Deno.env.get('WHATSAPP_PHONE_NUMBER_ID');
+  const cleanTo = cleanPhoneNumber(to);
+  
+  console.log('📤 Sending interactive:', {
+    original_to: to,
+    cleaned_to: cleanTo,
+    phone_number_id: PHONE_NUMBER_ID
+  });
 
-  const response = await fetch(`https://graph.facebook.com/v17.0/${PHONE_NUMBER_ID}/messages`, {
+  const response = await fetch(`https://graph.facebook.com/v18.0/${PHONE_NUMBER_ID}/messages`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${WHATSAPP_TOKEN}`,
@@ -59,7 +78,7 @@ async function sendInteractiveButtons(to: string, text: string, buttons: any[]) 
     },
     body: JSON.stringify({
       messaging_product: 'whatsapp',
-      to,
+      to: cleanTo,
       type: 'interactive',
       interactive: {
         type: 'button',
