@@ -1085,7 +1085,12 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
     // Organizar cada flow em um "sistema solar"
     const flowIds = Array.from(nodesByFlow.keys());
     const cols = Math.max(2, Math.ceil(Math.sqrt(flowIds.length)));
-    const flowSpacing = 1500; // Espaçamento entre flows
+    
+    // Calcular espaçamento dinâmico baseado no tamanho dos flows
+    const maxFlowSize = Math.max(...Array.from(nodesByFlow.values()).map(nodes => nodes.length));
+    const baseSpacing = 800; // Espaçamento base
+    const dynamicSpacing = Math.max(baseSpacing, maxFlowSize * 120); // Ajusta conforme número de nós
+    const flowSpacing = dynamicSpacing * 1.8; // Margem de segurança para evitar sobreposição
     
     const allLayoutedNodes: any[] = [];
     
@@ -1166,13 +1171,19 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
   // Funções auxiliares para zoom/pan automático
   const calculateBounds = (nodesList: any[]) => {
     if (nodesList.length === 0) return { minX: 0, maxX: 1000, minY: 0, maxY: 800 };
-    const xs = nodesList.map(n => n.x);
-    const ys = nodesList.map(n => n.y);
+    
+    // Usar master_x/master_y no Master View, x/y no Single View
+    const xs = nodesList.map(n => viewMode === 'master' ? (n.master_x ?? n.x) : n.x);
+    const ys = nodesList.map(n => viewMode === 'master' ? (n.master_y ?? n.y) : n.y);
+    
+    // Margem maior no Master View para acomodar os flows
+    const margin = viewMode === 'master' ? 400 : 150;
+    
     return {
-      minX: Math.min(...xs) - 150,
-      maxX: Math.max(...xs) + 150,
-      minY: Math.min(...ys) - 150,
-      maxY: Math.max(...ys) + 150
+      minX: Math.min(...xs) - margin,
+      maxX: Math.max(...xs) + margin,
+      minY: Math.min(...ys) - margin,
+      maxY: Math.max(...ys) + margin
     };
   };
 

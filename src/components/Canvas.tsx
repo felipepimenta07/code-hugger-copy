@@ -713,10 +713,10 @@ export const Canvas: React.FC<CanvasProps> = ({
                 opacity="0.25"
               />
               
-              {/* Label do flow */}
+              {/* Label do flow - posicionado acima do flow com margem maior */}
               <text
                 x={pos.x}
-                y={pos.y - dottedRadius - 30}
+                y={pos.y - dottedRadius - 80}
                 textAnchor="middle"
                 fill="#8b5cf6"
                 fontSize="18"
@@ -724,6 +724,18 @@ export const Canvas: React.FC<CanvasProps> = ({
                 letterSpacing="3"
               >
                 {flow.name.toUpperCase()}
+              </text>
+              
+              {/* Contador de nós */}
+              <text
+                x={pos.x}
+                y={pos.y - dottedRadius - 55}
+                textAnchor="middle"
+                fill="#8b5cf6"
+                fontSize="13"
+                opacity="0.7"
+              >
+                {clusterNodes.length} {clusterNodes.length === 1 ? 'nó' : 'nós'}
               </text>
             </g>
           );
