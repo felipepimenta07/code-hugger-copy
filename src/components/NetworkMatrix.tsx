@@ -18,6 +18,7 @@ import { ProjectManagerPanel } from './ProjectManagerPanel';
 import { AIInsightsPanel } from './AIInsightsPanel';
 import { FlowStarterModal } from './FlowStarterModal';
 import { PathIndicator } from './PathIndicator';
+import { FlowManagerPanel } from './FlowManagerPanel';
 
 import { ResetButton } from './ResetButton';
 import { DuplicateCheckDialog } from './DuplicateCheckDialog';
@@ -2000,6 +2001,24 @@ export const NetworkMatrix = () => {
               </Tooltip>
             </TooltipProvider>
             
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    onClick={() => setShowFlowsManager(true)}
+                    variant="outline" 
+                    size="icon" 
+                    className="rounded-lg hover:bg-primary/10"
+                  >
+                    <Layers size={18} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Gerenciar Flows</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            
             <div className="w-px h-8 bg-border mx-1"></div>
             
             <TooltipProvider>
@@ -2362,22 +2381,39 @@ export const NetworkMatrix = () => {
         )}
 
         {showFlowsManager && (
-          <ProjectManagerPanel
-            flows={flows}
-            projects={projects}
-            workflows={workflows}
-            people={people}
-            brands={brands}
-            connections={allConnections}
-            onClose={() => setShowFlowsManager(false)}
-            onFlowFocus={(centerId) => {
-              setActiveProjectId(centerId);
+          <FlowManagerPanel
+            open={showFlowsManager}
+            onOpenChange={setShowFlowsManager}
+            flows={flows.map(flow => {
+              const allNodes = [...projects, ...people, ...brands];
+              const centerNode = allNodes.find(n => 
+                n.id === flow.center_id && n.type === flow.center_type
+              );
+              
+              // Count nodes in this flow
+              const flowNodes = allNodes.filter(n => n.flow_id === flow.id);
+              const peopleCount = flowNodes.filter(n => n.type === 'person').length;
+              const projectsCount = flowNodes.filter(n => n.type === 'project').length;
+              const brandsCount = flowNodes.filter(n => n.type === 'brand').length;
+              
+              return {
+                ...flow,
+                centerName: centerNode?.name || 'Desconhecido',
+                stats: {
+                  people: peopleCount,
+                  projects: projectsCount,
+                  brands: brandsCount
+                }
+              };
+            })}
+            onSelectFlow={(flowId) => {
+              setActiveProjectId(flowId);
               setViewMode('single');
               setShowFlowsManager(false);
               
               // First timeout: let React recalculate nodes
               setTimeout(() => {
-                autoOrganizeSingle(centerId);
+                autoOrganizeSingle(flowId);
               }, 50);
               
               // Second timeout: center view after layout is done
@@ -2386,7 +2422,7 @@ export const NetworkMatrix = () => {
                 const height = window.innerHeight - 100;
                 
                 // Get the actual nodes after layout (recalculated by React)
-                const currentNodes = getNodesForSingleView(centerId);
+                const currentNodes = getNodesForSingleView(flowId);
                 
                 if (currentNodes.length > 0) {
                   const bounds = calculateBounds(currentNodes);
