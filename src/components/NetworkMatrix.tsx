@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Trash2, ZoomIn, ZoomOut, X, Building2, User, FolderKanban, Undo2, Redo2, LayoutGrid, Maximize2, Info, Layers, BarChart3, Route, Sparkles, Target, Save } from 'lucide-react';
+import { Plus, Trash2, ZoomIn, ZoomOut, X, Building2, User, FolderKanban, Undo2, Redo2, LayoutGrid, Maximize2, Info, Layers, BarChart3, Route, Sparkles, Target, Save, MessageCircle, LogOut } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -37,7 +37,12 @@ const CATEGORIES = {
   project: ['P', 'M', 'G']
 };
 
-export const NetworkMatrix = () => {
+interface NetworkMatrixProps {
+  onOpenWhatsApp?: () => void;
+  onLogout?: () => void;
+}
+
+export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps = {}) => {
   const { user } = useAuth();
   
   // Nova arquitetura: separar projetos, pessoas e marcas
@@ -1962,8 +1967,34 @@ export const NetworkMatrix = () => {
             </div>
           </div>
           
-          <div className="flex items-center gap-2">
-            <div className="flex gap-2">
+          <div className="flex items-center gap-3">
+            {/* Botões WhatsApp e Sair */}
+            {onOpenWhatsApp && (
+              <Button
+                onClick={onOpenWhatsApp}
+                variant="outline"
+                size="sm"
+                className="gap-2"
+              >
+                <MessageCircle className="h-4 w-4 text-green-600" />
+                <span className="hidden sm:inline">WhatsApp</span>
+              </Button>
+            )}
+            {onLogout && (
+              <Button
+                onClick={onLogout}
+                variant="outline"
+                size="sm"
+                className="gap-2"
+              >
+                <LogOut className="h-4 w-4" />
+                <span className="hidden sm:inline">Sair</span>
+              </Button>
+            )}
+            
+            <div className="h-8 w-px bg-border"></div>
+            
+            <div className="flex items-center gap-2">
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
