@@ -258,25 +258,79 @@ serve(async (req) => {
       // Auto-create flow and node immediately (no interactive needed)
       try {
         const cleanContactPhone = parsed.phone ? cleanPhoneNumber(parsed.phone) : null;
+        const flowName = parsed.company || `${parsed.name || 'Contato'} Network`;
 
-        // Find or create person
+        // Check if person already exists
         let personId: number | null = null;
+        let flowId: number | null = null;
+
         if (cleanContactPhone) {
           const { data: existingPerson } = await supabase
             .from('people')
-            .select('id')
+            .select('id, flow_id')
             .eq('user_id', connection.user_id)
             .or(`phone.eq.${cleanContactPhone},phone.eq.${parsed.phone}`)
             .maybeSingle();
-          if (existingPerson) personId = existingPerson.id;
+          
+          if (existingPerson) {
+            console.log('Step: Found existing person', existingPerson.id);
+            personId = existingPerson.id;
+            flowId = existingPerson.flow_id;
+          }
         }
 
-        if (!personId) {
+        if (personId && flowId) {
+          // Person exists with a flow - create new flow pointing to them
+          console.log('Step: Person exists, creating new flow');
+          const { data: newFlow, error: flowError } = await supabase
+            .from('flows')
+            .insert({
+              user_id: connection.user_id,
+              name: flowName,
+              center_type: 'person',
+              center_id: personId
+            })
+            .select()
+            .maybeSingle();
+          
+          if (flowError) {
+            console.error('Step: Flow creation failed', flowError);
+            throw flowError;
+          }
+          console.log('Step: New flow created', newFlow?.id);
+          flowId = newFlow!.id;
+
+          // Update person to new flow
+          await supabase.from('people').update({ flow_id: flowId }).eq('id', personId);
+          console.log('Step: Person updated to new flow');
+        } else {
+          // Person doesn't exist - create flow first, then person, then update flow center
+          console.log('Step: Creating new flow with temporary center');
+          const { data: newFlow, error: flowError } = await supabase
+            .from('flows')
+            .insert({
+              user_id: connection.user_id,
+              name: flowName,
+              center_type: 'person',
+              center_id: 0 // temporary, will update after person creation
+            })
+            .select()
+            .maybeSingle();
+          
+          if (flowError) {
+            console.error('Step: Flow creation failed', flowError);
+            throw flowError;
+          }
+          console.log('Step: Flow created with id', newFlow?.id);
+          flowId = newFlow!.id;
+
+          // Now create person with correct flow_id
+          console.log('Step: Creating person with flow_id', flowId);
           const { data: newPerson, error: personError } = await supabase
             .from('people')
             .insert({
               user_id: connection.user_id,
-              flow_id: 0, // temporary
+              flow_id: flowId,
               name: parsed.name || 'Contato',
               email: parsed.email || null,
               phone: parsed.phone || null,
@@ -289,42 +343,65 @@ serve(async (req) => {
             })
             .select()
             .maybeSingle();
-          if (personError) throw personError;
+          
+          if (personError) {
+            console.error('Step: Person creation failed', personError);
+            throw personError;
+          }
+          console.log('Step: Person created with id', newPerson?.id);
           personId = newPerson!.id;
+
+          // Update flow to point to the person as center
+          console.log('Step: Updating flow center to person', personId);
+          const { error: updateError } = await supabase
+            .from('flows')
+            .update({ center_id: personId })
+            .eq('id', flowId);
+          
+          if (updateError) {
+            console.error('Step: Flow center update failed', updateError);
+            throw updateError;
+          }
+          console.log('Step: Flow center updated successfully');
         }
 
-        const flowName = parsed.company || `${parsed.name || 'Contato'} Network`;
-        const { data: newFlow, error: flowError } = await supabase
-          .from('flows')
-          .insert({
-            user_id: connection.user_id,
-            name: flowName,
-            center_type: 'person',
-            center_id: personId
-          })
-          .select()
-          .maybeSingle();
-        if (flowError) throw flowError;
-
-        await supabase.from('people').update({ flow_id: newFlow!.id }).eq('id', personId);
-
+        // Create notification
         await supabase.from('whatsapp_notifications').insert({
           user_id: connection.user_id,
           type: 'flow_created',
           title: 'Flow criado via WhatsApp',
           message: `Flow "${flowName}" criado com ${parsed.name}`,
-          data: { flow_id: newFlow!.id, flow_name: flowName, node_id: personId }
+          data: { flow_id: flowId, flow_name: flowName, node_id: personId }
         });
+        console.log('Step: Notification created');
 
         // Try to notify on WhatsApp (may fail due to country restriction)
-        await sendWhatsAppMessage(from,
-          `✅ *Flow criado com sucesso!*\n\n` +
-          `🌀 ${flowName}\n` +
-          `👤 Centro: ${parsed.name}\n\n` +
-          `Acesse o Network Matrix para visualizar.`
-        );
+        try {
+          await sendWhatsAppMessage(from,
+            `✅ *Flow criado com sucesso!*\n\n` +
+            `🌀 ${flowName}\n` +
+            `👤 Centro: ${parsed.name}\n\n` +
+            `Acesse o Network Matrix para visualizar.`
+          );
+          console.log('Step: WhatsApp message sent successfully');
+        } catch (whatsappError) {
+          console.error('Step: WhatsApp message failed (non-critical):', whatsappError);
+        }
       } catch (err) {
         console.error('Auto-create flow error:', err);
+        
+        // Create error notification
+        try {
+          await supabase.from('whatsapp_notifications').insert({
+            user_id: connection.user_id,
+            type: 'flow_create_error',
+            title: 'Erro ao criar flow via WhatsApp',
+            message: `Falha ao processar contato ${parsed.name}`,
+            data: { error: String(err), contact: parsed }
+          });
+        } catch (notifError) {
+          console.error('Failed to create error notification:', notifError);
+        }
       }
 
       return new Response('OK', { status: 200 });
