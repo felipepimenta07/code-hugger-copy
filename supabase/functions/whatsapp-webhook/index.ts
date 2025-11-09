@@ -255,27 +255,77 @@ serve(async (req) => {
       console.log('Contact received:', JSON.stringify(contactData, null, 2));
       console.log('Parsed contact:', parsed);
 
-      await supabase.from('whatsapp_sessions').insert({
-        user_id: connection.user_id,
-        phone_number: from,
-        state: 'awaiting_choice',
-        pending_contact: parsed
-      });
+      // Auto-create flow and node immediately (no interactive needed)
+      try {
+        const cleanContactPhone = parsed.phone ? cleanPhoneNumber(parsed.phone) : null;
 
-      await sendInteractiveButtons(from,
-        `📋 *Contato recebido:*\n\n` +
-        `👤 ${parsed.name}\n` +
-        (parsed.company ? `🏢 ${parsed.company}\n` : '') +
-        (parsed.role ? `💼 ${parsed.role}\n` : '') +
-        (parsed.phone ? `📞 ${parsed.phone}\n` : '') +
-        (parsed.email ? `📧 ${parsed.email}\n` : '') +
-        `\nO que deseja fazer?`,
-        [
-          { type: 'reply', reply: { id: 'create_node', title: '➕ Criar nó' } },
-          { type: 'reply', reply: { id: 'create_flow', title: '🌀 Criar flow' } },
-          { type: 'reply', reply: { id: 'cancel', title: '❌ Cancelar' } }
-        ]
-      );
+        // Find or create person
+        let personId: number | null = null;
+        if (cleanContactPhone) {
+          const { data: existingPerson } = await supabase
+            .from('people')
+            .select('id')
+            .eq('user_id', connection.user_id)
+            .or(`phone.eq.${cleanContactPhone},phone.eq.${parsed.phone}`)
+            .maybeSingle();
+          if (existingPerson) personId = existingPerson.id;
+        }
+
+        if (!personId) {
+          const { data: newPerson, error: personError } = await supabase
+            .from('people')
+            .insert({
+              user_id: connection.user_id,
+              flow_id: 0, // temporary
+              name: parsed.name || 'Contato',
+              email: parsed.email || null,
+              phone: parsed.phone || null,
+              company: parsed.company || null,
+              category: parsed.role || 'Profissional',
+              x: 0,
+              y: 0,
+              master_x: 0,
+              master_y: 0
+            })
+            .select()
+            .maybeSingle();
+          if (personError) throw personError;
+          personId = newPerson!.id;
+        }
+
+        const flowName = parsed.company || `${parsed.name || 'Contato'} Network`;
+        const { data: newFlow, error: flowError } = await supabase
+          .from('flows')
+          .insert({
+            user_id: connection.user_id,
+            name: flowName,
+            center_type: 'person',
+            center_id: personId
+          })
+          .select()
+          .maybeSingle();
+        if (flowError) throw flowError;
+
+        await supabase.from('people').update({ flow_id: newFlow!.id }).eq('id', personId);
+
+        await supabase.from('whatsapp_notifications').insert({
+          user_id: connection.user_id,
+          type: 'flow_created',
+          title: 'Flow criado via WhatsApp',
+          message: `Flow "${flowName}" criado com ${parsed.name}`,
+          data: { flow_id: newFlow!.id, flow_name: flowName, node_id: personId }
+        });
+
+        // Try to notify on WhatsApp (may fail due to country restriction)
+        await sendWhatsAppMessage(from,
+          `✅ *Flow criado com sucesso!*\n\n` +
+          `🌀 ${flowName}\n` +
+          `👤 Centro: ${parsed.name}\n\n` +
+          `Acesse o Network Matrix para visualizar.`
+        );
+      } catch (err) {
+        console.error('Auto-create flow error:', err);
+      }
 
       return new Response('OK', { status: 200 });
     }
