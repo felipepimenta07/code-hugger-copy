@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -15,6 +15,7 @@ export default function WhatsAppIntegration() {
   const [phoneNumber, setPhoneNumber] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [checkingConnection, setCheckingConnection] = useState(true);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const setupConnection = async () => {
@@ -35,11 +36,20 @@ export default function WhatsAppIntegration() {
             filter: `user_id=eq.${user.id}`
           },
           (payload) => {
-            console.log('Connection status changed:', payload);
+            console.log('[Realtime] Connection event received:', payload.eventType, payload);
             const newRecord = payload.new as any;
             if (newRecord?.is_active) {
+              console.log('[Realtime] Connection activated:', newRecord.phone_number);
               setIsConnected(true);
               setPhoneNumber(newRecord.phone_number);
+              
+              // Stop polling if active
+              if (pollingIntervalRef.current) {
+                clearInterval(pollingIntervalRef.current);
+                pollingIntervalRef.current = null;
+                console.log('[Polling] Stopped after realtime event');
+              }
+              
               toast.success('WhatsApp conectado!', {
                 description: `Número ${newRecord.phone_number} ativo`
               });
@@ -59,7 +69,7 @@ export default function WhatsAppIntegration() {
   const checkConnection = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) return false;
 
       const { data } = await supabase
         .from('whatsapp_connections')
@@ -71,12 +81,36 @@ export default function WhatsAppIntegration() {
       if (data) {
         setIsConnected(true);
         setPhoneNumber(data.phone_number);
+        return true;
       }
+      return false;
     } catch (error) {
       console.error('Error checking connection:', error);
+      return false;
     } finally {
       setCheckingConnection(false);
     }
+  };
+
+  const startPolling = () => {
+    console.log('[Polling] Starting fallback polling (3s interval, 2min max)');
+    let attempts = 0;
+    const maxAttempts = 40; // 40 * 3s = 2 minutes
+
+    pollingIntervalRef.current = setInterval(async () => {
+      attempts++;
+      console.log(`[Polling] Attempt ${attempts}/${maxAttempts}`);
+      
+      const connected = await checkConnection();
+      
+      if (connected || attempts >= maxAttempts) {
+        if (pollingIntervalRef.current) {
+          clearInterval(pollingIntervalRef.current);
+          pollingIntervalRef.current = null;
+          console.log(`[Polling] Stopped - ${connected ? 'Connected!' : 'Max attempts reached'}`);
+        }
+      }
+    }, 3000);
   };
 
   const generateCode = async () => {
@@ -89,6 +123,9 @@ export default function WhatsAppIntegration() {
       if (error) throw error;
       setActivationCode(data.code);
       toast.success('Código gerado com sucesso!');
+      
+      // Start polling as fallback
+      startPolling();
     } catch (error) {
       toast.error('Erro ao gerar código');
       console.error(error);
@@ -107,6 +144,9 @@ export default function WhatsAppIntegration() {
       if (error) throw error;
       setQrCodeUrl(data.qrUrl);
       toast.success('QR Code gerado!');
+      
+      // Start polling as fallback
+      startPolling();
     } catch (error) {
       toast.error('Erro ao gerar QR Code');
       console.error(error);
@@ -150,8 +190,14 @@ export default function WhatsAppIntegration() {
           description: 'Verifique seu WhatsApp'
         });
       } else {
+        const errorMsg = data.error?.message || 'Erro desconhecido';
+        const isCountryRestriction = errorMsg.includes('country') || errorMsg.includes('restricted');
+        
         toast.error('Falha no envio', {
-          description: data.error?.message || 'Erro desconhecido'
+          description: isCountryRestriction 
+            ? 'Restrição de país - mas sua conexão está ativa!' 
+            : errorMsg,
+          duration: 5000
         });
       }
     } catch (error: any) {
