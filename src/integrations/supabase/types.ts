@@ -439,6 +439,105 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_connections: {
+        Row: {
+          activation_code: string | null
+          connected_at: string | null
+          created_at: string | null
+          expires_at: string | null
+          id: string
+          is_active: boolean | null
+          phone_number: string | null
+          qr_code_token: string | null
+          user_id: string
+        }
+        Insert: {
+          activation_code?: string | null
+          connected_at?: string | null
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          phone_number?: string | null
+          qr_code_token?: string | null
+          user_id: string
+        }
+        Update: {
+          activation_code?: string | null
+          connected_at?: string | null
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          phone_number?: string | null
+          qr_code_token?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      whatsapp_notifications: {
+        Row: {
+          created_at: string | null
+          data: Json | null
+          id: string
+          is_read: boolean | null
+          message: string
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          data?: Json | null
+          id?: string
+          is_read?: boolean | null
+          message: string
+          title: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          data?: Json | null
+          id?: string
+          is_read?: boolean | null
+          message?: string
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      whatsapp_sessions: {
+        Row: {
+          created_at: string | null
+          expires_at: string | null
+          id: string
+          pending_contact: Json | null
+          phone_number: string
+          state: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          pending_contact?: Json | null
+          phone_number: string
+          state: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          pending_contact?: Json | null
+          phone_number?: string
+          state?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       workflows: {
         Row: {
           color: string | null

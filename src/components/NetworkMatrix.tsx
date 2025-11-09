@@ -21,6 +21,7 @@ import { PathIndicator } from './PathIndicator';
 
 import { ResetButton } from './ResetButton';
 import { DuplicateCheckDialog } from './DuplicateCheckDialog';
+import { WhatsAppNotifications } from './WhatsAppNotifications';
 import { useNetworkState } from '@/hooks/useNetworkState';
 import { useNetworkHistory } from '@/hooks/useNetworkHistory';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
@@ -2428,6 +2429,8 @@ export const NetworkMatrix = () => {
         )}
 
         {user && <ResetButton onResetComplete={reloadData} userId={user.id} />}
+        
+        <WhatsAppNotifications />
       </div>
     </div>
   );
