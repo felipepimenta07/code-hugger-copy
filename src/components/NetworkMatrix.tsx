@@ -93,7 +93,7 @@ export const NetworkMatrix = () => {
   const svgRef = useRef(null);
 
   // Função para recarregar dados após reset
-  const reloadData = async () => {
+  const reloadData = async (options?: { forceReset?: boolean }) => {
     if (!user) return;
     
     setIsLoadingData(true);
@@ -144,11 +144,16 @@ export const NetworkMatrix = () => {
         setFlows([]);
       }
       
-      // Resetar view
-      setActiveProjectId(null);
-      setViewMode('master');
-      setSelectedNodes([]);
-      setSelectedConnection(null);
+      // Apenas resetar view se for um reset explícito (ex: botão Reset)
+      // Preservar Single View durante updates normais (drag, edições, etc)
+      const shouldResetView = options?.forceReset === true;
+      
+      if (shouldResetView) {
+        setActiveProjectId(null);
+        setViewMode('master');
+        setSelectedNodes([]);
+        setSelectedConnection(null);
+      }
       
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
