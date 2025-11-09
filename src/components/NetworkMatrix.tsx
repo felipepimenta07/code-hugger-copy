@@ -2509,30 +2509,29 @@ export const NetworkMatrix = () => {
               };
             })}
             onSelectFlow={(flowId) => {
-              setActiveProjectId(flowId);
-              setViewMode('single');
-              setShowFlowsManager(false);
-              
-              // First timeout: let React recalculate nodes
-              setTimeout(() => {
-                autoOrganizeSingle(flowId);
-              }, 50);
-              
-              // Second timeout: center view after layout is done
-              setTimeout(() => {
-                const width = window.innerWidth;
-                const height = window.innerHeight - 100;
+              const selectedFlow = flows.find(f => f.id === flowId);
+              if (selectedFlow) {
+                setActiveProjectId(selectedFlow.center_id);
+                setViewMode('single');
+                setShowFlowsManager(false);
                 
-                // Get the actual nodes after layout (recalculated by React)
-                const currentNodes = getNodesForSingleView(flowId);
+                setTimeout(() => {
+                  autoOrganizeSingle(selectedFlow.center_id);
+                }, 50);
                 
-                if (currentNodes.length > 0) {
-                  const bounds = calculateBounds(currentNodes);
-                  const zoom = calculateOptimalZoom(bounds, width, height);
-                  const pan = calculateCenterPan(bounds, zoom, width, height);
-                  updateState({ zoom, pan });
-                }
-              }, 300);
+                setTimeout(() => {
+                  const width = window.innerWidth;
+                  const height = window.innerHeight - 100;
+                  const currentNodes = getNodesForSingleView(selectedFlow.center_id);
+                  
+                  if (currentNodes.length > 0) {
+                    const bounds = calculateBounds(currentNodes);
+                    const zoom = calculateOptimalZoom(bounds, width, height);
+                    const pan = calculateCenterPan(bounds, zoom, width, height);
+                    updateState({ zoom, pan });
+                  }
+                }, 300);
+              }
             }}
           />
         )}

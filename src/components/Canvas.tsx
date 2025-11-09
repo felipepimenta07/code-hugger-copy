@@ -238,11 +238,14 @@ export const Canvas: React.FC<CanvasProps> = ({
       );
       
       if (centerFlow) {
-        // É um nó central → ir para Single View deste flow
-        onGoToProject(centerFlow.id);
+        // É um nó central → ir para Single View usando o center_id
+        onGoToProject(centerFlow.center_id);
       } else if (node.flow_id) {
-        // Não é centro, mas pertence a um flow → ir para aquele flow
-        onGoToProject(node.flow_id);
+        // Não é centro, mas pertence a um flow → encontrar o center desse flow
+        const belongsToFlow = flows.find(f => f.id === node.flow_id);
+        if (belongsToFlow) {
+          onGoToProject(belongsToFlow.center_id);
+        }
       }
     }
   };
