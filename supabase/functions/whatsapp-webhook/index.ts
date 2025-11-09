@@ -11,17 +11,35 @@ function cleanPhoneNumber(phone: string): string {
   return phone.replace(/[^\d]/g, '');
 }
 
-function parseVCard(vcard: string) {
-  const lines = vcard.split('\n');
+function parseContact(contactData: any) {
   const contact: any = { name: '', phone: '' };
   
-  lines.forEach(line => {
-    if (line.startsWith('FN:')) contact.name = line.replace('FN:', '').trim();
-    if (line.startsWith('TEL')) contact.phone = line.split(':')[1]?.trim();
-    if (line.startsWith('EMAIL:')) contact.email = line.replace('EMAIL:', '').trim();
-    if (line.startsWith('ORG:')) contact.company = line.replace('ORG:', '').trim();
-    if (line.startsWith('TITLE:')) contact.role = line.replace('TITLE:', '').trim();
-  });
+  // Extract name
+  if (contactData.name) {
+    contact.name = contactData.name.formatted_name || 
+                   contactData.name.first_name || 
+                   '';
+  }
+  
+  // Extract phone
+  if (contactData.phones && contactData.phones.length > 0) {
+    contact.phone = contactData.phones[0].phone || '';
+  }
+  
+  // Extract email
+  if (contactData.emails && contactData.emails.length > 0) {
+    contact.email = contactData.emails[0].email || '';
+  }
+  
+  // Extract company
+  if (contactData.org && contactData.org.company) {
+    contact.company = contactData.org.company;
+  }
+  
+  // Extract role
+  if (contactData.org && contactData.org.title) {
+    contact.role = contactData.org.title;
+  }
   
   return contact;
 }
@@ -232,10 +250,10 @@ serve(async (req) => {
 
     if (messageType === 'contacts') {
       const contactData = message.contacts[0];
-      const vcard = contactData.vcard;
-      const parsed = parseVCard(vcard);
+      const parsed = parseContact(contactData);
 
-      console.log('Contact received:', parsed);
+      console.log('Contact received:', JSON.stringify(contactData, null, 2));
+      console.log('Parsed contact:', parsed);
 
       await supabase.from('whatsapp_sessions').insert({
         user_id: connection.user_id,
