@@ -1245,20 +1245,34 @@ export const NetworkMatrix = () => {
 
   // Guarda contra reset do flow quando o centro perde conexões
   useEffect(() => {
-    if (viewMode === 'single' && activeProjectId) {
-      // Verificar se o nó central ainda existe nas coleções (projects, people ou brands)
-      const centerExists = 
-        projects.some(p => p.id === activeProjectId) ||
-        people.some(p => p.id === activeProjectId) ||
-        brands.some(b => b.id === activeProjectId);
-      
-      // Só sair do flow se o centro foi realmente DELETADO (não existe mais)
-      if (!centerExists) {
-        setActiveProjectId(null);
-        setViewMode('master');
-      }
+    if (viewMode !== 'single' || !activeProjectId) return;
+    // Evita sair durante carregamento de dados (realtime/refresh)
+    if (isLoadingData) return;
+
+    // Verificar se o nó central ainda existe nas coleções (projects, people ou brands)
+    const centerExists = 
+      projects.some(p => p.id === activeProjectId) ||
+      people.some(p => p.id === activeProjectId) ||
+      brands.some(b => b.id === activeProjectId);
+    
+    // Só sair do flow se o centro foi realmente DELETADO (não existe mais)
+    if (!centerExists) {
+      setActiveProjectId(null);
+      setViewMode('master');
     }
-  }, [viewMode, activeProjectId, projects, people, brands]);
+  }, [viewMode, activeProjectId, projects, people, brands, isLoadingData]);
+
+  // Centralizar Master View após carregamento/entrada
+  useEffect(() => {
+    if (viewMode === 'master' && !isLoadingData) {
+      const rect = svgRef.current?.getBoundingClientRect();
+      const width = rect?.width ?? window.innerWidth;
+      const height = rect?.height ?? window.innerHeight - 100;
+      const zoom = 0.5;
+      const pan = { x: width / 2, y: height / 2 };
+      updateState({ zoom, pan });
+    }
+  }, [viewMode, isLoadingData]);
 
   // 🧩 Protege o nó central de sumir após deletar conexões
   useEffect(() => {
