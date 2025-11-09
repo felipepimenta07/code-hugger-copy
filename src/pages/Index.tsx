@@ -19,7 +19,7 @@ const Index = () => {
 
   return (
     <div className="relative h-screen w-screen">
-      <div className="absolute top-4 right-4 z-50 flex gap-2">
+      <div className="absolute top-4 right-4 z-30 flex gap-2 pointer-events-auto">
         <Button
           onClick={() => setShowWhatsAppDialog(true)}
           variant="outline"

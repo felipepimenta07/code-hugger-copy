@@ -92,6 +92,8 @@ export const NetworkMatrix = () => {
   const { state, updateState } = useNetworkState();
   const svgRef = useRef(null);
   const isDraggingRef = useRef(false);
+  // Ignora updates de realtime originados por este cliente por alguns ms
+  const recentUpdatesRef = useRef<Set<string>>(new Set());
 
   // Função para recarregar dados após reset
   const reloadData = async (options?: { forceReset?: boolean }) => {
@@ -305,29 +307,37 @@ export const NetworkMatrix = () => {
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'flows', filter: `user_id=eq.${user.id}` },
-        () => {
-          if (!isDraggingRef.current) reloadData();
+        (payload) => {
+          const key = `flows:${payload.new.id}`;
+          if (recentUpdatesRef.current.has(key) || isDraggingRef.current) return;
+          reloadData();
         }
       )
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'people', filter: `user_id=eq.${user.id}` },
-        () => {
-          if (!isDraggingRef.current) reloadData();
+        (payload) => {
+          const key = `people:${payload.new.id}`;
+          if (recentUpdatesRef.current.has(key) || isDraggingRef.current) return;
+          reloadData();
         }
       )
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'projects', filter: `user_id=eq.${user.id}` },
-        () => {
-          if (!isDraggingRef.current) reloadData();
+        (payload) => {
+          const key = `projects:${payload.new.id}`;
+          if (recentUpdatesRef.current.has(key) || isDraggingRef.current) return;
+          reloadData();
         }
       )
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'brands', filter: `user_id=eq.${user.id}` },
-        () => {
-          if (!isDraggingRef.current) reloadData();
+        (payload) => {
+          const key = `brands:${payload.new.id}`;
+          if (recentUpdatesRef.current.has(key) || isDraggingRef.current) return;
+          reloadData();
         }
       )
       .on(
@@ -855,6 +865,11 @@ export const NetworkMatrix = () => {
         
         if (error) {
           console.error('Erro ao salvar posição do nó:', error);
+        } else {
+          // Marcar este update como "próprio" por alguns ms para evitar reloadData de realtime
+          const key = `${tableName}:${nodeId}`;
+          recentUpdatesRef.current.add(key);
+          setTimeout(() => recentUpdatesRef.current.delete(key), 1200);
         }
       } catch (err) {
         console.error('Erro ao persistir posição:', err);
