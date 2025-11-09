@@ -7,7 +7,6 @@ import { useAuth } from "@/hooks/useAuth";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
-import WhatsAppIntegration from "./pages/WhatsAppIntegration";
 
 const queryClient = new QueryClient();
 
@@ -43,11 +42,6 @@ const App = () => (
           <Route path="/" element={
             <ProtectedRoute>
               <Index />
-            </ProtectedRoute>
-          } />
-          <Route path="/whatsapp" element={
-            <ProtectedRoute>
-              <WhatsAppIntegration />
             </ProtectedRoute>
           } />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

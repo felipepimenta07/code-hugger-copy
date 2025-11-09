@@ -1,13 +1,14 @@
+import { useState } from 'react';
 import { NetworkMatrix } from '@/components/NetworkMatrix';
+import { WhatsAppDialog } from '@/components/WhatsAppDialog';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { LogOut, MessageCircle } from 'lucide-react';
 import { toast } from 'sonner';
-import { useNavigate } from 'react-router-dom';
 
 const Index = () => {
   const { signOut } = useAuth();
-  const navigate = useNavigate();
+  const [showWhatsAppDialog, setShowWhatsAppDialog] = useState(false);
 
   const handleLogout = async () => {
     const { error } = await signOut();
@@ -20,7 +21,7 @@ const Index = () => {
     <div className="relative h-screen w-screen">
       <div className="absolute top-4 right-4 z-50 flex gap-2">
         <Button
-          onClick={() => navigate('/whatsapp')}
+          onClick={() => setShowWhatsAppDialog(true)}
           variant="outline"
           size="sm"
         >
@@ -37,6 +38,10 @@ const Index = () => {
         </Button>
       </div>
       <NetworkMatrix />
+      <WhatsAppDialog 
+        open={showWhatsAppDialog} 
+        onOpenChange={setShowWhatsAppDialog}
+      />
     </div>
   );
 };
