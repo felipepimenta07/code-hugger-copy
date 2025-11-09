@@ -27,8 +27,8 @@ function parseVCard(vcard: string) {
 }
 
 async function sendWhatsAppMessage(to: string, text: string) {
-  const WHATSAPP_TOKEN = Deno.env.get('WHATSAPP_ACCESS_TOKEN');
-  const PHONE_NUMBER_ID = Deno.env.get('WHATSAPP_PHONE_NUMBER_ID');
+  const WHATSAPP_TOKEN = (Deno.env.get('WHATSAPP_ACCESS_TOKEN') || '').trim();
+  const PHONE_NUMBER_ID = (Deno.env.get('WHATSAPP_PHONE_NUMBER_ID') || '').trim();
   const cleanTo = cleanPhoneNumber(to);
   
   console.log('📤 Sending message:', {
@@ -60,8 +60,8 @@ async function sendWhatsAppMessage(to: string, text: string) {
 }
 
 async function sendInteractiveButtons(to: string, text: string, buttons: any[]) {
-  const WHATSAPP_TOKEN = Deno.env.get('WHATSAPP_ACCESS_TOKEN');
-  const PHONE_NUMBER_ID = Deno.env.get('WHATSAPP_PHONE_NUMBER_ID');
+  const WHATSAPP_TOKEN = (Deno.env.get('WHATSAPP_ACCESS_TOKEN') || '').trim();
+  const PHONE_NUMBER_ID = (Deno.env.get('WHATSAPP_PHONE_NUMBER_ID') || '').trim();
   const cleanTo = cleanPhoneNumber(to);
   
   console.log('📤 Sending interactive:', {
