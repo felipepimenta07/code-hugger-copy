@@ -244,6 +244,108 @@ export const NetworkMatrix = () => {
     loadData();
   }, [user]);
 
+  // Realtime: escutar mudanças no banco de dados
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel('network-changes')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'flows', filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          console.log('Novo flow detectado:', payload.new);
+          toast.success('Novo flow criado!');
+          reloadData();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'people', filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          console.log('Nova pessoa detectada:', payload.new);
+          reloadData();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'projects', filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          console.log('Novo projeto detectado:', payload.new);
+          reloadData();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'brands', filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          console.log('Nova marca detectada:', payload.new);
+          reloadData();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'connections', filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          console.log('Nova conexão detectada:', payload.new);
+          reloadData();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'flows', filter: `user_id=eq.${user.id}` },
+        () => reloadData()
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'people', filter: `user_id=eq.${user.id}` },
+        () => reloadData()
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'projects', filter: `user_id=eq.${user.id}` },
+        () => reloadData()
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'brands', filter: `user_id=eq.${user.id}` },
+        () => reloadData()
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'flows', filter: `user_id=eq.${user.id}` },
+        () => {
+          toast.info('Flow removido');
+          reloadData();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'people', filter: `user_id=eq.${user.id}` },
+        () => reloadData()
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'projects', filter: `user_id=eq.${user.id}` },
+        () => reloadData()
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'brands', filter: `user_id=eq.${user.id}` },
+        () => reloadData()
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'connections', filter: `user_id=eq.${user.id}` },
+        () => reloadData()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
+
   // Garantir que selecionar uma conexão limpa a seleção de nós
   useEffect(() => {
     if (selectedConnection !== null) {
