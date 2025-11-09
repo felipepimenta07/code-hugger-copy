@@ -187,6 +187,25 @@ serve(async (req) => {
 
           return new Response('OK', { status: 200 });
         } else {
+          console.log('Invalid or expired activation code:', { code: codeRaw, from });
+          
+          // Try to find user by phone to send notification
+          const { data: existingConnection } = await supabase
+            .from('whatsapp_connections')
+            .select('user_id')
+            .eq('phone_number', from)
+            .maybeSingle();
+
+          if (existingConnection) {
+            await supabase.from('whatsapp_notifications').insert({
+              user_id: existingConnection.user_id,
+              type: 'activation_failed',
+              title: 'Código inválido',
+              message: 'O código enviado está inválido ou expirou. Gere um novo código.',
+              data: { code: codeRaw, phone: from }
+            });
+          }
+
           await sendWhatsAppMessage(from, 
             '❌ Código inválido ou expirado.\n\n' +
             'Acesse a plataforma e gere um novo código.'

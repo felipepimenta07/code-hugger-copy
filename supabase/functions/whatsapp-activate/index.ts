@@ -30,13 +30,20 @@ serve(async (req) => {
     if (method === 'code') {
       const code = Math.random().toString(36).substring(2, 8).toUpperCase();
       
-      await supabase.from('whatsapp_connections').upsert({
+      const { data, error } = await supabase.from('whatsapp_connections').upsert({
         user_id: user.id,
         activation_code: code,
         expires_at: new Date(Date.now() + 5 * 60 * 1000).toISOString()
       }, {
         onConflict: 'user_id'
       });
+
+      if (error) {
+        console.error('Failed to save activation code:', error);
+        throw new Error('Failed to generate activation code');
+      }
+
+      console.log('Activation code generated successfully:', { code, user_id: user.id });
 
       return new Response(JSON.stringify({ code }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -46,13 +53,20 @@ serve(async (req) => {
     if (method === 'qrcode') {
       const token = crypto.randomUUID();
       
-      await supabase.from('whatsapp_connections').upsert({
+      const { data, error } = await supabase.from('whatsapp_connections').upsert({
         user_id: user.id,
         qr_code_token: token,
         expires_at: new Date(Date.now() + 5 * 60 * 1000).toISOString()
       }, {
         onConflict: 'user_id'
       });
+
+      if (error) {
+        console.error('Failed to save QR token:', error);
+        throw new Error('Failed to generate QR code');
+      }
+
+      console.log('QR token generated successfully:', { token, user_id: user.id });
 
       const qrUrl = `https://wa.me/${Deno.env.get('WHATSAPP_NUMBER')}?text=CONECTAR%20${token}`;
 
