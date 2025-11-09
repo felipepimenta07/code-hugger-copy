@@ -307,18 +307,13 @@ serve(async (req) => {
       }
 
       if (buttonId === 'create_node') {
-        const { data: flows } = await supabase
-          .from('flows')
-          .select('id')
-          .eq('user_id', connection.user_id)
-          .limit(1)
-          .maybeSingle();
-
-        const flowId = flows?.id || 1;
-
-        const { data: newNode, error } = await supabase.from('people').insert({
+        // Always create a new flow for contacts received via WhatsApp
+        const flowName = contact.company || `${contact.name} Network`;
+        
+        // First create the person node
+        const { data: newPerson, error: personError } = await supabase.from('people').insert({
           user_id: connection.user_id,
-          flow_id: flowId,
+          flow_id: 0, // Temporary, will update after flow creation
           name: contact.name,
           email: contact.email,
           phone: contact.phone,
@@ -330,23 +325,43 @@ serve(async (req) => {
           master_y: 0
         }).select().maybeSingle();
 
-        if (error) {
-          console.error('Error creating node:', error);
+        if (personError) {
+          console.error('Error creating person:', personError);
           await sendWhatsAppMessage(from, '❌ Erro ao criar nó. Tente novamente.');
           return new Response('OK', { status: 200 });
         }
 
+        // Create the flow with this person as center
+        const { data: newFlow, error: flowError } = await supabase.from('flows').insert({
+          user_id: connection.user_id,
+          name: flowName,
+          center_type: 'person',
+          center_id: newPerson.id
+        }).select().maybeSingle();
+
+        if (flowError) {
+          console.error('Error creating flow:', flowError);
+          await sendWhatsAppMessage(from, '❌ Erro ao criar flow. Tente novamente.');
+          return new Response('OK', { status: 200 });
+        }
+
+        // Update person with the correct flow_id
+        await supabase.from('people').update({
+          flow_id: newFlow.id
+        }).eq('id', newPerson.id);
+
         await supabase.from('whatsapp_notifications').insert({
           user_id: connection.user_id,
-          type: 'node_created',
-          title: 'Nó criado via WhatsApp',
-          message: `${contact.name} foi adicionado!`,
-          data: { node_id: newNode.id, node_name: contact.name }
+          type: 'flow_created',
+          title: 'Flow criado via WhatsApp',
+          message: `Flow "${flowName}" criado com ${contact.name}`,
+          data: { flow_id: newFlow.id, flow_name: flowName, node_id: newPerson.id }
         });
 
         await sendWhatsAppMessage(from, 
-          `✅ *Nó criado com sucesso!*\n\n` +
-          `👤 ${contact.name}\n` +
+          `✅ *Flow criado com sucesso!*\n\n` +
+          `🌀 ${flowName}\n` +
+          `👤 Centro: ${contact.name}\n\n` +
           `Acesse o Network Matrix para visualizar.`
         );
 
