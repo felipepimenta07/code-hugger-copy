@@ -68,8 +68,62 @@ All colors MUST be HSL.
   }
 }
 
-/* Glass Button Styles */
+/* Glassmorphism Sidebar & Components */
 @layer components {
+  .glass-effect {
+    background: rgba(17, 25, 40, 0.75);
+    backdrop-filter: blur(16px) saturate(180%);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.125);
+  }
+  
+  .glass-nav-link {
+    transition: all 0.3s ease;
+  }
+  
+  .glass-nav-link:hover {
+    background: rgba(255, 255, 255, 0.05);
+  }
+  
+  .glass-nav-link.active {
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.3), rgba(168, 85, 247, 0.3));
+    border-left: 3px solid rgba(99, 102, 241, 0.8);
+  }
+  
+  /* Animated Background Shapes */
+  .shape-1, .shape-2 {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(100px);
+    opacity: 0.4;
+    animation: float 20s infinite ease-in-out;
+    pointer-events: none;
+  }
+  
+  .shape-1 {
+    width: 500px;
+    height: 500px;
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.4), rgba(168, 85, 247, 0.4));
+    top: -200px;
+    left: -100px;
+  }
+  
+  .shape-2 {
+    width: 400px;
+    height: 400px;
+    background: linear-gradient(135deg, rgba(236, 72, 153, 0.4), rgba(239, 68, 68, 0.4));
+    bottom: -150px;
+    right: -100px;
+    animation-delay: -10s;
+  }
+  
+  @keyframes float {
+    0%, 100% { transform: translate(0, 0) rotate(0deg); }
+    33% { transform: translate(50px, -50px) rotate(120deg); }
+    66% { transform: translate(-30px, 30px) rotate(240deg); }
+  }
+
+  /* Glass Button Styles */
   .glass-button-wrap {
     position: relative;
     display: inline-block;
@@ -78,40 +132,43 @@ All colors MUST be HSL.
   .glass-button {
     position: relative;
     z-index: 2;
-    background: linear-gradient(
-      135deg,
-      hsl(var(--primary) / 0.15),
-      hsl(var(--primary) / 0.05)
-    );
-    border: 1px solid hsl(var(--primary) / 0.3);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    background: rgba(17, 25, 40, 0.75);
+    border: 1px solid rgba(255, 255, 255, 0.125);
+    backdrop-filter: blur(16px) saturate(180%);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
     box-shadow: 
-      0 4px 24px -1px hsl(var(--primary) / 0.2),
-      inset 0 1px 0 hsl(var(--primary-foreground) / 0.1);
+      0 8px 32px -4px rgba(0, 0, 0, 0.3),
+      inset 0 2px 4px rgba(255, 255, 255, 0.1),
+      inset 0 -2px 4px rgba(0, 0, 0, 0.2);
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
   
   .glass-button:hover {
-    background: linear-gradient(
-      135deg,
-      hsl(var(--primary) / 0.25),
-      hsl(var(--primary) / 0.15)
-    );
-    border-color: hsl(var(--primary) / 0.5);
+    background: rgba(17, 25, 40, 0.85);
+    border-color: rgba(255, 255, 255, 0.25);
     box-shadow: 
-      0 8px 32px -1px hsl(var(--primary) / 0.3),
-      inset 0 1px 0 hsl(var(--primary-foreground) / 0.15);
-    transform: translateY(-1px);
+      0 12px 48px -4px rgba(0, 0, 0, 0.4),
+      inset 0 2px 6px rgba(255, 255, 255, 0.15),
+      inset 0 -2px 6px rgba(0, 0, 0, 0.25);
+    transform: translateY(-2px);
   }
   
   .glass-button:active {
     transform: translateY(0);
+    box-shadow: 
+      0 4px 16px -4px rgba(0, 0, 0, 0.3),
+      inset 0 2px 4px rgba(255, 255, 255, 0.1);
+  }
+  
+  .glass-button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
   }
   
   .glass-button-text {
-    color: hsl(var(--primary-foreground));
-    text-shadow: 0 1px 2px hsl(var(--background) / 0.3);
+    color: rgba(255, 255, 255, 0.95);
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
   }
   
   .glass-button-shadow {
@@ -120,16 +177,18 @@ All colors MUST be HSL.
     z-index: 1;
     background: linear-gradient(
       135deg,
-      hsl(var(--primary) / 0.1),
-      transparent
+      rgba(99, 102, 241, 0.15),
+      rgba(168, 85, 247, 0.15)
     );
-    filter: blur(8px);
-    opacity: 0.6;
+    filter: blur(12px);
+    opacity: 0.5;
     transition: opacity 0.3s ease;
+    border-radius: inherit;
   }
   
   .glass-button-wrap:hover .glass-button-shadow {
-    opacity: 1;
+    opacity: 0.8;
+    filter: blur(16px);
   }
 }
 

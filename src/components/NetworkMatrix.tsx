@@ -1975,6 +1975,10 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
 
   return (
     <div className="min-h-screen h-screen bg-background flex flex-col overflow-hidden">
+      {/* Animated Background Shapes */}
+      <div className="shape-1"></div>
+      <div className="shape-2"></div>
+      
       {state.contextMenu && (
         <ContextMenu 
           contextMenu={state.contextMenu}
@@ -2108,7 +2112,7 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
                   setShowOpportunities(true);
                 }
               }}
-              className="pl-10 bg-background/95 backdrop-blur-md border-primary-foreground/20 focus:border-primary/50 rounded-full"
+              className="pl-10 glass-effect focus:border-indigo-400/50 rounded-full transition-all duration-300"
             />
           </div>
         </div>

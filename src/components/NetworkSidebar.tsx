@@ -142,9 +142,9 @@ export function NetworkSidebar({
   };
 
   return (
-    <div className="fixed left-0 top-0 h-screen w-80 z-50 bg-background/95 backdrop-blur-md border-r border-primary-foreground/20 flex flex-col">
+    <div className="glass-effect fixed left-0 top-0 h-screen w-80 z-50 flex flex-col">
       {/* Logo/Title */}
-      <div className="p-6 border-b border-primary-foreground/20">
+      <div className="p-6 border-b border-white/10">
         <h1 className="text-2xl font-bold text-foreground tracking-tight">Network Matrix</h1>
         <div className="text-xs text-muted-foreground mt-0.5 font-medium">VISION ECOSYSTEM</div>
       </div>
@@ -156,7 +156,7 @@ export function NetworkSidebar({
           <CollapsibleTrigger asChild>
             <Button
               variant="outline"
-              className="w-full justify-between bg-primary-foreground/10 border-primary-foreground/30 hover:bg-primary-foreground/20"
+              className="w-full justify-between bg-white/5 border-white/10 hover:bg-white/10 transition-all duration-300"
             >
               <span className="flex items-center gap-2">
                 <Plus size={18} />
@@ -168,7 +168,7 @@ export function NetworkSidebar({
           <CollapsibleContent className="mt-2 space-y-2 pl-4">
             <Button
               variant="ghost"
-              className="w-full justify-start text-sm"
+              className="w-full justify-start text-sm hover:bg-white/5 transition-all duration-300"
               onClick={() => handleCreateFlow('person')}
             >
               <User size={16} className="mr-2" />
@@ -176,7 +176,7 @@ export function NetworkSidebar({
             </Button>
             <Button
               variant="ghost"
-              className="w-full justify-start text-sm"
+              className="w-full justify-start text-sm hover:bg-white/5 transition-all duration-300"
               onClick={() => handleCreateFlow('brand')}
             >
               <Building2 size={16} className="mr-2" />
@@ -184,7 +184,7 @@ export function NetworkSidebar({
             </Button>
             <Button
               variant="ghost"
-              className="w-full justify-start text-sm"
+              className="w-full justify-start text-sm hover:bg-white/5 transition-all duration-300"
               onClick={() => handleCreateFlow('project')}
             >
               <FolderKanban size={16} className="mr-2" />
@@ -196,7 +196,7 @@ export function NetworkSidebar({
         {/* Flows */}
         <Button
           variant="outline"
-          className="w-full justify-start bg-primary-foreground/10 border-primary-foreground/30 hover:bg-primary-foreground/20"
+          className="w-full justify-start bg-white/5 border-white/10 hover:bg-white/10 transition-all duration-300"
           onClick={() => setShowFlowsManager(true)}
         >
           <Layers size={18} className="mr-2" />
@@ -206,10 +206,10 @@ export function NetworkSidebar({
         {/* Master View */}
         <Button
           variant={viewMode === 'master' ? 'default' : 'outline'}
-          className={`w-full justify-start ${
+          className={`w-full justify-start transition-all duration-300 ${
             viewMode === 'master' 
-              ? 'bg-purple-600 border-purple-500 text-white hover:bg-purple-700' 
-              : 'bg-primary-foreground/10 border-primary-foreground/30 hover:bg-primary-foreground/20'
+              ? 'glass-nav-link active bg-gradient-to-r from-purple-600/30 to-indigo-600/30 border-l-4 border-purple-500 text-white hover:from-purple-600/40 hover:to-indigo-600/40' 
+              : 'glass-nav-link bg-white/5 border-white/10 hover:bg-white/10'
           }`}
           onClick={handleMasterView}
         >
@@ -220,10 +220,10 @@ export function NetworkSidebar({
         {/* Single View */}
         <Button
           variant={viewMode === 'single' ? 'default' : 'outline'}
-          className={`w-full justify-start ${
+          className={`w-full justify-start transition-all duration-300 ${
             viewMode === 'single' 
-              ? 'bg-blue-600 border-blue-500 text-white hover:bg-blue-700' 
-              : 'bg-primary-foreground/10 border-primary-foreground/30 hover:bg-primary-foreground/20'
+              ? 'glass-nav-link active bg-gradient-to-r from-blue-600/30 to-cyan-600/30 border-l-4 border-blue-500 text-white hover:from-blue-600/40 hover:to-cyan-600/40' 
+              : 'glass-nav-link bg-white/5 border-white/10 hover:bg-white/10'
           }`}
           onClick={handleSingleView}
         >
@@ -235,7 +235,7 @@ export function NetworkSidebar({
         {onOpenWhatsApp && (
           <Button
             variant="outline"
-            className="w-full justify-start bg-primary-foreground/10 border-primary-foreground/30 hover:bg-primary-foreground/20"
+            className="w-full justify-start bg-white/5 border-white/10 hover:bg-white/10 transition-all duration-300"
             onClick={onOpenWhatsApp}
           >
             <MessageCircle size={18} className="mr-2 text-green-600" />
@@ -245,7 +245,7 @@ export function NetworkSidebar({
       </div>
 
       {/* Footer - User Info */}
-      <div className="p-6 border-t border-primary-foreground/20 space-y-2">
+      <div className="p-6 border-t border-white/10 space-y-2">
         {user && (
           <div className="mb-3">
             <p className="text-sm font-medium text-foreground truncate">
@@ -257,7 +257,7 @@ export function NetworkSidebar({
         {onLogout && (
           <Button
             variant="outline"
-            className="w-full justify-start bg-primary-foreground/10 border-primary-foreground/30 hover:bg-destructive/20 hover:text-destructive"
+            className="w-full justify-start bg-white/5 border-white/10 hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/30 transition-all duration-300"
             onClick={onLogout}
           >
             <LogOut size={18} className="mr-2" />
