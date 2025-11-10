@@ -1172,12 +1172,70 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
   const calculateBounds = (nodesList: any[]) => {
     if (nodesList.length === 0) return { minX: 0, maxX: 1000, minY: 0, maxY: 800 };
     
-    // Usar master_x/master_y no Master View, x/y no Single View
-    const xs = nodesList.map(n => viewMode === 'master' ? (n.master_x ?? n.x) : n.x);
-    const ys = nodesList.map(n => viewMode === 'master' ? (n.master_y ?? n.y) : n.y);
+    // No Master View, replicar a geometria do Canvas
+    if (viewMode === 'master' && flows) {
+      const MASTER_RING_RADIUS = 240;
+      const positions: { x: number, y: number }[] = [];
+      
+      // Replicar getFlowOffset do Canvas
+      const getFlowOffset = (flowId: number) => {
+        if (!flows || flows.length === 0) return { dx: 0, dy: 0 };
+        const idx = Math.max(0, flows.findIndex((f: any) => f.id === flowId));
+        const angle = (idx / Math.max(flows.length, 1)) * Math.PI * 2;
+        const count = Math.max(flows.length, 1);
+        let radius = 0;
+        if (count > 1) {
+          const filledRadius = MASTER_RING_RADIUS + 40;
+          const LABEL_CLEARANCE = 120;
+          const safeGap = 16 + LABEL_CLEARANCE;
+          const neededChord = 2 * filledRadius + safeGap;
+          radius = neededChord / (2 * Math.sin(Math.PI / count));
+        }
+        return { dx: Math.cos(angle) * radius, dy: Math.sin(angle) * radius };
+      };
+      
+      // Calcular posições reais de cada nó no Master View
+      flows.forEach((flow: any) => {
+        const clusterNodes = nodesList.filter((n: any) => n.flow_id === flow.id);
+        if (clusterNodes.length === 0) return;
+        
+        const offset = getFlowOffset(flow.id);
+        const centerNode = clusterNodes.find((n: any) => n.id === flow.center_id && n.type === flow.center_type)
+          || clusterNodes.find((n: any) => n.type === 'project')
+          || clusterNodes[0];
+        
+        // Posição central do flow
+        positions.push({ x: offset.dx, y: offset.dy });
+        
+        // Posições dos nós no círculo
+        const otherNodes = clusterNodes.filter((n: any) => n.id !== centerNode.id);
+        otherNodes.forEach((node: any, i: number) => {
+          const angle = (i / Math.max(otherNodes.length, 1)) * Math.PI * 2;
+          positions.push({
+            x: offset.dx + MASTER_RING_RADIUS * Math.cos(angle),
+            y: offset.dy + MASTER_RING_RADIUS * Math.sin(angle)
+          });
+        });
+      });
+      
+      if (positions.length === 0) return { minX: 0, maxX: 1000, minY: 0, maxY: 800 };
+      
+      const xs = positions.map(p => p.x);
+      const ys = positions.map(p => p.y);
+      const margin = 400;
+      
+      return {
+        minX: Math.min(...xs) - margin,
+        maxX: Math.max(...xs) + margin,
+        minY: Math.min(...ys) - margin,
+        maxY: Math.max(...ys) + margin
+      };
+    }
     
-    // Margem maior no Master View para acomodar os flows
-    const margin = viewMode === 'master' ? 400 : 150;
+    // Single View: usar x/y normal
+    const xs = nodesList.map(n => n.x);
+    const ys = nodesList.map(n => n.y);
+    const margin = 150;
     
     return {
       minX: Math.min(...xs) - margin,
@@ -2458,8 +2516,9 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
           <button
             onClick={() => {
               // Apenas centralizar, sem reorganizar
-              const width = window.innerWidth;
-              const height = window.innerHeight - 100;
+              const rect = svgRef.current?.getBoundingClientRect();
+              const width = rect?.width ?? window.innerWidth;
+              const height = rect?.height ?? (window.innerHeight - 100);
               const nodesToCenter = viewMode === 'master' ? allNodes : nodes;
               const bounds = calculateBounds(nodesToCenter);
               const zoom = calculateOptimalZoom(bounds, width, height);

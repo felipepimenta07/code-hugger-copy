@@ -109,8 +109,9 @@ export const Canvas: React.FC<CanvasProps> = ({
     let radius = 0;
     if (count > 1) {
       const filledRadius = MASTER_RING_RADIUS + 40; // 280 (raio do maior círculo decorativo)
-      const gap = 16; // pequeno espaço entre os círculos para não encostar
-      const neededChord = 2 * filledRadius + gap; // distância mínima entre centros adjacentes
+      const LABEL_CLEARANCE = 120; // espaço adicional para acomodar labels
+      const safeGap = 16 + LABEL_CLEARANCE; // gap mínimo + zona de label
+      const neededChord = 2 * filledRadius + safeGap; // distância mínima entre centros adjacentes
       radius = neededChord / (2 * Math.sin(Math.PI / count)); // R = chord / (2*sin(pi/n))
     }
 
@@ -713,30 +714,7 @@ export const Canvas: React.FC<CanvasProps> = ({
                 opacity="0.25"
               />
               
-              {/* Label do flow - posicionado acima do flow com margem maior */}
-              <text
-                x={pos.x}
-                y={pos.y - dottedRadius - 80}
-                textAnchor="middle"
-                fill="#8b5cf6"
-                fontSize="18"
-                fontWeight="bold"
-                letterSpacing="3"
-              >
-                {flow.name.toUpperCase()}
-              </text>
-              
-              {/* Contador de nós */}
-              <text
-                x={pos.x}
-                y={pos.y - dottedRadius - 55}
-                textAnchor="middle"
-                fill="#8b5cf6"
-                fontSize="13"
-                opacity="0.7"
-              >
-                {clusterNodes.length} {clusterNodes.length === 1 ? 'nó' : 'nós'}
-              </text>
+              {/* Labels removidos daqui - serão renderizados no final */}
             </g>
           );
         })}
@@ -1316,6 +1294,46 @@ export const Canvas: React.FC<CanvasProps> = ({
                 </>
               )}
               
+            </g>
+          );
+        })}
+        
+        {/* Labels dos flows - renderizadas por último para ficarem acima de tudo */}
+        {viewMode === 'master' && flows?.map(flow => {
+          const clusterNodes = nodes.filter(n => n.flow_id === flow.id);
+          if (clusterNodes.length === 0) return null;
+          const centerNode = clusterNodes.find(n => n.id === flow.center_id && n.type === flow.center_type) 
+            || clusterNodes.find(n => n.type === 'project') 
+            || clusterNodes[0];
+          const pos = masterLayoutMap.get(centerNode.id);
+          if (!pos) return null;
+          const dottedRadius = MASTER_RING_RADIUS;
+          
+          return (
+            <g key={`label-${flow.id}`} pointerEvents="none">
+              <text
+                x={pos.x}
+                y={pos.y - (dottedRadius + 25) - 24}
+                textAnchor="middle"
+                fill="#8b5cf6"
+                fontSize="18"
+                fontWeight="bold"
+                letterSpacing="3"
+                style={{ filter: 'drop-shadow(0 0 4px rgba(0,0,0,0.8))' }}
+              >
+                {flow.name.toUpperCase()}
+              </text>
+              <text
+                x={pos.x}
+                y={pos.y - (dottedRadius + 25)}
+                textAnchor="middle"
+                fill="#8b5cf6"
+                fontSize="13"
+                opacity="0.7"
+                style={{ filter: 'drop-shadow(0 0 4px rgba(0,0,0,0.8))' }}
+              >
+                {clusterNodes.length} {clusterNodes.length === 1 ? 'nó' : 'nós'}
+              </text>
             </g>
           );
         })}
