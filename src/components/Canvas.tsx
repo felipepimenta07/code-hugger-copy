@@ -503,93 +503,92 @@ export const Canvas: React.FC<CanvasProps> = ({
           );
         })()}
         
-        {/* Linhas entre Flows com Empresas Compartilhadas (Master View) */}
+        {/* Conexões Específicas entre Pessoas em Flows Diferentes (Master View) */}
         {viewMode === 'master' && (() => {
-          const flowConnections: Array<{ flowA: number; flowB: number; companies: string[] }> = [];
-          const peopleByFlow = new Map<number, any[]>();
+          const specificConnections: Array<{
+            personA: any;
+            personB: any;
+            flowA: number;
+            flowB: number;
+            company: string;
+          }> = [];
           
-          // Agrupar pessoas por flow
-          nodes.forEach(node => {
-            if (node.type === 'person' && node.company) {
-              const flowId = getNodeFlowId(node);
-              if (!peopleByFlow.has(flowId)) peopleByFlow.set(flowId, []);
-              peopleByFlow.get(flowId)!.push(node);
-            }
-          });
+          const peopleWithCompany = nodes.filter(n => n.type === 'person' && n.company);
           
-          // Encontrar empresas compartilhadas entre flows
-          const flowIds = Array.from(peopleByFlow.keys());
-          for (let i = 0; i < flowIds.length; i++) {
-            for (let j = i + 1; j < flowIds.length; j++) {
-              const peopleA = peopleByFlow.get(flowIds[i])!;
-              const peopleB = peopleByFlow.get(flowIds[j])!;
-              const sharedCompanies = peopleA
-                .filter(a => peopleB.some(b => b.company === a.company))
-                .map(p => p.company)
-                .filter((v, i, a) => a.indexOf(v) === i); // unique
+          // Para cada par de pessoas, verificar se compartilham empresa E estão em flows diferentes
+          for (let i = 0; i < peopleWithCompany.length; i++) {
+            for (let j = i + 1; j < peopleWithCompany.length; j++) {
+              const pA = peopleWithCompany[i];
+              const pB = peopleWithCompany[j];
+              const flowA = getNodeFlowId(pA);
+              const flowB = getNodeFlowId(pB);
               
-              if (sharedCompanies.length > 0) {
-                flowConnections.push({ flowA: flowIds[i], flowB: flowIds[j], companies: sharedCompanies });
+              // Se estão em flows diferentes E compartilham empresa
+              if (flowA !== flowB && pA.company === pB.company) {
+                specificConnections.push({
+                  personA: pA,
+                  personB: pB,
+                  flowA,
+                  flowB,
+                  company: pA.company
+                });
               }
             }
           }
           
-          // Renderizar linhas entre flows
-          return flowConnections.map((fc, idx) => {
-            const flowANodes = nodes.filter(n => getNodeFlowId(n) === fc.flowA);
-            const flowBNodes = nodes.filter(n => getNodeFlowId(n) === fc.flowB);
-            if (flowANodes.length === 0 || flowBNodes.length === 0) return null;
-            
-            const flowA = flows?.find(f => f.id === fc.flowA);
-            const flowB = flows?.find(f => f.id === fc.flowB);
-            if (!flowA || !flowB) return null;
-            
-            const centerA = 
-              flowANodes.find(n => n.id === flowA.center_id && n.type === flowA.center_type) ||
-              flowANodes.find(n => n.type === 'project') ||
-              flowANodes[0];
-            const centerB = 
-              flowBNodes.find(n => n.id === flowB.center_id && n.type === flowB.center_type) ||
-              flowBNodes.find(n => n.type === 'project') ||
-              flowBNodes[0];
-            
-            const posA = masterLayoutMap.get(centerA.id);
-            const posB = masterLayoutMap.get(centerB.id);
+          // Renderizar conexões específicas pessoa-a-pessoa
+          return specificConnections.map((conn, idx) => {
+            const posA = masterLayoutMap.get(conn.personA.id);
+            const posB = masterLayoutMap.get(conn.personB.id);
             if (!posA || !posB) return null;
             
+            const flowA = flows?.find(f => f.id === conn.flowA);
+            const flowB = flows?.find(f => f.id === conn.flowB);
+            
             return (
-              <g key={`flow-conn-${idx}`}>
+              <g key={`specific-conn-${idx}`}>
                 <path
                   d={`M ${posA.x} ${posA.y} L ${posB.x} ${posB.y}`}
-                  stroke="#8b5cf6"
-                  strokeWidth="2"
-                  strokeDasharray="8,8"
-                  opacity="0.3"
-                  className="pointer-events-auto cursor-pointer hover:opacity-60"
+                  stroke="#fbbf24"
+                  strokeWidth="2.5"
+                  strokeDasharray="6,4"
+                  opacity="0.6"
+                  className="pointer-events-auto cursor-pointer hover:opacity-90 transition-opacity"
                   onMouseEnter={(e) => {
                     const rect = svgRef.current?.getBoundingClientRect();
                     if (rect) {
                       setHoveredConnection({ 
-                        index: -1000 - idx, 
+                        index: -2000 - idx, 
                         position: { x: e.clientX - rect.left, y: e.clientY - rect.top }
                       });
                     }
                   }}
                   onMouseLeave={() => setHoveredConnection(null)}
                 />
-                {hoveredConnection?.index === -1000 - idx && (
+                {hoveredConnection?.index === -2000 - idx && (
                   <foreignObject 
-                    x={hoveredConnection.position.x - 100} 
-                    y={hoveredConnection.position.y - 60} 
-                    width="200" 
-                    height="80"
+                    x={hoveredConnection.position.x - 120} 
+                    y={hoveredConnection.position.y - 75} 
+                    width="240" 
+                    height="100"
                     className="pointer-events-none"
                   >
-                    <div className="bg-popover text-popover-foreground px-3 py-2 rounded-lg shadow-lg text-xs">
-                      <strong>Empresas em comum:</strong>
-                      <ul className="mt-1">
-                        {fc.companies.map(c => <li key={c}>• {c}</li>)}
-                      </ul>
+                    <div className="bg-popover text-popover-foreground px-4 py-3 rounded-lg shadow-xl text-xs border border-border">
+                      <div className="font-semibold text-primary mb-2">Conexão entre Flows</div>
+                      <div className="space-y-1.5 text-[10px]">
+                        <div>
+                          <span className="font-medium">{conn.personA.name}</span>
+                          <div className="text-muted-foreground">Flow: {flowA?.name || 'Desconhecido'}</div>
+                        </div>
+                        <div className="text-center text-muted-foreground">↕</div>
+                        <div>
+                          <span className="font-medium">{conn.personB.name}</span>
+                          <div className="text-muted-foreground">Flow: {flowB?.name || 'Desconhecido'}</div>
+                        </div>
+                        <div className="pt-1.5 border-t border-border mt-1.5">
+                          <strong className="text-yellow-500">Empresa:</strong> {conn.company}
+                        </div>
+                      </div>
                     </div>
                   </foreignObject>
                 )}

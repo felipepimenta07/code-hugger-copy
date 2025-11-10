@@ -173,32 +173,141 @@ export const NodeEditor: React.FC<NodeEditorProps> = ({
 
         {node.type === 'person' && (
           <>
-            <div>
-              <label className="block text-sm font-semibold text-foreground mb-2">Email</label>
-              <input 
-                type="email" 
-                value={getCurrentValue('email') || ''} 
-                onChange={(e) => handleLocalUpdate('email', e.target.value)}
-                className="w-full px-4 py-2.5 bg-secondary border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-              />
+            <div className="space-y-1">
+              <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide">Contato</label>
+              <div className="space-y-3 pt-2">
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1.5">Telefone Principal</label>
+                  <input 
+                    type="tel" 
+                    value={getCurrentValue('phone') || ''} 
+                    onChange={(e) => handleLocalUpdate('phone', e.target.value)}
+                    placeholder="(00) 00000-0000"
+                    className="w-full px-4 py-2.5 bg-secondary border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1.5">Telefone Secundário</label>
+                  <input 
+                    type="tel" 
+                    value={getCurrentValue('phone_secondary') || ''} 
+                    onChange={(e) => handleLocalUpdate('phone_secondary', e.target.value)}
+                    placeholder="(00) 00000-0000"
+                    className="w-full px-4 py-2.5 bg-secondary border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1.5">Telefone Comercial</label>
+                  <input 
+                    type="tel" 
+                    value={getCurrentValue('phone_work') || ''} 
+                    onChange={(e) => handleLocalUpdate('phone_work', e.target.value)}
+                    placeholder="(00) 0000-0000"
+                    className="w-full px-4 py-2.5 bg-secondary border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1.5">Email Principal</label>
+                  <input 
+                    type="email" 
+                    value={getCurrentValue('email') || ''} 
+                    onChange={(e) => handleLocalUpdate('email', e.target.value)}
+                    placeholder="email@exemplo.com"
+                    className="w-full px-4 py-2.5 bg-secondary border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1.5">Email Secundário</label>
+                  <input 
+                    type="email" 
+                    value={getCurrentValue('email_secondary') || ''} 
+                    onChange={(e) => handleLocalUpdate('email_secondary', e.target.value)}
+                    placeholder="email2@exemplo.com"
+                    className="w-full px-4 py-2.5 bg-secondary border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-semibold text-foreground mb-2">Empresa</label>
-              <input 
-                type="text" 
-                value={getCurrentValue('company') || ''} 
-                onChange={(e) => handleLocalUpdate('company', e.target.value)}
-                className="w-full px-4 py-2.5 bg-secondary border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-              />
+
+            <div className="space-y-1">
+              <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide">Profissional</label>
+              <div className="space-y-3 pt-2">
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1.5">Empresa</label>
+                  <input 
+                    type="text" 
+                    value={getCurrentValue('company') || ''} 
+                    onChange={(e) => handleLocalUpdate('company', e.target.value)}
+                    placeholder="Nome da empresa"
+                    className="w-full px-4 py-2.5 bg-secondary border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1.5">Cargo</label>
+                  <input 
+                    type="text" 
+                    value={getCurrentValue('role') || ''} 
+                    onChange={(e) => handleLocalUpdate('role', e.target.value)}
+                    placeholder="Cargo ou função"
+                    className="w-full px-4 py-2.5 bg-secondary border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1.5">Departamento</label>
+                  <input 
+                    type="text" 
+                    value={getCurrentValue('department') || ''} 
+                    onChange={(e) => handleLocalUpdate('department', e.target.value)}
+                    placeholder="Departamento"
+                    className="w-full px-4 py-2.5 bg-secondary border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-semibold text-foreground mb-2">Cargo</label>
-              <input 
-                type="text" 
-                value={getCurrentValue('role') || ''} 
-                onChange={(e) => handleLocalUpdate('role', e.target.value)}
-                className="w-full px-4 py-2.5 bg-secondary border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-              />
+
+            <div className="space-y-1">
+              <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide">Outros Detalhes</label>
+              <div className="space-y-3 pt-2">
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1.5">Website</label>
+                  <input 
+                    type="url" 
+                    value={getCurrentValue('website') || ''} 
+                    onChange={(e) => handleLocalUpdate('website', e.target.value)}
+                    placeholder="https://..."
+                    className="w-full px-4 py-2.5 bg-secondary border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                  {getCurrentValue('website') && (
+                    <a 
+                      href={getCurrentValue('website')} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-xs text-primary hover:underline mt-1 inline-block"
+                    >
+                      Abrir website →
+                    </a>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1.5">Endereço</label>
+                  <textarea 
+                    value={getCurrentValue('address') || ''} 
+                    onChange={(e) => handleLocalUpdate('address', e.target.value)}
+                    rows={2}
+                    placeholder="Endereço completo"
+                    className="w-full px-4 py-2.5 bg-secondary border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1.5">Data de Aniversário</label>
+                  <input 
+                    type="date" 
+                    value={getCurrentValue('birthday') || ''} 
+                    onChange={(e) => handleLocalUpdate('birthday', e.target.value)}
+                    className="w-full px-4 py-2.5 bg-secondary border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+              </div>
             </div>
           </>
         )}

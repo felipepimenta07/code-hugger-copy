@@ -12,6 +12,8 @@ function cleanPhoneNumber(phone: string): string {
 }
 
 function parseContact(contactData: any) {
+  console.log('📇 vCard completo recebido:', JSON.stringify(contactData, null, 2));
+  
   const contact: any = { name: '', phone: '' };
   
   // Extract name
@@ -21,14 +23,63 @@ function parseContact(contactData: any) {
                    '';
   }
   
-  // Extract phone
+  // Extract primary phone
   if (contactData.phones && contactData.phones.length > 0) {
     contact.phone = contactData.phones[0].phone || '';
+    
+    // Extract secondary phone
+    if (contactData.phones.length > 1) {
+      contact.phone_secondary = contactData.phones[1].phone || '';
+    }
+    
+    // Extract work phone (look for specific type)
+    const workPhone = contactData.phones.find((p: any) => 
+      p.type && p.type.toLowerCase() === 'work'
+    );
+    if (workPhone) {
+      contact.phone_work = workPhone.phone;
+    }
   }
   
-  // Extract email
+  // Extract primary email
   if (contactData.emails && contactData.emails.length > 0) {
     contact.email = contactData.emails[0].email || '';
+    
+    // Extract secondary email
+    if (contactData.emails.length > 1) {
+      contact.email_secondary = contactData.emails[1].email || '';
+    }
+  }
+  
+  // Extract full address
+  if (contactData.addresses && contactData.addresses.length > 0) {
+    const addr = contactData.addresses[0];
+    const parts = [
+      addr.street,
+      addr.city,
+      addr.state,
+      addr.zip,
+      addr.country
+    ].filter(Boolean);
+    
+    if (parts.length > 0) {
+      contact.address = parts.join(', ');
+    }
+  }
+  
+  // Extract website
+  if (contactData.urls && contactData.urls.length > 0) {
+    contact.website = contactData.urls[0].url || '';
+  }
+  
+  // Extract birthday
+  if (contactData.birthday) {
+    contact.birthday = contactData.birthday;
+  }
+  
+  // Extract notes
+  if (contactData.note) {
+    contact.notes = contactData.note;
   }
   
   // Extract company
@@ -36,10 +87,17 @@ function parseContact(contactData: any) {
     contact.company = contactData.org.company;
   }
   
-  // Extract role
+  // Extract role/title
   if (contactData.org && contactData.org.title) {
     contact.role = contactData.org.title;
   }
+  
+  // Extract department
+  if (contactData.org && contactData.org.department) {
+    contact.department = contactData.org.department;
+  }
+  
+  console.log('📋 Dados extraídos:', JSON.stringify(contact, null, 2));
   
   return contact;
 }
@@ -282,13 +340,21 @@ serve(async (req) => {
         console.log('Step: Flow created with id', newFlow.id);
         const flowId = newFlow.id;
 
-        // Create ALL people in a single batch
+        // Create ALL people in a single batch with complete data
         const peopleToInsert = parsedContacts.map((contact: any, index: number) => ({
           user_id: connection.user_id,
           flow_id: flowId,
           name: contact.name || `Contato ${index + 1}`,
           email: contact.email || null,
           phone: contact.phone || null,
+          phone_secondary: contact.phone_secondary || null,
+          phone_work: contact.phone_work || null,
+          email_secondary: contact.email_secondary || null,
+          address: contact.address || null,
+          website: contact.website || null,
+          birthday: contact.birthday || null,
+          notes: contact.notes || null,
+          department: contact.department || null,
           company: contact.company || null,
           category: contact.role || 'Profissional',
           x: 0,
@@ -429,13 +495,21 @@ serve(async (req) => {
         // Always create a new flow for contacts received via WhatsApp
         const flowName = contact.company || `${contact.name} Network`;
         
-        // First create the person node
+        // First create the person node with complete data
         const { data: newPerson, error: personError } = await supabase.from('people').insert({
           user_id: connection.user_id,
           flow_id: 0, // Temporary, will update after flow creation
           name: contact.name,
           email: contact.email,
           phone: contact.phone,
+          phone_secondary: contact.phone_secondary,
+          phone_work: contact.phone_work,
+          email_secondary: contact.email_secondary,
+          address: contact.address,
+          website: contact.website,
+          birthday: contact.birthday,
+          notes: contact.notes,
+          department: contact.department,
           company: contact.company,
           category: contact.role || 'Profissional',
           x: 0,

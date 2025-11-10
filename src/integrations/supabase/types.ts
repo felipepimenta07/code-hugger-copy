@@ -177,50 +177,77 @@ export type Database = {
       }
       people: {
         Row: {
+          address: string | null
+          birthday: string | null
           category: string | null
           company: string | null
           created_at: string
+          department: string | null
           email: string | null
+          email_secondary: string | null
           flow_id: number
           id: number
           master_x: number | null
           master_y: number | null
           name: string
+          notes: string | null
           original_node_id: number | null
           phone: string | null
+          phone_secondary: string | null
+          phone_work: string | null
+          profile_picture_url: string | null
           user_id: string
+          website: string | null
           x: number | null
           y: number | null
         }
         Insert: {
+          address?: string | null
+          birthday?: string | null
           category?: string | null
           company?: string | null
           created_at?: string
+          department?: string | null
           email?: string | null
+          email_secondary?: string | null
           flow_id: number
           id?: never
           master_x?: number | null
           master_y?: number | null
           name: string
+          notes?: string | null
           original_node_id?: number | null
           phone?: string | null
+          phone_secondary?: string | null
+          phone_work?: string | null
+          profile_picture_url?: string | null
           user_id: string
+          website?: string | null
           x?: number | null
           y?: number | null
         }
         Update: {
+          address?: string | null
+          birthday?: string | null
           category?: string | null
           company?: string | null
           created_at?: string
+          department?: string | null
           email?: string | null
+          email_secondary?: string | null
           flow_id?: number
           id?: never
           master_x?: number | null
           master_y?: number | null
           name?: string
+          notes?: string | null
           original_node_id?: number | null
           phone?: string | null
+          phone_secondary?: string | null
+          phone_work?: string | null
+          profile_picture_url?: string | null
           user_id?: string
+          website?: string | null
           x?: number | null
           y?: number | null
         }
