@@ -510,19 +510,19 @@ export const Canvas: React.FC<CanvasProps> = ({
             personB: any;
             flowA: number;
             flowB: number;
-            company: string;
+            company?: string;
+            emailDomain?: string;
+            type: 'company' | 'email' | 'indirect';
+            strength: number;
           }> = [];
           
           const peopleWithCompany = nodes.filter(n => n.type === 'person' && n.company);
+          const peopleWithEmail = nodes.filter(n => n.type === 'person' && n.email);
           
-          console.log('🔍 [Cross-Flow Connections] Pessoas com empresa:', peopleWithCompany.map(p => ({
-            id: p.id,
-            name: p.name,
-            company: p.company,
-            flowId: getNodeFlowId(p)
-          })));
+          console.log('🔍 [Cross-Flow] Pessoas com empresa:', peopleWithCompany.length);
+          console.log('🔍 [Cross-Flow] Pessoas com email:', peopleWithEmail.length);
           
-          // Para cada par de pessoas, verificar se compartilham empresa E estão em flows diferentes
+          // TIPO 1: Conexões por Empresa (mais forte)
           for (let i = 0; i < peopleWithCompany.length; i++) {
             for (let j = i + 1; j < peopleWithCompany.length; j++) {
               const pA = peopleWithCompany[i];
@@ -533,23 +533,60 @@ export const Canvas: React.FC<CanvasProps> = ({
               const compA = typeof pA.company === 'string' ? pA.company.trim().toLowerCase() : '';
               const compB = typeof pB.company === 'string' ? pB.company.trim().toLowerCase() : '';
               
-              console.log(`🔗 Comparando: ${pA.name} (flow ${flowA}, ${compA}) vs ${pB.name} (flow ${flowB}, ${compB})`);
-              
-              // Se estão em flows diferentes E compartilham empresa (case-insensitive)
               if (flowA !== flowB && compA && compA === compB) {
-                console.log(`✅ MATCH! Adicionando conexão entre ${pA.name} e ${pB.name} via ${pA.company}`);
+                // Força baseada em categoria (se igual, mais forte)
+                const strength = pA.category === pB.category ? 3 : 2;
                 specificConnections.push({
                   personA: pA,
                   personB: pB,
                   flowA,
                   flowB,
-                  company: pA.company
+                  company: pA.company,
+                  type: 'company',
+                  strength
                 });
+                console.log(`✅ Conexão por empresa: ${pA.name} ↔ ${pB.name} (${pA.company}) - força ${strength}`);
               }
             }
           }
           
-          console.log('📊 Total de conexões entre flows encontradas:', specificConnections.length);
+          // TIPO 2: Conexões por Email Domain (média)
+          for (let i = 0; i < peopleWithEmail.length; i++) {
+            for (let j = i + 1; j < peopleWithEmail.length; j++) {
+              const pA = peopleWithEmail[i];
+              const pB = peopleWithEmail[j];
+              const flowA = getNodeFlowId(pA);
+              const flowB = getNodeFlowId(pB);
+              
+              if (flowA !== flowB && pA.email && pB.email) {
+                const domainA = pA.email.split('@')[1]?.toLowerCase();
+                const domainB = pB.email.split('@')[1]?.toLowerCase();
+                
+                if (domainA && domainB && domainA === domainB && !['gmail.com', 'hotmail.com', 'outlook.com', 'yahoo.com'].includes(domainA)) {
+                  // Verificar se já não existe conexão por empresa
+                  const alreadyConnected = specificConnections.some(
+                    c => (c.personA.id === pA.id && c.personB.id === pB.id) ||
+                         (c.personA.id === pB.id && c.personB.id === pA.id)
+                  );
+                  
+                  if (!alreadyConnected) {
+                    specificConnections.push({
+                      personA: pA,
+                      personB: pB,
+                      flowA,
+                      flowB,
+                      emailDomain: domainA,
+                      type: 'email',
+                      strength: 1
+                    });
+                    console.log(`📧 Conexão por email: ${pA.name} ↔ ${pB.name} (@${domainA})`);
+                  }
+                }
+              }
+            }
+          }
+          
+          console.log('📊 Total de conexões encontradas:', specificConnections.length);
           
           // Renderizar conexões específicas pessoa-a-pessoa
           return specificConnections.map((conn, idx) => {
@@ -560,14 +597,43 @@ export const Canvas: React.FC<CanvasProps> = ({
             const flowA = flows?.find(f => f.id === conn.flowA);
             const flowB = flows?.find(f => f.id === conn.flowB);
             
+            // Cores e estilos baseados no tipo
+            const getConnectionStyle = () => {
+              switch (conn.type) {
+                case 'company':
+                  return {
+                    stroke: conn.strength === 3 ? 'hsl(var(--connection-path))' : 'hsl(var(--connection-cross))',
+                    strokeWidth: conn.strength === 3 ? '3' : '2.5',
+                    opacity: '0.7',
+                    dasharray: '6,4'
+                  };
+                case 'email':
+                  return {
+                    stroke: 'hsl(var(--primary))',
+                    strokeWidth: '2',
+                    opacity: '0.5',
+                    dasharray: '8,6'
+                  };
+                default:
+                  return {
+                    stroke: 'hsl(var(--connection-weak))',
+                    strokeWidth: '1.5',
+                    opacity: '0.4',
+                    dasharray: '4,8'
+                  };
+              }
+            };
+            
+            const style = getConnectionStyle();
+            
             return (
               <g key={`specific-conn-${idx}`}>
                 <path
                   d={`M ${posA.x} ${posA.y} L ${posB.x} ${posB.y}`}
-                  stroke={"hsl(var(--connection-cross))"}
-                  strokeWidth="2.5"
-                  strokeDasharray="6,4"
-                  opacity="0.6"
+                  stroke={style.stroke}
+                  strokeWidth={style.strokeWidth}
+                  strokeDasharray={style.dasharray}
+                  opacity={style.opacity}
                   className="pointer-events-auto cursor-pointer hover:opacity-90 transition-opacity"
                   onMouseEnter={(e) => {
                     const rect = svgRef.current?.getBoundingClientRect();
@@ -601,7 +667,21 @@ export const Canvas: React.FC<CanvasProps> = ({
                           <div className="text-muted-foreground">Flow: {flowB?.name || 'Desconhecido'}</div>
                         </div>
                         <div className="pt-1.5 border-t border-border mt-1.5">
-                          <strong className="text-[hsl(var(--connection-cross))]">Empresa:</strong> {conn.company}
+                          {conn.type === 'company' && (
+                            <div>
+                              <strong className="text-[hsl(var(--connection-cross))]">Empresa:</strong> {conn.company}
+                              {conn.strength === 3 && (
+                                <div className="text-[10px] text-[hsl(var(--connection-path))] mt-1">
+                                  ⭐ Mesma categoria
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          {conn.type === 'email' && (
+                            <div>
+                              <strong className="text-[hsl(var(--primary))]">Email Domain:</strong> @{conn.emailDomain}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>

@@ -19,6 +19,7 @@ import { AIInsightsPanel } from './AIInsightsPanel';
 import { FlowStarterModal } from './FlowStarterModal';
 import { PathIndicator } from './PathIndicator';
 import { FlowManagerPanel } from './FlowManagerPanel';
+import { OpportunitiesPanel } from './OpportunitiesPanel';
 
 import { ResetButton } from './ResetButton';
 import { DuplicateCheckDialog } from './DuplicateCheckDialog';
@@ -78,6 +79,7 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
   const [showFlowStarterModal, setShowFlowStarterModal] = useState(false);
   const [showLinkedInImport, setShowLinkedInImport] = useState(false);
   const [isCreatingFlowRoot, setIsCreatingFlowRoot] = useState(false);
+  const [showOpportunities, setShowOpportunities] = useState(false);
   
   // Estado para dialog de duplicatas
   const [duplicateCheckModal, setDuplicateCheckModal] = useState<{
@@ -2255,6 +2257,27 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
               </Tooltip>
             </TooltipProvider>
             
+            {/* Botão de Oportunidades IA (Master View) */}
+            {viewMode === 'master' && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      onClick={() => setShowOpportunities(true)}
+                      variant="outline" 
+                      size="icon" 
+                      className="rounded-lg bg-gradient-to-r from-primary/20 to-accent/20 border-primary/40 hover:from-primary/30 hover:to-accent/30 transition-all"
+                    >
+                      <Sparkles size={18} className="text-primary" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Buscar Oportunidades com IA</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+            
             <div className="w-px h-8 bg-border mx-1"></div>
             
             <TooltipProvider>
@@ -2722,6 +2745,25 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
             onCancel={handleDuplicateCancel}
           />
         )}
+
+        {/* Painel de Oportunidades com IA */}
+        <OpportunitiesPanel
+          isOpen={showOpportunities}
+          onClose={() => setShowOpportunities(false)}
+          people={people}
+          brands={brands}
+          projects={projects}
+          connections={allConnections}
+          onSelectNode={(nodeId) => {
+            // Encontrar o nó e destacá-lo
+            const node = allNodes.find(n => n.id === nodeId);
+            if (node) {
+              setSelectedNodes([node]);
+              toast.success(`Selecionado: ${node.name}`);
+              setShowOpportunities(false);
+            }
+          }}
+        />
 
         {viewMode === 'single' && (
           <PathIndicator
