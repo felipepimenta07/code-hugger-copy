@@ -68,7 +68,8 @@ serve(async (req) => {
 
       console.log('QR token generated successfully:', { token, user_id: user.id });
 
-      const qrUrl = `https://wa.me/${Deno.env.get('WHATSAPP_NUMBER')}?text=CONECTAR%20${token}`;
+      const whatsappNumber = '15551529965'; // +1 555 152 9965 (sem + e espaços)
+      const qrUrl = `https://wa.me/${whatsappNumber}?text=CONECTAR%20${token}`;
 
       return new Response(JSON.stringify({ qrUrl, token }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }

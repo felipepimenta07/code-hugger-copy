@@ -15,6 +15,7 @@ interface WhatsAppDialogProps {
 }
 
 export const WhatsAppDialog = ({ open, onOpenChange }: WhatsAppDialogProps) => {
+  const WHATSAPP_NUMBER = '+1 555 152 9965';
   const { user } = useAuth();
   const [activationCode, setActivationCode] = useState<string | null>(null);
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
@@ -347,10 +348,13 @@ export const WhatsAppDialog = ({ open, onOpenChange }: WhatsAppDialogProps) => {
                         </p>
                       </div>
                       <div className="space-y-2 text-sm text-muted-foreground">
-                        <p>📱 <strong>Passo 1:</strong> Abra o WhatsApp no seu celular</p>
-                        <p>⚙️ <strong>Passo 2:</strong> Vá em Configurações → Aparelhos conectados</p>
-                        <p>🔗 <strong>Passo 3:</strong> Toque em "Conectar um aparelho"</p>
-                        <p>🔢 <strong>Passo 4:</strong> Digite o código acima</p>
+                        <p className="font-semibold text-foreground mb-3">
+                          📞 Número da Network Matrix: 
+                          <code className="ml-2 bg-muted px-2 py-1 rounded text-base">{WHATSAPP_NUMBER}</code>
+                        </p>
+                        <p>📱 <strong>Passo 1:</strong> Salve o número acima no seu WhatsApp</p>
+                        <p>💬 <strong>Passo 2:</strong> Envie: <strong>CONECTAR {activationCode}</strong></p>
+                        <p>✅ <strong>Passo 3:</strong> Aguarde a confirmação!</p>
                       </div>
                     </>
                   )}
@@ -388,10 +392,13 @@ export const WhatsAppDialog = ({ open, onOpenChange }: WhatsAppDialogProps) => {
                         <QRCodeSVG value={qrCodeUrl} size={256} />
                       </div>
                       <div className="space-y-2 text-sm text-muted-foreground">
-                        <p>📱 <strong>Passo 1:</strong> Abra o WhatsApp no seu celular</p>
-                        <p>⚙️ <strong>Passo 2:</strong> Vá em Configurações → Aparelhos conectados</p>
-                        <p>🔗 <strong>Passo 3:</strong> Toque em "Conectar um aparelho"</p>
-                        <p>📷 <strong>Passo 4:</strong> Aponte a câmera para o QR Code acima</p>
+                        <p className="font-semibold text-foreground mb-3">
+                          📞 Número da Network Matrix: 
+                          <code className="ml-2 bg-muted px-2 py-1 rounded text-base">{WHATSAPP_NUMBER}</code>
+                        </p>
+                        <p>📱 <strong>Passo 1:</strong> Salve o número acima no seu WhatsApp</p>
+                        <p>📷 <strong>Passo 2:</strong> Clique no QR Code ou envie a mensagem que abrir</p>
+                        <p>✅ <strong>Passo 3:</strong> Aguarde a confirmação!</p>
                       </div>
                     </>
                   )}
