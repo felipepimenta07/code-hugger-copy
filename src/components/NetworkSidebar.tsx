@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { GlassButton, GlassFilter } from '@/components/ui/liquid-glass';
 import { 
   Plus, 
   Layers, 
@@ -143,6 +144,7 @@ export function NetworkSidebar({
 
   return (
     <div className="glass-effect fixed left-0 top-0 h-screen w-80 z-50 flex flex-col">
+      <GlassFilter />
       {/* Logo/Title */}
       <div className="p-6 border-b border-white/10">
         <h1 className="text-2xl font-bold text-foreground tracking-tight">Network Matrix</h1>
@@ -154,93 +156,97 @@ export function NetworkSidebar({
         {/* Novo Flow - Collapsible */}
         <Collapsible open={isNewFlowOpen} onOpenChange={setIsNewFlowOpen}>
           <CollapsibleTrigger asChild>
-            <Button
-              variant="outline"
-              className="w-full justify-between bg-white/5 border-white/10 hover:bg-white/10 transition-all duration-300"
-            >
-              <span className="flex items-center gap-2">
-                <Plus size={18} />
-                NOVO FLOW
-              </span>
-              <ChevronDown size={18} className={`transition-transform ${isNewFlowOpen ? 'rotate-180' : ''}`} />
-            </Button>
+            <div>
+              <GlassButton className="w-full rounded-2xl px-4 py-2">
+                <div className="w-full flex justify-between items-center text-white">
+                  <span className="flex items-center gap-2">
+                    <Plus size={18} />
+                    NOVO FLOW
+                  </span>
+                  <ChevronDown size={18} className={`transition-transform ${isNewFlowOpen ? 'rotate-180' : ''}`} />
+                </div>
+              </GlassButton>
+            </div>
           </CollapsibleTrigger>
           <CollapsibleContent className="mt-2 space-y-2 pl-4">
-            <Button
-              variant="ghost"
-              className="w-full justify-start text-sm hover:bg-white/5 transition-all duration-300"
+            <GlassButton 
               onClick={() => handleCreateFlow('person')}
+              className="w-full rounded-2xl px-4 py-2"
             >
-              <User size={16} className="mr-2" />
-              Pessoa
-            </Button>
-            <Button
-              variant="ghost"
-              className="w-full justify-start text-sm hover:bg-white/5 transition-all duration-300"
+              <div className="w-full flex items-center text-white text-sm">
+                <User size={16} className="mr-2" />
+                Pessoa
+              </div>
+            </GlassButton>
+            <GlassButton 
               onClick={() => handleCreateFlow('brand')}
+              className="w-full rounded-2xl px-4 py-2"
             >
-              <Building2 size={16} className="mr-2" />
-              Marca
-            </Button>
-            <Button
-              variant="ghost"
-              className="w-full justify-start text-sm hover:bg-white/5 transition-all duration-300"
+              <div className="w-full flex items-center text-white text-sm">
+                <Building2 size={16} className="mr-2" />
+                Marca
+              </div>
+            </GlassButton>
+            <GlassButton 
               onClick={() => handleCreateFlow('project')}
+              className="w-full rounded-2xl px-4 py-2"
             >
-              <FolderKanban size={16} className="mr-2" />
-              Projeto
-            </Button>
+              <div className="w-full flex items-center text-white text-sm">
+                <FolderKanban size={16} className="mr-2" />
+                Projeto
+              </div>
+            </GlassButton>
           </CollapsibleContent>
         </Collapsible>
 
         {/* Flows */}
-        <Button
-          variant="outline"
-          className="w-full justify-start bg-white/5 border-white/10 hover:bg-white/10 transition-all duration-300"
+        <GlassButton 
           onClick={() => setShowFlowsManager(true)}
+          className="w-full rounded-2xl px-4 py-2"
         >
-          <Layers size={18} className="mr-2" />
-          FLOWS
-        </Button>
+          <div className="w-full flex items-center text-white">
+            <Layers size={18} className="mr-2" />
+            FLOWS
+          </div>
+        </GlassButton>
 
         {/* Master View */}
-        <Button
-          variant={viewMode === 'master' ? 'default' : 'outline'}
-          className={`w-full justify-start transition-all duration-300 ${
-            viewMode === 'master' 
-              ? 'glass-nav-link active bg-gradient-to-r from-purple-600/30 to-indigo-600/30 border-l-4 border-purple-500 text-white hover:from-purple-600/40 hover:to-indigo-600/40' 
-              : 'glass-nav-link bg-white/5 border-white/10 hover:bg-white/10'
-          }`}
+        <GlassButton 
           onClick={handleMasterView}
+          className={`w-full rounded-2xl px-4 py-2 ${
+            viewMode === 'master' ? 'border-l-4 border-purple-500' : ''
+          }`}
         >
-          <Layers size={18} className="mr-2" />
-          MASTER VIEW
-        </Button>
+          <div className="w-full flex items-center text-white">
+            <Layers size={18} className="mr-2" />
+            MASTER VIEW
+          </div>
+        </GlassButton>
 
         {/* Single View */}
-        <Button
-          variant={viewMode === 'single' ? 'default' : 'outline'}
-          className={`w-full justify-start transition-all duration-300 ${
-            viewMode === 'single' 
-              ? 'glass-nav-link active bg-gradient-to-r from-blue-600/30 to-cyan-600/30 border-l-4 border-blue-500 text-white hover:from-blue-600/40 hover:to-cyan-600/40' 
-              : 'glass-nav-link bg-white/5 border-white/10 hover:bg-white/10'
-          }`}
+        <GlassButton 
           onClick={handleSingleView}
+          className={`w-full rounded-2xl px-4 py-2 ${
+            viewMode === 'single' ? 'border-l-4 border-blue-500' : ''
+          }`}
         >
-          <Target size={18} className="mr-2" />
-          SINGLE VIEW
-        </Button>
+          <div className="w-full flex items-center text-white">
+            <Target size={18} className="mr-2" />
+            SINGLE VIEW
+          </div>
+        </GlassButton>
 
         {/* WhatsApp */}
         {onOpenWhatsApp && (
-          <Button
-            variant="outline"
-            className="w-full justify-start bg-white/5 border-white/10 hover:bg-white/10 transition-all duration-300"
+          <GlassButton 
             onClick={onOpenWhatsApp}
+            className="w-full rounded-2xl px-4 py-2"
           >
-            <MessageCircle size={18} className="mr-2 text-green-600" />
-            Conectar WhatsApp
-          </Button>
+            <div className="w-full flex items-center text-white">
+              <MessageCircle size={18} className="mr-2 text-green-400" />
+              Conectar WhatsApp
+            </div>
+          </GlassButton>
         )}
       </div>
 
@@ -255,14 +261,15 @@ export function NetworkSidebar({
           </div>
         )}
         {onLogout && (
-          <Button
-            variant="outline"
-            className="w-full justify-start bg-white/5 border-white/10 hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/30 transition-all duration-300"
+          <GlassButton 
             onClick={onLogout}
+            className="w-full rounded-2xl px-4 py-2"
           >
-            <LogOut size={18} className="mr-2" />
-            Sair
-          </Button>
+            <div className="w-full flex items-center text-red-400">
+              <LogOut size={18} className="mr-2" />
+              Sair
+            </div>
+          </GlassButton>
         )}
       </div>
     </div>

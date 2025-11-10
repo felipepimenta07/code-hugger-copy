@@ -26,7 +26,7 @@ import { ResetButton } from './ResetButton';
 import { DuplicateCheckDialog } from './DuplicateCheckDialog';
 import { WhatsAppNotifications } from './WhatsAppNotifications';
 import { NetworkSidebar } from './NetworkSidebar';
-import { GlassButton } from '@/components/ui/glass-button';
+import { GlassButton, GlassFilter } from '@/components/ui/liquid-glass';
 import { useNetworkState } from '@/hooks/useNetworkState';
 import { useNetworkHistory } from '@/hooks/useNetworkHistory';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
@@ -1975,6 +1975,7 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
 
   return (
     <div className="min-h-screen h-screen flex flex-col overflow-hidden">
+      <GlassFilter />
       {/* Animated Background Shapes */}
       <div className="shape-1"></div>
       <div className="shape-2"></div>
@@ -2158,7 +2159,6 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
             
             {/* Zoom Out */}
             <GlassButton 
-              size="icon" 
               onClick={() => {
                 const width = window.innerWidth;
                 const height = window.innerHeight - 100;
@@ -2174,23 +2174,22 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
                 });
               }}
               title="Zoom Out"
+              className="rounded-full p-3"
             >
-              <ZoomOut size={18} />
+              <ZoomOut size={18} className="text-white" />
             </GlassButton>
             
             {/* Porcentagem atual (clicável para resetar para 100%) */}
             <GlassButton
-              size="default"
               onClick={() => updateState({ zoom: 1 })}
-              contentClassName="text-sm font-mono px-4"
               title="Resetar Zoom (100%)"
+              className="rounded-full px-6 py-3"
             >
-              {Math.round(state.zoom * 100)}%
+              <span className="text-sm font-mono text-white">{Math.round(state.zoom * 100)}%</span>
             </GlassButton>
             
             {/* Zoom In */}
             <GlassButton 
-              size="icon" 
               onClick={() => {
                 const width = window.innerWidth;
                 const height = window.innerHeight - 100;
@@ -2206,15 +2205,15 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
                 });
               }}
               title="Zoom In"
+              className="rounded-full p-3"
             >
-              <ZoomIn size={18} />
+              <ZoomIn size={18} className="text-white" />
             </GlassButton>
 
-            <div className="h-8 w-px bg-primary-foreground/30 mx-1" />
+            <div className="h-8 w-px bg-white/30 mx-1" />
             
             {/* Centralizar */}
             <GlassButton 
-              size="icon" 
               onClick={() => {
                 const rect = svgRef.current?.getBoundingClientRect();
                 const width = rect?.width ?? window.innerWidth;
@@ -2226,8 +2225,9 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
                 updateState({ zoom, pan });
               }}
               title="Centralizar"
+              className="rounded-full p-3"
             >
-              <Target size={18} />
+              <Target size={18} className="text-white" />
             </GlassButton>
           </div>
         </div>
