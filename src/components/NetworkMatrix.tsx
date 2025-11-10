@@ -96,6 +96,9 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
     hasBeenOrganized: boolean;
   } | null>(null);
 
+  // Ref para rastrear mudança de viewMode (Single → Master)
+  const prevViewModeRef = useRef<string>(viewMode);
+
   const { state, updateState } = useNetworkState();
   const svgRef = useRef(null);
   const isDraggingRef = useRef(false);
@@ -740,7 +743,7 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
     const worldY = (mouseY - state.pan.y) / state.zoom;
     
     // Calcular novo zoom (scroll up = zoom in, scroll down = zoom out)
-    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+    const delta = e.deltaY > 0 ? 0.97 : 1.03;
     const newZoom = Math.max(0.1, Math.min(5, state.zoom * delta));
     
     // Ajustar pan para manter o mouse sobre o mesmo ponto
@@ -1284,6 +1287,34 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
   // Auto-centralizar quando voltar para Master View
   useEffect(() => {
     if (viewMode === 'master' && projects.length > 0 && allNodes.length > 0) {
+      
+      // Detectar se veio do Single View
+      const cameFromSingleView = prevViewModeRef.current === 'single';
+      
+      // Atualizar ref para próxima vez
+      prevViewModeRef.current = viewMode;
+      
+      // Se veio do Single View, SEMPRE centraliza (ignora estado salvo)
+      if (cameFromSingleView) {
+        const timer = setTimeout(() => {
+          const projectNodes = allNodesWithAnchors.filter(n => n.type === 'project');
+          if (projectNodes.length > 0 && svgRef.current) {
+            const rect = svgRef.current.getBoundingClientRect();
+            const bounds = calculateBounds(projectNodes);
+            const optimalZoom = calculateOptimalZoom(bounds, rect.width, rect.height);
+            const centerPan = calculateCenterPan(bounds, optimalZoom, rect.width, rect.height);
+            updateState({ zoom: optimalZoom, pan: centerPan });
+            
+            // Atualizar estado salvo
+            setMasterViewState({
+              zoom: optimalZoom,
+              pan: centerPan,
+              hasBeenOrganized: true
+            });
+          }
+        }, 100);
+        return () => clearTimeout(timer);
+      }
       
       // Se já existe estado salvo do Master View, RESTAURAR ao invés de reorganizar
       if (masterViewState && masterViewState.hasBeenOrganized) {
