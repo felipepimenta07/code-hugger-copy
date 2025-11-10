@@ -8,7 +8,7 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    --background: 0 0% 0%;
+    --background: 220 13% 13%;
     --foreground: 0 0% 98%;
 
     --card: 240 10% 10%;
@@ -65,6 +65,8 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
+    background-image: radial-gradient(circle, rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+    background-size: 20px 20px;
   }
 }
 
