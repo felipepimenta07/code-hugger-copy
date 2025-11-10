@@ -529,11 +529,14 @@ export const Canvas: React.FC<CanvasProps> = ({
               const pB = peopleWithCompany[j];
               const flowA = getNodeFlowId(pA);
               const flowB = getNodeFlowId(pB);
+
+              const compA = typeof pA.company === 'string' ? pA.company.trim().toLowerCase() : '';
+              const compB = typeof pB.company === 'string' ? pB.company.trim().toLowerCase() : '';
               
-              console.log(`🔗 Comparando: ${pA.name} (flow ${flowA}, ${pA.company}) vs ${pB.name} (flow ${flowB}, ${pB.company})`);
+              console.log(`🔗 Comparando: ${pA.name} (flow ${flowA}, ${compA}) vs ${pB.name} (flow ${flowB}, ${compB})`);
               
-              // Se estão em flows diferentes E compartilham empresa
-              if (flowA !== flowB && pA.company === pB.company) {
+              // Se estão em flows diferentes E compartilham empresa (case-insensitive)
+              if (flowA !== flowB && compA && compA === compB) {
                 console.log(`✅ MATCH! Adicionando conexão entre ${pA.name} e ${pB.name} via ${pA.company}`);
                 specificConnections.push({
                   personA: pA,
@@ -561,7 +564,7 @@ export const Canvas: React.FC<CanvasProps> = ({
               <g key={`specific-conn-${idx}`}>
                 <path
                   d={`M ${posA.x} ${posA.y} L ${posB.x} ${posB.y}`}
-                  stroke="#fbbf24"
+                  stroke={"hsl(var(--connection-cross))"}
                   strokeWidth="2.5"
                   strokeDasharray="6,4"
                   opacity="0.6"
@@ -598,7 +601,7 @@ export const Canvas: React.FC<CanvasProps> = ({
                           <div className="text-muted-foreground">Flow: {flowB?.name || 'Desconhecido'}</div>
                         </div>
                         <div className="pt-1.5 border-t border-border mt-1.5">
-                          <strong className="text-yellow-500">Empresa:</strong> {conn.company}
+                          <strong className="text-[hsl(var(--connection-cross))]">Empresa:</strong> {conn.company}
                         </div>
                       </div>
                     </div>
