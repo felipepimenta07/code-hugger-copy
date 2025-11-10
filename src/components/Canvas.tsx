@@ -400,7 +400,7 @@ export const Canvas: React.FC<CanvasProps> = ({
       </defs>
 
       <g transform={`translate(${state.pan.x}, ${state.pan.y}) scale(${state.zoom})`}>
-        <rect x="-5000" y="-5000" width="15000" height="15000" fill="#000000" />
+        <rect x="-5000" y="-5000" width="15000" height="15000" fill="transparent" />
         
         {/* Anéis Decorativos Radiais (Single View) */}
         {viewMode === 'single' && nodes.length > 0 && (() => {
