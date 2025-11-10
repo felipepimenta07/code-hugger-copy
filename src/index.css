@@ -65,8 +65,9 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
-    background-image: radial-gradient(circle, rgba(255, 255, 255, 0.08) 1px, transparent 1px);
-    background-size: 20px 20px;
+    background:
+      radial-gradient(circle, rgba(255, 255, 255, 0.06) 0.6px, transparent 1px) 0 0 / 12px 12px,
+      linear-gradient(180deg, hsl(235 30% 11%), hsl(245 28% 12%) 40%, hsl(265 26% 13%));
   }
 }
 

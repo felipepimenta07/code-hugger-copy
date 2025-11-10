@@ -2096,7 +2096,7 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
       />
 
       {/* Área principal com canvas */}
-      <div className="flex-1 flex flex-col ml-80 relative">
+      <div className="flex-1 flex flex-col relative">
         
         {/* Barra de Busca IA - Canto Superior Direito */}
         <div className="absolute top-6 right-6 z-40 w-96">
