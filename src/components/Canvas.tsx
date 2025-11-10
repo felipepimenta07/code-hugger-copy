@@ -515,6 +515,13 @@ export const Canvas: React.FC<CanvasProps> = ({
           
           const peopleWithCompany = nodes.filter(n => n.type === 'person' && n.company);
           
+          console.log('🔍 [Cross-Flow Connections] Pessoas com empresa:', peopleWithCompany.map(p => ({
+            id: p.id,
+            name: p.name,
+            company: p.company,
+            flowId: getNodeFlowId(p)
+          })));
+          
           // Para cada par de pessoas, verificar se compartilham empresa E estão em flows diferentes
           for (let i = 0; i < peopleWithCompany.length; i++) {
             for (let j = i + 1; j < peopleWithCompany.length; j++) {
@@ -523,8 +530,11 @@ export const Canvas: React.FC<CanvasProps> = ({
               const flowA = getNodeFlowId(pA);
               const flowB = getNodeFlowId(pB);
               
+              console.log(`🔗 Comparando: ${pA.name} (flow ${flowA}, ${pA.company}) vs ${pB.name} (flow ${flowB}, ${pB.company})`);
+              
               // Se estão em flows diferentes E compartilham empresa
               if (flowA !== flowB && pA.company === pB.company) {
+                console.log(`✅ MATCH! Adicionando conexão entre ${pA.name} e ${pB.name} via ${pA.company}`);
                 specificConnections.push({
                   personA: pA,
                   personB: pB,
@@ -535,6 +545,8 @@ export const Canvas: React.FC<CanvasProps> = ({
               }
             }
           }
+          
+          console.log('📊 Total de conexões entre flows encontradas:', specificConnections.length);
           
           // Renderizar conexões específicas pessoa-a-pessoa
           return specificConnections.map((conn, idx) => {
