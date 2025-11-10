@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Trash2, ZoomIn, ZoomOut, X, Building2, User, FolderKanban, Undo2, Redo2, LayoutGrid, Maximize2, Info, Layers, BarChart3, Route, Sparkles, Target, Save, MessageCircle, LogOut } from 'lucide-react';
+import { Plus, Trash2, ZoomIn, ZoomOut, X, Building2, User, FolderKanban, Undo2, Redo2, LayoutGrid, Maximize2, Info, Layers, BarChart3, Route, Sparkles, Target, Save, MessageCircle, LogOut, Search } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -24,6 +25,8 @@ import { OpportunitiesPanel } from './OpportunitiesPanel';
 import { ResetButton } from './ResetButton';
 import { DuplicateCheckDialog } from './DuplicateCheckDialog';
 import { WhatsAppNotifications } from './WhatsAppNotifications';
+import { NetworkSidebar } from './NetworkSidebar';
+import { GlassButton } from '@/components/ui/glass-button';
 import { useNetworkState } from '@/hooks/useNetworkState';
 import { useNetworkHistory } from '@/hooks/useNetworkHistory';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
@@ -78,6 +81,7 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
   const [showAIInsights, setShowAIInsights] = useState(false);
   const [showFlowStarterModal, setShowFlowStarterModal] = useState(false);
   const [showLinkedInImport, setShowLinkedInImport] = useState(false);
+  const [aiSearchQuery, setAiSearchQuery] = useState('');
   const [isCreatingFlowRoot, setIsCreatingFlowRoot] = useState(false);
   const [showOpportunities, setShowOpportunities] = useState(false);
   
@@ -2059,425 +2063,58 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
         />
       )}
 
-      {/* Header */}
-      <div className="bg-card/80 backdrop-blur-xl border-b border-border px-6 py-4 z-20">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-6">
-            <div>
-              <h1 className="text-2xl font-bold text-foreground tracking-tight">Network Matrix</h1>
-              <div className="text-xs text-muted-foreground mt-0.5 font-medium">VISION ECOSYSTEM</div>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-3">
-            {/* Botões WhatsApp e Sair */}
-            {onOpenWhatsApp && (
-              <Button
-                onClick={onOpenWhatsApp}
-                variant="outline"
-                size="sm"
-                className="gap-2"
-              >
-                <MessageCircle className="h-4 w-4 text-green-600" />
-                <span className="hidden sm:inline">WhatsApp</span>
-              </Button>
-            )}
-            {onLogout && (
-              <Button
-                onClick={onLogout}
-                variant="outline"
-                size="sm"
-                className="gap-2"
-              >
-                <LogOut className="h-4 w-4" />
-                <span className="hidden sm:inline">Sair</span>
-              </Button>
-            )}
-            
-            <div className="h-8 w-px bg-border"></div>
-            
-            <div className="flex items-center gap-2">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      onClick={() => {
-                        setViewMode('master');
-                        // Centralizar Master View no nó raiz do flow atual (se houver)
-                        setTimeout(() => {
-                          try {
-                            const width = window.innerWidth;
-                            const height = window.innerHeight - 100;
-                            let centerX = 0, centerY = 0;
-                            let found = false;
-                            if (activeProjectId) {
-                              const currentFlowId = getCurrentFlowIdFromProjectId(activeProjectId);
-                              const flow = flows.find(f => f.id === currentFlowId);
-                              if (flow) {
-                                const getRoot = () => {
-                                  if (flow.center_type === 'project') return projects.find(p => p.id === flow.center_id);
-                                  if (flow.center_type === 'person') return people.find(p => p.id === flow.center_id);
-                                  if (flow.center_type === 'brand') return brands.find(b => b.id === flow.center_id);
-                                  return null;
-                                };
-                                const root = getRoot();
-                                if (root) {
-                                  // Usar master_x/master_y quando disponível
-                                  centerX = (root.master_x ?? root.x ?? 0);
-                                  centerY = (root.master_y ?? root.y ?? 0);
-                                  found = true;
-                                }
-                              }
-                            }
-                            if (!found && allNodes.length > 0) {
-                              centerX = allNodes[0].x ?? 0;
-                              centerY = allNodes[0].y ?? 0;
-                            }
-                            const zoom = state.zoom;
-                            const pan = { x: width / 2 - centerX * zoom, y: height / 2 - centerY * zoom };
-                            updateState({ pan });
-                          } catch {}
-                        }, 50);
-                      }}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                        viewMode === 'master' 
-                          ? 'bg-purple-600 border border-purple-500 text-white shadow-lg' 
-                          : 'bg-transparent border border-purple-500/30 text-purple-400 hover:bg-purple-600/20'
-                      }`}
-                    >
-                      <Layers size={16} className="inline mr-2" />
-                      Master View
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Ver todos os projetos</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      onClick={() => {
-                        // Se não houver flow ativo, impedir troca
-                        if (!activeProjectId) {
-                          toast.error('Selecione um flow para entrar no Single View.');
-                          return;
-                        }
-                        // Salvar estado atual do Master View antes de trocar
-                        if (viewMode === 'master') {
-                          setMasterViewState({
-                            zoom: state.zoom,
-                            pan: state.pan,
-                            hasBeenOrganized: true
-                          });
-                        }
-                        
-                        setViewMode('single');
-                        
-                        // Centralizar quando mudar para single view (sem auto-organizar)
-                        setTimeout(() => {
-                          const width = window.innerWidth;
-                          const height = window.innerHeight - 100;
-                          const currentNodes = getNodesForSingleView(activeProjectId);
-                          
-                          if (currentNodes.length > 0 && svgRef.current) {
-                            const bounds = calculateBounds(currentNodes);
-                            const zoom = calculateOptimalZoom(bounds, width, height);
-                            const pan = calculateCenterPan(bounds, zoom, width, height);
-                            updateState({ zoom, pan });
-                          }
-                        }, 50);
-                      }}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                        viewMode === 'single' 
-                          ? 'bg-blue-600 border border-blue-500 text-white shadow-lg' 
-                          : 'bg-transparent border border-blue-500/30 text-blue-400 hover:bg-blue-600/20'
-                      }`}
-                    >
-                      <Target size={16} className="inline mr-2" />
-                      Single View
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Ver projeto específico</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
-            
-            {/* Toggle de Organização Automática */}
-            {viewMode === 'single' && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      onClick={() => setAutoOrganizeEnabled(!autoOrganizeEnabled)}
-                      className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                        autoOrganizeEnabled 
-                          ? 'bg-green-600 text-white' 
-                          : 'bg-gray-700 text-gray-300'
-                      }`}
-                    >
-                      <LayoutGrid className="inline mr-2" size={16} />
-                      Auto-Organizar: {autoOrganizeEnabled ? 'ON' : 'OFF'}
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>
-                      {autoOrganizeEnabled 
-                        ? 'Organização automática está ligada' 
-                        : 'Organização automática está desligada - você tem controle total do layout'}
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
-            
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button 
-                    onClick={() => setShowFlowStarterModal(true)}
-                    variant="outline" 
-                    size="icon" 
-                    className="rounded-lg hover:bg-primary/10"
-                  >
-                    <Plus size={18} />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Criar novo flow</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button 
-                    onClick={() => setShowLinkedInImport(true)}
-                    variant="outline" 
-                    size="icon" 
-                    className="rounded-lg bg-[#0A66C2]/10 border-[#0A66C2]/30 text-[#0A66C2] hover:bg-[#0A66C2]/20"
-                  >
-                    <Building2 size={18} />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Importar LinkedIn</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button 
-                    onClick={() => setShowFlowsManager(true)}
-                    variant="outline" 
-                    size="icon" 
-                    className="rounded-lg hover:bg-primary/10"
-                  >
-                    <Layers size={18} />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Gerenciar Flows</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            
-            {/* Botão de Oportunidades IA (Master View) */}
-            {viewMode === 'master' && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button 
-                      onClick={() => setShowOpportunities(true)}
-                      variant="outline" 
-                      size="icon" 
-                      className="rounded-lg bg-gradient-to-r from-primary/20 to-accent/20 border-primary/40 hover:from-primary/30 hover:to-accent/30 transition-all"
-                    >
-                      <Sparkles size={18} className="text-primary" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Buscar Oportunidades com IA</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
-            
-            <div className="w-px h-8 bg-border mx-1"></div>
-            
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button onClick={undo} disabled={historyIndex <= 0}
-                    className={`p-2 rounded-lg transition-all ${historyIndex <= 0 ? 'text-muted' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'}`}>
-                    <Undo2 size={18} />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Desfazer (Ctrl+Z)</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button onClick={redo} disabled={historyIndex >= history.length - 1}
-                    className={`p-2 rounded-lg transition-all ${historyIndex >= history.length - 1 ? 'text-muted' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'}`}>
-                    <Redo2 size={18} />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Refazer (Ctrl+Y)</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            
-            <div className="w-px h-8 bg-border mx-1"></div>
-            
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button onClick={() => {
-                    const width = window.innerWidth;
-                    const height = window.innerHeight - 100;
-                    const newZoom = Math.max(state.zoom / 1.2, 0.3);
-                    const centerX = (width / 2 - state.pan.x) / state.zoom;
-                    const centerY = (height / 2 - state.pan.y) / state.zoom;
-                    updateState({ 
-                      zoom: newZoom,
-                      pan: {
-                        x: width / 2 - centerX * newZoom,
-                        y: height / 2 - centerY * newZoom
-                      }
-                    });
-                  }} 
-                    className="p-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-all">
-                    <ZoomOut size={18} />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Reduzir zoom</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            <div className="text-sm text-muted-foreground font-mono px-2 min-w-[50px] text-center">
-              {Math.round(state.zoom * 100)}%
-            </div>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button onClick={() => {
-                    const width = window.innerWidth;
-                    const height = window.innerHeight - 100;
-                    const newZoom = Math.min(state.zoom * 1.2, 3);
-                    const centerX = (width / 2 - state.pan.x) / state.zoom;
-                    const centerY = (height / 2 - state.pan.y) / state.zoom;
-                    updateState({ 
-                      zoom: newZoom,
-                      pan: {
-                        x: width / 2 - centerX * newZoom,
-                        y: height / 2 - centerY * newZoom
-                      }
-                    });
-                  }} 
-                    className="p-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-all">
-                    <ZoomIn size={18} />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Aumentar zoom</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button onClick={() => {
-                    const width = window.innerWidth;
-                    const height = window.innerHeight - 100;
-                    const bounds = calculateBounds(viewMode === 'single' ? nodes : allNodes);
-                    const zoom = calculateOptimalZoom(bounds, width, height);
-                    const pan = calculateCenterPan(bounds, zoom, width, height);
-                    updateState({ zoom, pan });
-                  }} 
-                    className="p-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-all">
-                    <Maximize2 size={18} />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Ajustar à tela</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            
-            <div className="w-px h-8 bg-border mx-1"></div>
-            
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button 
-                    onClick={() => setShowFlowsManager(!showFlowsManager)}
-                    className={`p-2 rounded-lg transition-all ${showFlowsManager ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'}`}>
-                    <Layers size={18} />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Gerenciar Flows</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button 
-                    onClick={() => updateState({ showAnalytics: !state.showAnalytics, showSidebar: false })}
-                    className={`p-2 rounded-lg transition-all ${state.showAnalytics ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'}`}>
-                    <BarChart3 size={18} />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Análises Inteligentes</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button 
-                    onClick={() => setShowLegend(!showLegend)}
-                    className={`p-2 rounded-lg transition-all ${showLegend ? 'bg-secondary text-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'}`}>
-                    <Info size={18} />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Stakeholders</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+
+      {/* Sidebar Esquerda */}
+      <NetworkSidebar
+        viewMode={viewMode}
+        setViewMode={setViewMode}
+        activeProjectId={activeProjectId}
+        setShowFlowStarterModal={setShowFlowStarterModal}
+        setShowFlowsManager={setShowFlowsManager}
+        onOpenWhatsApp={onOpenWhatsApp}
+        onLogout={onLogout}
+        updateState={updateState}
+        state={state}
+        svgRef={svgRef}
+        calculateBounds={calculateBounds}
+        calculateOptimalZoom={calculateOptimalZoom}
+        calculateCenterPan={calculateCenterPan}
+        allNodes={allNodes}
+        nodes={nodes}
+        flows={flows}
+        projects={projects}
+        getCurrentFlowIdFromProjectId={getCurrentFlowIdFromProjectId}
+        people={people}
+        brands={brands}
+        setNodeCreationType={setNodeCreationType}
+        setMasterViewState={setMasterViewState}
+        getNodesForSingleView={getNodesForSingleView}
+      />
+
+      {/* Área principal com canvas */}
+      <div className="flex-1 flex flex-col ml-80 relative">
+        
+        {/* Barra de Busca IA - Canto Superior Direito */}
+        <div className="absolute top-6 right-6 z-40 w-96">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="text"
+              placeholder="Buscar com IA..."
+              value={aiSearchQuery}
+              onChange={(e) => setAiSearchQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && aiSearchQuery.trim()) {
+                  setShowOpportunities(true);
+                }
+              }}
+              className="pl-10 bg-background/95 backdrop-blur-md border-primary-foreground/20 focus:border-primary/50 rounded-full"
+            />
           </div>
         </div>
-        
-        
-        {selectedNodes.length > 0 && (
-          <div className="mt-2 text-sm text-primary flex items-center gap-2">
-            <span className="inline-block w-2 h-2 bg-primary rounded-full animate-pulse"></span>
-            {selectedNodes.length} nó(s) selecionado(s) • Shift+Click para adicionar • Backspace para deletar
-          </div>
-        )}
-        
-      </div>
 
-      {showLegend && (
-        <Legend nodes={nodes} setShowLegend={setShowLegend} />
-      )}
-
-      <div className="flex-1 relative overflow-hidden">
+        {/* Canvas */}
+        <div className="flex-1 relative overflow-hidden">
         <Canvas
           svgRef={svgRef}
           state={state}
@@ -2512,130 +2149,83 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
           }}
         />
 
-          {/* Botões flutuantes de ação */}
-        <div className="fixed bottom-6 right-6 flex flex-col gap-3 z-30">
-          {/* Criar Novo Nó - APENAS SINGLE VIEW */}
-          {viewMode === 'single' && (
-            <button
-              onClick={(e) => {
-                const rect = svgRef.current?.getBoundingClientRect();
-                if (rect) {
-                  const canvasX = (rect.width / 2 - state.pan.x) / state.zoom;
-                  const canvasY = (rect.height / 2 - state.pan.y) / state.zoom;
-                  
-                  updateState({
-                    contextMenu: {
-                      x: e.clientX,
-                      y: e.clientY,
-                      canvasX,
-                      canvasY,
-                      type: 'canvas'
-                    }
-                  });
-                }
-              }}
-              className="p-4 bg-blue-600 text-white rounded-full shadow-2xl hover:scale-110 transition-all group relative"
-              title="Criar Novo Nó"
-            >
-              <Plus size={22} className="group-hover:scale-110 transition-transform" />
-              <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 bg-popover text-popover-foreground px-3 py-1.5 rounded-lg text-sm font-medium shadow-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                Criar Novo Nó
-              </span>
-            </button>
-          )}
-          
-          {/* Reorganizar Nós - Apenas no Single View */}
-          {viewMode === 'single' && (
-            <button
-              onClick={async () => {
-                const loadingToast = toast.loading('Organizando nós...');
-                try {
-                  await autoOrganize();
-                  toast.success('Nós organizados com sucesso!', { id: loadingToast });
-                } catch (error) {
-                  toast.error('Erro ao organizar nós', { id: loadingToast });
-                }
-              }}
-              className="p-4 bg-primary text-primary-foreground rounded-full shadow-2xl hover:scale-110 transition-all group relative"
-              title="Reorganizar Nós (A)"
-            >
-              <LayoutGrid size={22} className="group-hover:scale-110 transition-transform" />
-              <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 bg-popover text-popover-foreground px-3 py-1.5 rounded-lg text-sm font-medium shadow-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                Reorganizar Nós (Single View)
-              </span>
-            </button>
-          )}
-          
-          {/* Centralizar View - SEMPRE VISÍVEL */}
-          <button
-            onClick={() => {
-              // Apenas centralizar, sem reorganizar
-              const rect = svgRef.current?.getBoundingClientRect();
-              const width = rect?.width ?? window.innerWidth;
-              const height = rect?.height ?? (window.innerHeight - 100);
-              const nodesToCenter = viewMode === 'master' ? allNodes : nodes;
-              const bounds = calculateBounds(nodesToCenter);
-              const zoom = calculateOptimalZoom(bounds, width, height);
-              const pan = calculateCenterPan(bounds, zoom, width, height);
-              updateState({ zoom, pan });
-            }}
-            className="p-3.5 bg-accent text-accent-foreground rounded-full shadow-xl hover:scale-110 transition-all group relative"
-            title="Centralizar (C)"
-          >
-            <Target size={20} />
-            <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 bg-popover text-popover-foreground px-3 py-1.5 rounded-lg text-sm font-medium shadow-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-              Centralizar
-            </span>
-          </button>
-          
-          {/* Salvar Design - APENAS SINGLE VIEW */}
-          {viewMode === 'single' && (
-            <button
-              onClick={saveCurrentDesign}
-              className="p-4 bg-green-600 text-white rounded-full shadow-2xl hover:scale-110 transition-all group relative"
-              title="Salvar Design (S)"
-            >
-              <Save size={22} className="group-hover:scale-110 transition-transform" />
-              <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 bg-popover text-popover-foreground px-3 py-1.5 rounded-lg text-sm font-medium shadow-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                Salvar Design
-              </span>
-            </button>
-          )}
-          
-          {/* Encontrar Caminho - APENAS SINGLE VIEW */}
-          {viewMode === 'single' && (
-            <button
-              onClick={() => setShowPathFinder(true)}
-              className="p-3.5 bg-secondary text-foreground rounded-full shadow-xl hover:scale-110 transition-all group relative"
-              title="Encontrar Caminho (P)"
-            >
-              <Route size={20} />
-              <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 bg-popover text-popover-foreground px-3 py-1.5 rounded-lg text-sm font-medium shadow-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                Encontrar Caminho
-              </span>
-            </button>
-          )}
-          
-          {/* Encaixar Tudo - APENAS SINGLE VIEW */}
-          {viewMode === 'single' && (
-            <button
+          {/* Botões Flutuantes com GlassButton - Centro-Inferior */}
+          <div className="fixed bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-3 z-30">
+            
+            {/* Zoom Out */}
+            <GlassButton 
+              size="icon" 
               onClick={() => {
                 const width = window.innerWidth;
                 const height = window.innerHeight - 100;
-                const bounds = calculateBounds(viewMode === 'single' ? nodes : allNodes);
+                const newZoom = Math.max(state.zoom / 1.2, 0.3);
+                const centerX = (width / 2 - state.pan.x) / state.zoom;
+                const centerY = (height / 2 - state.pan.y) / state.zoom;
+                updateState({ 
+                  zoom: newZoom,
+                  pan: {
+                    x: width / 2 - centerX * newZoom,
+                    y: height / 2 - centerY * newZoom
+                  }
+                });
+              }}
+              title="Zoom Out"
+            >
+              <ZoomOut size={18} />
+            </GlassButton>
+            
+            {/* Porcentagem atual (clicável para resetar para 100%) */}
+            <GlassButton
+              size="default"
+              onClick={() => updateState({ zoom: 1 })}
+              contentClassName="text-sm font-mono px-4"
+              title="Resetar Zoom (100%)"
+            >
+              {Math.round(state.zoom * 100)}%
+            </GlassButton>
+            
+            {/* Zoom In */}
+            <GlassButton 
+              size="icon" 
+              onClick={() => {
+                const width = window.innerWidth;
+                const height = window.innerHeight - 100;
+                const newZoom = Math.min(state.zoom * 1.2, 3);
+                const centerX = (width / 2 - state.pan.x) / state.zoom;
+                const centerY = (height / 2 - state.pan.y) / state.zoom;
+                updateState({ 
+                  zoom: newZoom,
+                  pan: {
+                    x: width / 2 - centerX * newZoom,
+                    y: height / 2 - centerY * newZoom
+                  }
+                });
+              }}
+              title="Zoom In"
+            >
+              <ZoomIn size={18} />
+            </GlassButton>
+
+            <div className="h-8 w-px bg-primary-foreground/30 mx-1" />
+            
+            {/* Centralizar */}
+            <GlassButton 
+              size="icon" 
+              onClick={() => {
+                const rect = svgRef.current?.getBoundingClientRect();
+                const width = rect?.width ?? window.innerWidth;
+                const height = rect?.height ?? (window.innerHeight - 100);
+                const nodesToCenter = viewMode === 'master' ? allNodes : nodes;
+                const bounds = calculateBounds(nodesToCenter);
                 const zoom = calculateOptimalZoom(bounds, width, height);
                 const pan = calculateCenterPan(bounds, zoom, width, height);
                 updateState({ zoom, pan });
               }}
-              className="p-3.5 bg-secondary text-foreground rounded-full shadow-xl hover:scale-110 transition-all group relative"
-              title="Encaixar Tudo (F)"
+              title="Centralizar"
             >
-              <Maximize2 size={20} />
-              <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 bg-popover text-popover-foreground px-3 py-1.5 rounded-lg text-sm font-medium shadow-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                Encaixar Tudo
-              </span>
-            </button>
-          )}
+              <Target size={18} />
+            </GlassButton>
+          </div>
         </div>
 
         <Drawer open={state.showSidebar && state.editingNode !== null} onOpenChange={(open) => {
