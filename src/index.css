@@ -69,15 +69,6 @@ All colors MUST be HSL.
       radial-gradient(circle, rgba(255, 255, 255, 0.08) 0.6px, transparent 1px) 0 0 / 12px 12px,
       radial-gradient(ellipse at 30% 30%, hsl(200, 45%, 18%) 0%, hsl(210, 55%, 8%) 40%, hsl(180, 30%, 15%) 100%);
   }
-
-  @keyframes moveBackground {
-    from {
-      background-position: 0% 0%;
-    }
-    to {
-      background-position: 0% -1000%;
-    }
-  }
 }
 
 /* Glassmorphism Sidebar & Components */
