@@ -45,7 +45,17 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { message } = await req.json();
+    // Parse body safely
+    let message = 'Teste de conexão - Network Matrix ✅';
+    try {
+      const body = await req.json();
+      if (body?.message) {
+        message = body.message;
+      }
+    } catch {
+      // Use default message if no body provided
+    }
+    
     const WHATSAPP_TOKEN = (Deno.env.get('WHATSAPP_ACCESS_TOKEN') || '').trim();
     const PHONE_NUMBER_ID = (Deno.env.get('WHATSAPP_PHONE_NUMBER_ID') || '').trim();
 
@@ -67,7 +77,7 @@ Deno.serve(async (req) => {
           messaging_product: 'whatsapp',
           to: connection.phone_number,
           type: 'text',
-          text: { body: message || 'Teste de conexão - Network Matrix ✅' }
+          text: { body: message }
         })
       }
     );
