@@ -15,7 +15,7 @@ interface WhatsAppDialogProps {
 }
 
 export const WhatsAppDialog = ({ open, onOpenChange }: WhatsAppDialogProps) => {
-  const WHATSAPP_NUMBER = '+1 555 152 9965';
+  const WHATSAPP_NUMBER = '+55 61 92814208';
   const { user } = useAuth();
   const [activationCode, setActivationCode] = useState<string | null>(null);
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
