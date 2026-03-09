@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { Sparkles, X, Loader2, AlertTriangle, Users, TrendingUp, Zap, Link2, MessageSquare, Send, RefreshCw } from 'lucide-react';
+import { Sparkles, X, Loader2, AlertTriangle, Users, TrendingUp, Zap, Link2, MessageSquare, Send, RefreshCw, ChevronRight } from 'lucide-react';
 import { Button } from './ui/button';
 import { ScrollArea } from './ui/scroll-area';
 import { Badge } from './ui/badge';
@@ -20,6 +20,7 @@ interface AIInsightsPanelProps {
   onHighlightPath: (nodeIds: number[]) => void;
   onFocusNode: (nodeId: number) => void;
   onClose: () => void;
+  onOpenConnectionModal?: (connection: any, involvedNodes: any[], type: 'hidden' | 'bridge' | 'opportunity' | 'alert' | 'action') => void;
 }
 
 export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({
@@ -32,7 +33,8 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({
   projects = [],
   onHighlightPath,
   onFocusNode,
-  onClose
+  onClose,
+  onOpenConnectionModal,
 }) => {
   const [insights, setInsights] = useState<any>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
