@@ -492,13 +492,28 @@ serve(async (req) => {
       }
 
       if (buttonId === 'create_node') {
-        // Always create a new flow for contacts received via WhatsApp
+        // FIX: Create flow FIRST (with temp center_id=1), then create person with real flow_id
+        // This avoids zombie people records with flow_id=0
         const flowName = contact.company || `${contact.name} Network`;
-        
-        // First create the person node with complete data
+
+        // Step 1: Create the flow with a temporary center_id
+        const { data: newFlow, error: flowError } = await supabase.from('flows').insert({
+          user_id: connection.user_id,
+          name: flowName,
+          center_type: 'person',
+          center_id: 1 // temporary placeholder, updated below
+        }).select().maybeSingle();
+
+        if (flowError || !newFlow) {
+          console.error('Error creating flow:', flowError);
+          await sendWhatsAppMessage(from, '❌ Erro ao criar flow. Tente novamente.');
+          return new Response('OK', { status: 200 });
+        }
+
+        // Step 2: Create person with the real flow_id
         const { data: newPerson, error: personError } = await supabase.from('people').insert({
           user_id: connection.user_id,
-          flow_id: 0, // Temporary, will update after flow creation
+          flow_id: newFlow.id,
           name: contact.name,
           email: contact.email,
           phone: contact.phone,
@@ -518,30 +533,16 @@ serve(async (req) => {
           master_y: 0
         }).select().maybeSingle();
 
-        if (personError) {
+        if (personError || !newPerson) {
           console.error('Error creating person:', personError);
+          // Rollback: delete the flow we just created
+          await supabase.from('flows').delete().eq('id', newFlow.id);
           await sendWhatsAppMessage(from, '❌ Erro ao criar nó. Tente novamente.');
           return new Response('OK', { status: 200 });
         }
 
-        // Create the flow with this person as center
-        const { data: newFlow, error: flowError } = await supabase.from('flows').insert({
-          user_id: connection.user_id,
-          name: flowName,
-          center_type: 'person',
-          center_id: newPerson.id
-        }).select().maybeSingle();
-
-        if (flowError) {
-          console.error('Error creating flow:', flowError);
-          await sendWhatsAppMessage(from, '❌ Erro ao criar flow. Tente novamente.');
-          return new Response('OK', { status: 200 });
-        }
-
-        // Update person with the correct flow_id
-        await supabase.from('people').update({
-          flow_id: newFlow.id
-        }).eq('id', newPerson.id);
+        // Step 3: Update flow to point to real person
+        await supabase.from('flows').update({ center_id: newPerson.id }).eq('id', newFlow.id);
 
         await supabase.from('whatsapp_notifications').insert({
           user_id: connection.user_id,
@@ -593,9 +594,25 @@ serve(async (req) => {
         const flowName = message.text.body;
         const contact = session.pending_contact;
 
-        const { data: newPerson } = await supabase.from('people').insert({
+        // FIX: Create flow first, then person with real flow_id (no zombie records)
+        const { data: newFlow, error: flowError } = await supabase.from('flows').insert({
           user_id: connection.user_id,
-          flow_id: 0,
+          name: flowName,
+          center_type: 'person',
+          center_id: 1 // temporary placeholder
+        }).select().maybeSingle();
+
+        if (flowError || !newFlow) {
+          console.error('Error creating flow in awaiting_flow_name:', flowError);
+          await sendWhatsAppMessage(from, '❌ Erro ao criar flow. Tente novamente.');
+          await supabase.from('whatsapp_sessions').delete().eq('id', session.id);
+          return new Response('OK', { status: 200 });
+        }
+
+        // FIX: null check — if person insert fails, rollback the flow
+        const { data: newPerson, error: personError } = await supabase.from('people').insert({
+          user_id: connection.user_id,
+          flow_id: newFlow.id, // real flow_id, no zombie
           name: contact.name,
           email: contact.email,
           phone: contact.phone,
@@ -607,16 +624,17 @@ serve(async (req) => {
           master_y: 0
         }).select().maybeSingle();
 
-        const { data: newFlow } = await supabase.from('flows').insert({
-          user_id: connection.user_id,
-          name: flowName,
-          center_type: 'person',
-          center_id: newPerson.id
-        }).select().maybeSingle();
+        if (personError || !newPerson) {
+          console.error('Error creating person in awaiting_flow_name:', personError);
+          // Rollback: delete the flow
+          await supabase.from('flows').delete().eq('id', newFlow.id);
+          await sendWhatsAppMessage(from, '❌ Erro ao salvar contato. Tente novamente.');
+          await supabase.from('whatsapp_sessions').delete().eq('id', session.id);
+          return new Response('OK', { status: 200 });
+        }
 
-        await supabase.from('people').update({
-          flow_id: newFlow.id
-        }).eq('id', newPerson.id);
+        // Update flow center to real person id
+        await supabase.from('flows').update({ center_id: newPerson.id }).eq('id', newFlow.id);
 
         await supabase.from('whatsapp_notifications').insert({
           user_id: connection.user_id,

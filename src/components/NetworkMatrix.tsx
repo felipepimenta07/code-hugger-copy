@@ -1540,17 +1540,62 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
     autoOrganize,
   });
 
-  const deleteNode = (nodeId) => {
+  const deleteNode = async (nodeId: number) => {
+    if (!user) return;
     saveToHistory();
+
+    // Determinar o tipo do nó para deletar da tabela correta
+    const isProject = projects.some(p => p.id === nodeId);
+    const isPerson = people.some(p => p.id === nodeId);
+    const isBrand = brands.some(b => b.id === nodeId);
+
+    // Atualizar estado local imediatamente (UX responsiva)
     setNodes(prev => prev.filter(n => n.id !== nodeId));
     setConnections(prev => prev.filter(c => c.from !== nodeId && c.to !== nodeId));
     updateState({ selectedNode: null, showSidebar: false, editingNode: null });
     setSelectedNodes(prev => prev.filter(id => id !== nodeId));
+
+    // Persistir no banco em background
+    try {
+      const sb = supabase as any;
+      // Deletar conexões relacionadas
+      await sb.from('connections')
+        .delete()
+        .eq('user_id', user.id)
+        .or(`from_id.eq.${nodeId},to_id.eq.${nodeId}`);
+
+      // Deletar o nó da tabela correta
+      if (isProject) {
+        await sb.from('projects').delete().eq('id', nodeId).eq('user_id', user.id);
+        setProjects(prev => prev.filter(p => p.id !== nodeId));
+      } else if (isPerson) {
+        await sb.from('people').delete().eq('id', nodeId).eq('user_id', user.id);
+        setPeople(prev => prev.filter(p => p.id !== nodeId));
+      } else if (isBrand) {
+        await sb.from('brands').delete().eq('id', nodeId).eq('user_id', user.id);
+        setBrands(prev => prev.filter(b => b.id !== nodeId));
+      }
+    } catch (error: any) {
+      console.error('Erro ao deletar nó:', error);
+      toast.error('Erro ao deletar nó', { description: error?.message });
+      // Recarregar para reverter estado local
+      reloadData();
+    }
   };
 
   const exportData = () => {
     try {
-      const dataStr = JSON.stringify(workflows, null, 2);
+      const exportPayload = {
+        version: 2,
+        exportedAt: new Date().toISOString(),
+        flows,
+        projects,
+        people,
+        brands,
+        allConnections,
+        workflows,
+      };
+      const dataStr = JSON.stringify(exportPayload, null, 2);
       const dataBlob = new Blob([dataStr], { type: 'application/json' });
       const url = URL.createObjectURL(dataBlob);
       const link = document.createElement('a');
@@ -1560,8 +1605,10 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
+      toast.success('Exportação concluída com toda a rede!');
     } catch (error) {
       console.error('Erro ao exportar:', error);
+      toast.error('Erro ao exportar dados');
     }
   };
 
@@ -1574,11 +1621,23 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
         const result = event.target?.result;
         if (typeof result === 'string') {
           const imported = JSON.parse(result);
-          setWorkflows(imported);
-          alert('Dados importados com sucesso!');
+          // Suporte ao novo formato v2 (rede completa)
+          if (imported.version === 2) {
+            if (imported.flows) setFlows(imported.flows);
+            if (imported.projects) setProjects(imported.projects);
+            if (imported.people) setPeople(imported.people);
+            if (imported.brands) setBrands(imported.brands);
+            if (imported.allConnections) setAllConnections(imported.allConnections);
+            if (imported.workflows) setWorkflows(imported.workflows);
+            toast.success('Rede completa importada com sucesso!');
+          } else {
+            // Backward compatibility: formato antigo (só workflows)
+            setWorkflows(imported);
+            toast.success('Dados importados com sucesso!');
+          }
         }
       } catch (err) {
-        alert('Erro ao importar arquivo.');
+        toast.error('Erro ao importar arquivo. Verifique o formato.');
       }
     };
     reader.readAsText(file);
