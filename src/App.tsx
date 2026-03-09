@@ -15,10 +15,11 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#1a1a2e' }}>
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Carregando...</p>
+          <div className="animate-spin rounded-full h-16 w-16 border-4 border-t-purple-500 border-purple-300/30 mx-auto mb-6"></div>
+          <p className="text-white text-xl font-medium">Carregando Network Matrix...</p>
+          <p className="text-gray-400 text-sm mt-2">Verificando autenticação</p>
         </div>
       </div>
     );
