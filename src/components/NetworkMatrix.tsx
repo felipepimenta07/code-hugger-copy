@@ -2502,6 +2502,33 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
               }
             }}
             onClose={() => setShowAIInsights(false)}
+            onOpenConnectionModal={(connection, involvedNodes, type) =>
+              setAiConnectionModal({ connection, nodes: involvedNodes, type })
+            }
+          />
+        )}
+
+        {/* AI Connection Modal */}
+        {aiConnectionModal && (
+          <AIConnectionModal
+            connection={aiConnectionModal.connection}
+            involvedNodes={aiConnectionModal.nodes}
+            connectionType={aiConnectionModal.type}
+            onClose={() => setAiConnectionModal(null)}
+            onFocusNode={(nodeId) => {
+              setAiConnectionModal(null);
+              const node = allNodes.find(n => n.id === nodeId);
+              if (node) {
+                updateState({ selectedNode: nodeId });
+                if (node.flow_id) {
+                  const flow = flows.find(f => f.id === node.flow_id);
+                  if (flow) {
+                    setActiveProjectId(flow.center_id);
+                    setViewMode('single');
+                  }
+                }
+              }
+            }}
           />
         )}
 
