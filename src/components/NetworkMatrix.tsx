@@ -2472,6 +2472,34 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
           />
         )}
 
+        {/* Painel de Insights com IA */}
+        {showAIInsights && (
+          <AIInsightsPanel
+            nodes={allNodes}
+            connections={allConnections}
+            workflows={workflows}
+            flows={flows}
+            people={people}
+            brands={brands}
+            projects={projects}
+            onHighlightPath={(nodeIds) => setHighlightedPath(nodeIds)}
+            onFocusNode={(nodeId) => {
+              const node = allNodes.find(n => n.id === nodeId);
+              if (node) {
+                updateState({ selectedNode: nodeId });
+                if (node.flow_id) {
+                  const flow = flows.find(f => f.id === node.flow_id);
+                  if (flow) {
+                    setActiveProjectId(flow.center_id);
+                    setViewMode('single');
+                  }
+                }
+              }
+            }}
+            onClose={() => setShowAIInsights(false)}
+          />
+        )}
+
         {/* Painel de Oportunidades com IA */}
         <OpportunitiesPanel
           isOpen={showOpportunities}
