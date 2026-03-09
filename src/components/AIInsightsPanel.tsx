@@ -299,7 +299,19 @@ ${networkContext}`
                                   </Badge>
                                 ))}
                               </div>
-                              <p className="text-xs text-primary font-medium">💡 {conn.action}</p>
+                              <div className="flex items-center justify-between pt-1">
+                                <p className="text-xs text-primary font-medium">💡 {conn.action}</p>
+                                {onOpenConnectionModal && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-6 text-xs px-2 gap-1 shrink-0"
+                                    onClick={() => openModal(conn, conn.node_ids || [], 'hidden')}
+                                  >
+                                    Ver Conexão <ChevronRight className="h-3 w-3" />
+                                  </Button>
+                                )}
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -326,7 +338,7 @@ ${networkContext}`
                               <div className="flex items-start justify-between">
                                 <h4
                                   className="font-medium text-sm cursor-pointer hover:text-purple-500"
-                                  onClick={() => onFocusNode(bridge.node_id)}
+                                  onClick={() => bridge.node_id && onFocusNode(bridge.node_id)}
                                 >
                                   👤 {bridge.person_name}
                                 </h4>
@@ -338,7 +350,19 @@ ${networkContext}`
                                 Conecta: <strong>{bridge.connects_workflows?.join(', ')}</strong>
                               </p>
                               <p className="text-xs">{bridge.importance}</p>
-                              <p className="text-xs text-primary font-medium">🎯 {bridge.suggestion}</p>
+                              <div className="flex items-center justify-between pt-1">
+                                <p className="text-xs text-primary font-medium">🎯 {bridge.suggestion}</p>
+                                {onOpenConnectionModal && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-6 text-xs px-2 gap-1 shrink-0"
+                                    onClick={() => openModal(bridge, bridge.node_id ? [bridge.node_id] : [], 'bridge')}
+                                  >
+                                    Ver Detalhe <ChevronRight className="h-3 w-3" />
+                                  </Button>
+                                )}
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -380,7 +404,19 @@ ${networkContext}`
                                 ))}
                               </div>
                               <p className="text-xs text-muted-foreground">{opp.potential}</p>
-                              <p className="text-xs text-primary font-medium">📍 {opp.next_step}</p>
+                              <div className="flex items-center justify-between pt-1">
+                                <p className="text-xs text-primary font-medium">📍 {opp.next_step}</p>
+                                {onOpenConnectionModal && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-6 text-xs px-2 gap-1 shrink-0"
+                                    onClick={() => openModal(opp, opp.path || [], 'opportunity')}
+                                  >
+                                    Ver Detalhe <ChevronRight className="h-3 w-3" />
+                                  </Button>
+                                )}
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -423,7 +459,19 @@ ${networkContext}`
                                   </Badge>
                                 ))}
                               </div>
-                              <p className="text-xs text-primary font-medium">⚡ {alert.action}</p>
+                              <div className="flex items-center justify-between pt-1">
+                                <p className="text-xs text-primary font-medium">⚡ {alert.action}</p>
+                                {onOpenConnectionModal && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-6 text-xs px-2 gap-1 shrink-0"
+                                    onClick={() => openModal(alert, alert.node_ids || [], 'alert')}
+                                  >
+                                    Ver Detalhe <ChevronRight className="h-3 w-3" />
+                                  </Button>
+                                )}
+                              </div>
                             </div>
                           ))}
                         </div>
