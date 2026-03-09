@@ -17,6 +17,7 @@ import { Canvas } from './Canvas';
 import { NodeCreationModal } from './NodeCreationModal';
 import { ProjectManagerPanel } from './ProjectManagerPanel';
 import { AIInsightsPanel } from './AIInsightsPanel';
+import { AIConnectionModal } from './AIConnectionModal';
 import { FlowStarterModal } from './FlowStarterModal';
 import { PathIndicator } from './PathIndicator';
 import { FlowManagerPanel } from './FlowManagerPanel';
@@ -84,7 +85,11 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
   const [aiSearchQuery, setAiSearchQuery] = useState('');
   const [isCreatingFlowRoot, setIsCreatingFlowRoot] = useState(false);
   const [showOpportunities, setShowOpportunities] = useState(false);
-  
+  const [aiConnectionModal, setAiConnectionModal] = useState<{
+    connection: any;
+    nodes: any[];
+    type: 'hidden' | 'bridge' | 'opportunity' | 'alert' | 'action';
+  } | null>(null);
   // Estado para dialog de duplicatas
   const [duplicateCheckModal, setDuplicateCheckModal] = useState<{
     show: boolean;
@@ -2497,6 +2502,33 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
               }
             }}
             onClose={() => setShowAIInsights(false)}
+            onOpenConnectionModal={(connection, involvedNodes, type) =>
+              setAiConnectionModal({ connection, nodes: involvedNodes, type })
+            }
+          />
+        )}
+
+        {/* AI Connection Modal */}
+        {aiConnectionModal && (
+          <AIConnectionModal
+            connection={aiConnectionModal.connection}
+            involvedNodes={aiConnectionModal.nodes}
+            connectionType={aiConnectionModal.type}
+            onClose={() => setAiConnectionModal(null)}
+            onFocusNode={(nodeId) => {
+              setAiConnectionModal(null);
+              const node = allNodes.find(n => n.id === nodeId);
+              if (node) {
+                updateState({ selectedNode: nodeId });
+                if (node.flow_id) {
+                  const flow = flows.find(f => f.id === node.flow_id);
+                  if (flow) {
+                    setActiveProjectId(flow.center_id);
+                    setViewMode('single');
+                  }
+                }
+              }
+            }}
           />
         )}
 
