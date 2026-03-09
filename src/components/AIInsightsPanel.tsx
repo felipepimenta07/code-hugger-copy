@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { Sparkles, X, Loader2, AlertTriangle, Users, TrendingUp, Zap, Link2, MessageSquare, Send, RefreshCw } from 'lucide-react';
 import { Button } from './ui/button';
 import { ScrollArea } from './ui/scroll-area';
