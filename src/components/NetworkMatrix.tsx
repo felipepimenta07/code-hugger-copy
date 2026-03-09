@@ -85,7 +85,11 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
   const [aiSearchQuery, setAiSearchQuery] = useState('');
   const [isCreatingFlowRoot, setIsCreatingFlowRoot] = useState(false);
   const [showOpportunities, setShowOpportunities] = useState(false);
-  
+  const [aiConnectionModal, setAiConnectionModal] = useState<{
+    connection: any;
+    nodes: any[];
+    type: 'hidden' | 'bridge' | 'opportunity' | 'alert' | 'action';
+  } | null>(null);
   // Estado para dialog de duplicatas
   const [duplicateCheckModal, setDuplicateCheckModal] = useState<{
     show: boolean;
