@@ -273,7 +273,7 @@ export const AIConnectionModal: React.FC<AIConnectionModalProps> = ({
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl w-full p-0 overflow-hidden max-h-[90vh] flex flex-col">
+      <DialogContent className="max-w-3xl w-full p-0 overflow-hidden max-h-[90vh] flex flex-col z-[60]">
         {/* Header */}
         <DialogHeader className="px-6 py-4 border-b border-border bg-gradient-to-r from-purple-500/10 to-blue-500/10 shrink-0">
           <div className="flex items-center gap-3">
