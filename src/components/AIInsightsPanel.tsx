@@ -117,7 +117,19 @@ Contexto da rede atual:
     try {
       const systemMsg = {
         role: 'system' as const,
-        content: `Você é um assistente de análise de rede estratégica. Ajude o usuário a entender e cruzar dados da sua rede de relacionamentos. ${networkContext}`
+        content: `Você é um assistente de análise de rede estratégica. Ajude o usuário a entender e cruzar dados da sua rede de relacionamentos.
+
+REGRAS DE FORMATAÇÃO (obrigatórias):
+- Sempre responda usando Markdown estruturado
+- Use headers (## ou ###) para separar seções
+- Use listas (- ou 1.) para enumerar itens
+- Use **negrito** para destacar nomes e conceitos-chave
+- Use emojis (🔗 🧠 🎯 ⚡ 👥 📊) para categorizar visualmente
+- Use tabelas markdown quando comparar dados
+- NUNCA responda em texto corrido longo — sempre quebre em seções visuais
+- Seja direto e conciso
+
+${networkContext}`
       };
 
       const { data, error: fnError } = await supabase.functions.invoke('analyze-network', {
