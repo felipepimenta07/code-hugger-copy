@@ -17,6 +17,7 @@ import { Canvas } from './Canvas';
 import { NodeCreationModal } from './NodeCreationModal';
 import { ProjectManagerPanel } from './ProjectManagerPanel';
 import { AIInsightsPanel } from './AIInsightsPanel';
+import { AIConnectionModal } from './AIConnectionModal';
 import { FlowStarterModal } from './FlowStarterModal';
 import { PathIndicator } from './PathIndicator';
 import { FlowManagerPanel } from './FlowManagerPanel';
