@@ -2502,9 +2502,10 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
               }
             }}
             onClose={() => setShowAIInsights(false)}
-            onOpenConnectionModal={(connection, involvedNodes, type) =>
-              setAiConnectionModal({ connection, nodes: involvedNodes, type })
-            }
+            onOpenConnectionModal={(connection, involvedNodes, type) => {
+              setShowAIInsights(false);
+              setAiConnectionModal({ connection, nodes: involvedNodes, type });
+            }}
           />
         )}
 
