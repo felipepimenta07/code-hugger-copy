@@ -2190,9 +2190,9 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
       {/* Área principal com canvas */}
       <div className="flex-1 flex flex-col relative">
         
-        {/* Barra de Busca IA - Canto Superior Direito */}
-        <div className="absolute top-6 right-6 z-40 w-96">
-          <div className="relative">
+        {/* Barra de Busca IA + Botão Insights - Canto Superior Direito */}
+        <div className="absolute top-6 right-6 z-40 flex items-center gap-2">
+          <div className="relative w-72">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               type="text"
@@ -2207,6 +2207,15 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
               className="pl-10 glass-effect focus:border-indigo-400/50 rounded-full transition-all duration-300"
             />
           </div>
+          <Button
+            onClick={() => setShowAIInsights(prev => !prev)}
+            className={`rounded-full gap-2 transition-all duration-300 ${showAIInsights ? 'bg-purple-600 hover:bg-purple-700' : 'bg-purple-500/80 hover:bg-purple-600'}`}
+            size="sm"
+            title="Abrir painel de insights com IA"
+          >
+            <Sparkles size={15} />
+            IA
+          </Button>
         </div>
 
         {/* Canvas */}
@@ -2460,6 +2469,34 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
             onConfirmSame={handleDuplicateConfirmSame}
             onConfirmDifferent={handleDuplicateConfirmDifferent}
             onCancel={handleDuplicateCancel}
+          />
+        )}
+
+        {/* Painel de Insights com IA */}
+        {showAIInsights && (
+          <AIInsightsPanel
+            nodes={allNodes}
+            connections={allConnections}
+            workflows={workflows}
+            flows={flows}
+            people={people}
+            brands={brands}
+            projects={projects}
+            onHighlightPath={(nodeIds) => setHighlightedPath(nodeIds)}
+            onFocusNode={(nodeId) => {
+              const node = allNodes.find(n => n.id === nodeId);
+              if (node) {
+                updateState({ selectedNode: nodeId });
+                if (node.flow_id) {
+                  const flow = flows.find(f => f.id === node.flow_id);
+                  if (flow) {
+                    setActiveProjectId(flow.center_id);
+                    setViewMode('single');
+                  }
+                }
+              }
+            }}
+            onClose={() => setShowAIInsights(false)}
           />
         )}
 
