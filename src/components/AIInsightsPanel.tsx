@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { Sparkles, X, Loader2, AlertTriangle, Users, TrendingUp, Zap, Link2, MessageSquare, Send, RefreshCw } from 'lucide-react';
 import { Button } from './ui/button';
 import { ScrollArea } from './ui/scroll-area';
@@ -116,7 +117,19 @@ Contexto da rede atual:
     try {
       const systemMsg = {
         role: 'system' as const,
-        content: `Você é um assistente de análise de rede estratégica. Ajude o usuário a entender e cruzar dados da sua rede de relacionamentos. ${networkContext}`
+        content: `Você é um assistente de análise de rede estratégica. Ajude o usuário a entender e cruzar dados da sua rede de relacionamentos.
+
+REGRAS DE FORMATAÇÃO (obrigatórias):
+- Sempre responda usando Markdown estruturado
+- Use headers (## ou ###) para separar seções
+- Use listas (- ou 1.) para enumerar itens
+- Use **negrito** para destacar nomes e conceitos-chave
+- Use emojis (🔗 🧠 🎯 ⚡ 👥 📊) para categorizar visualmente
+- Use tabelas markdown quando comparar dados
+- NUNCA responda em texto corrido longo — sempre quebre em seções visuais
+- Seja direto e conciso
+
+${networkContext}`
       };
 
       const { data, error: fnError } = await supabase.functions.invoke('analyze-network', {
@@ -488,7 +501,13 @@ Contexto da rede atual:
               {chatMessages.map((msg, idx) => (
                 <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                   <div className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${msg.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground'}`}>
-                    {msg.content}
+                    {msg.role === 'assistant' ? (
+                      <div className="prose prose-sm prose-invert max-w-none [&_h2]:text-base [&_h2]:font-semibold [&_h2]:mt-3 [&_h2]:mb-1 [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:mt-2 [&_h3]:mb-1 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0.5 [&_p]:my-1 [&_table]:text-xs [&_th]:px-2 [&_td]:px-2 [&_strong]:text-foreground">
+                        <ReactMarkdown>{msg.content}</ReactMarkdown>
+                      </div>
+                    ) : (
+                      msg.content
+                    )}
                   </div>
                 </div>
               ))}
