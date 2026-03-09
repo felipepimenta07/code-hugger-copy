@@ -481,96 +481,129 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
     }
   };
 
-  // Função para importar dados do LinkedIn
-  const handleLinkedInImport = (data: ParsedLinkedInData, options: LinkedInImportOptions) => {
+  // Função para importar dados do LinkedIn — persiste no Supabase
+  const handleLinkedInImport = async (data: ParsedLinkedInData, options: LinkedInImportOptions) => {
+    if (!user) return;
     saveToHistory();
-    
-    const newPeople: any[] = [];
-    const newBrands: any[] = [];
-    const newConnections: any[] = [];
-    
-    // Create brands from unique companies if option is enabled
-    const brandMap = new Map<string, number>();
-    if (options.createBrands) {
-      data.uniqueCompanies.forEach((company, index) => {
-        const brandId = Date.now() + index + 10000;
-        const brand = {
-          id: brandId,
-          type: 'brand',
+
+    const sb = supabase as any;
+    const toastId = toast.loading(`Importando ${data.totalContacts} contatos do LinkedIn...`);
+
+    try {
+      // Passo 1: Criar um flow único para essa importação
+      const flowName = `LinkedIn Import - ${new Date().toLocaleDateString('pt-BR')}`;
+      const { data: newFlow, error: flowError } = await sb.from('flows').insert({
+        user_id: user.id,
+        name: flowName,
+        center_type: 'person',
+        center_id: 1, // placeholder, atualizado abaixo
+      }).select().maybeSingle();
+
+      if (flowError || !newFlow) throw flowError || new Error('Falha ao criar flow de importação');
+
+      // Passo 2: Criar marcas (brands) das empresas únicas
+      const brandMap = new Map<string, number>();
+      if (options.createBrands && data.uniqueCompanies.length > 0) {
+        const brandsToInsert = data.uniqueCompanies.map((company) => ({
+          user_id: user.id,
+          flow_id: newFlow.id,
           name: company,
+          category: null,
           x: Math.random() * 400 + 100,
           y: Math.random() * 400 + 100,
-          category: 'A',
-          workflowId: workflows[0]?.id
-        };
-        newBrands.push(brand);
-        brandMap.set(company, brandId);
-      });
-    }
-    
-    // Create person nodes from contacts
-    data.contacts.forEach((contact, index) => {
-      const personId = Date.now() + index + 20000;
-      const fullName = `${contact.firstName} ${contact.lastName}`.trim();
-      
-      const person = {
-        id: personId,
-        type: 'person',
-        name: fullName || `Contato LinkedIn ${index + 1}`,
+          master_x: 0,
+          master_y: 0,
+        }));
+        const { data: createdBrands, error: brandsError } = await sb
+          .from('brands').insert(brandsToInsert).select();
+        if (brandsError) throw brandsError;
+        (createdBrands || []).forEach((b: any, i: number) => {
+          brandMap.set(data.uniqueCompanies[i], b.id);
+          setBrands(prev => [...prev, { ...b, type: 'brand' }]);
+        });
+      }
+
+      // Passo 3: Criar pessoas em lote
+      const peopleToInsert = data.contacts.map((contact) => ({
+        user_id: user.id,
+        flow_id: newFlow.id,
+        name: `${contact.firstName} ${contact.lastName}`.trim() || 'Contato LinkedIn',
+        email: contact.email || null,
+        company: contact.company || null,
+        category: options.defaultCategory,
+        notes: contact.profileUrl ? `LinkedIn: ${contact.profileUrl}` : null,
         x: Math.random() * 400 + 100,
         y: Math.random() * 400 + 100,
-        category: options.defaultCategory,
-        workflowId: workflows[0]?.id,
-        company: contact.company,
-        role: contact.position,
-        email: contact.email,
-        notes: contact.profileUrl ? `LinkedIn: ${contact.profileUrl}` : undefined,
-        homeProjectId: options.connectToProject ? options.projectId : undefined
-      };
-      newPeople.push(person);
-      
-      // Create connection to brand if company exists and brands were created
-      if (contact.company && options.createBrands && brandMap.has(contact.company)) {
-        newConnections.push({
-          from: personId,
-          to: brandMap.get(contact.company)!,
-          type: 'works-at'
-        });
+        master_x: 0,
+        master_y: 0,
+      }));
+
+      const { data: createdPeople, error: peopleError } = await sb
+        .from('people').insert(peopleToInsert).select();
+      if (peopleError) throw peopleError;
+
+      // Atualizar flow center para a primeira pessoa real
+      if (createdPeople && createdPeople.length > 0) {
+        await sb.from('flows').update({ center_id: createdPeople[0].id }).eq('id', newFlow.id);
+        setPeople(prev => [...prev, ...createdPeople.map((p: any) => ({ ...p, type: 'person' }))]);
       }
-      
-      // Create connection to project if option is enabled
-      if (options.connectToProject && options.projectId) {
-        newConnections.push({
-          from: personId,
-          to: options.projectId,
-          type: 'related'
-        });
+
+      // Passo 4: Criar conexões (pessoa → marca e pessoa → projeto)
+      const connectionsToInsert: any[] = [];
+      (createdPeople || []).forEach((person: any, i: number) => {
+        const contact = data.contacts[i];
+        if (contact.company && options.createBrands && brandMap.has(contact.company)) {
+          connectionsToInsert.push({
+            user_id: user.id,
+            flow_id: newFlow.id,
+            from_id: person.id,
+            from_type: 'person',
+            to_id: brandMap.get(contact.company)!,
+            to_type: 'brand',
+            connection_type: 'works-at',
+          });
+        }
+        if (options.connectToProject && options.projectId) {
+          connectionsToInsert.push({
+            user_id: user.id,
+            flow_id: newFlow.id,
+            from_id: person.id,
+            from_type: 'person',
+            to_id: options.projectId,
+            to_type: 'project',
+            connection_type: 'related',
+          });
+        }
+      });
+
+      if (connectionsToInsert.length > 0) {
+        const { data: createdConns, error: connsError } = await sb
+          .from('connections').insert(connectionsToInsert).select();
+        if (connsError) throw connsError;
+        if (createdConns) {
+          setAllConnections(prev => [
+            ...prev,
+            ...createdConns.map((c: any) => ({
+              ...c, from: c.from_id, to: c.to_id, type: c.connection_type
+            }))
+          ]);
+        }
       }
-    });
-    
-    // Update state
-    setPeople(prev => [...prev, ...newPeople]);
-    setBrands(prev => [...prev, ...newBrands]);
-    setAllConnections(prev => [...prev, ...newConnections]);
-    
-    // Show success message
-    toast.success(
-      `Importação concluída! ${newPeople.length} pessoas` +
-      (newBrands.length > 0 ? `, ${newBrands.length} marcas` : '') +
-      (newConnections.length > 0 ? `, ${newConnections.length} conexões` : '')
-    );
-    
-    // Auto-organize and center view on new nodes
-    setTimeout(() => {
-      const allNewNodes = [...newPeople, ...newBrands];
-      if (allNewNodes.length > 0) {
-        const avgX = allNewNodes.reduce((sum, n) => sum + n.x, 0) / allNewNodes.length;
-        const avgY = allNewNodes.reduce((sum, n) => sum + n.y, 0) / allNewNodes.length;
-        updateState({
-          pan: { x: window.innerWidth / 2 - avgX * state.zoom, y: window.innerHeight / 2 - avgY * state.zoom }
-        });
-      }
-    }, 100);
+
+      setFlows(prev => [...prev, newFlow]);
+
+      toast.dismiss(toastId);
+      toast.success(
+        `LinkedIn importado! ${createdPeople?.length || 0} pessoas` +
+        (brandMap.size > 0 ? `, ${brandMap.size} marcas` : '') +
+        (connectionsToInsert.length > 0 ? `, ${connectionsToInsert.length} conexões` : '') +
+        ` no flow "${flowName}"`
+      );
+    } catch (error: any) {
+      toast.dismiss(toastId);
+      toast.error('Erro na importação LinkedIn', { description: error?.message });
+      console.error('handleLinkedInImport error:', error);
+    }
   };
 
   // Calcular anchorProjectId por nó com busca de 2º grau (useMemo)
