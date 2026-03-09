@@ -167,6 +167,17 @@ ${networkContext}`
     return allNodes.find(n => n.id === nodeId)?.name || `Nó ${nodeId}`;
   };
 
+  const getNodesByIds = (ids: number[]) => {
+    if (!ids || ids.length === 0) return [];
+    return ids.map(id => allNodes.find(n => n.id === id)).filter(Boolean);
+  };
+
+  const openModal = (connection: any, ids: number[], type: 'hidden' | 'bridge' | 'opportunity' | 'alert' | 'action') => {
+    if (onOpenConnectionModal) {
+      onOpenConnectionModal(connection, getNodesByIds(ids), type);
+    }
+  };
+
   return (
     <div className="fixed right-0 top-0 h-full w-[420px] bg-background border-l border-border shadow-2xl z-50 flex flex-col">
       {/* Header */}
