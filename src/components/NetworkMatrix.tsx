@@ -311,7 +311,7 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
     
     if (saveToDb && tableName && user) {
       try {
-        const { error } = await supabase.from(tableName).update({ [xColumn]: newX, [yColumn]: newY }).eq('id', nodeId).eq('user_id', user.id);
+        const { error } = await (supabase as any).from(tableName).update({ [xColumn]: newX, [yColumn]: newY }).eq('id', nodeId).eq('user_id', user.id);
         if (!error) {
           const key = `${tableName}:${nodeId}`;
           recentUpdatesRef.current.add(key);
