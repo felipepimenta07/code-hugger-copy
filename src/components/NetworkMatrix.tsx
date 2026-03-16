@@ -2277,68 +2277,43 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
           }}
         />
 
-          {/* Botões Flutuantes com GlassButton - Centro-Inferior */}
-          <div className="fixed bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-3 z-30">
-            
-            {/* Zoom Out */}
-            <GlassButton 
-              size="icon" 
+          {/* Compact zoom controls - bottom right */}
+          <div className="absolute bottom-4 right-4 flex items-center gap-1 z-30">
+            <button 
+              className="w-7 h-7 flex items-center justify-center rounded bg-secondary/80 text-muted-foreground hover:text-foreground transition-colors text-xs"
               onClick={() => {
                 const width = window.innerWidth;
                 const height = window.innerHeight - 100;
                 const newZoom = Math.max(state.zoom / 1.2, 0.3);
                 const centerX = (width / 2 - state.pan.x) / state.zoom;
                 const centerY = (height / 2 - state.pan.y) / state.zoom;
-                updateState({ 
-                  zoom: newZoom,
-                  pan: {
-                    x: width / 2 - centerX * newZoom,
-                    y: height / 2 - centerY * newZoom
-                  }
-                });
+                updateState({ zoom: newZoom, pan: { x: width / 2 - centerX * newZoom, y: height / 2 - centerY * newZoom } });
               }}
-              title="Zoom Out"
             >
-              <ZoomOut size={18} />
-            </GlassButton>
-            
-            {/* Porcentagem atual (clicável para resetar para 100%) */}
-            <GlassButton
-              size="default"
+              <ZoomOut size={14} />
+            </button>
+            <button 
+              className="h-7 px-2 flex items-center justify-center rounded bg-secondary/80 text-muted-foreground hover:text-foreground transition-colors text-[10px] font-mono"
               onClick={() => updateState({ zoom: 1 })}
-              contentClassName="text-sm font-mono px-4"
-              title="Resetar Zoom (100%)"
             >
               {Math.round(state.zoom * 100)}%
-            </GlassButton>
-            
-            {/* Zoom In */}
-            <GlassButton 
-              size="icon" 
+            </button>
+            <button 
+              className="w-7 h-7 flex items-center justify-center rounded bg-secondary/80 text-muted-foreground hover:text-foreground transition-colors text-xs"
               onClick={() => {
                 const width = window.innerWidth;
                 const height = window.innerHeight - 100;
                 const newZoom = Math.min(state.zoom * 1.2, 3);
                 const centerX = (width / 2 - state.pan.x) / state.zoom;
                 const centerY = (height / 2 - state.pan.y) / state.zoom;
-                updateState({ 
-                  zoom: newZoom,
-                  pan: {
-                    x: width / 2 - centerX * newZoom,
-                    y: height / 2 - centerY * newZoom
-                  }
-                });
+                updateState({ zoom: newZoom, pan: { x: width / 2 - centerX * newZoom, y: height / 2 - centerY * newZoom } });
               }}
-              title="Zoom In"
             >
-              <ZoomIn size={18} />
-            </GlassButton>
-
-            <div className="h-8 w-px bg-primary-foreground/30 mx-1" />
-            
-            {/* Centralizar */}
-            <GlassButton 
-              size="icon" 
+              <ZoomIn size={14} />
+            </button>
+            <div className="h-5 w-px bg-border/30 mx-1" />
+            <button 
+              className="w-7 h-7 flex items-center justify-center rounded bg-secondary/80 text-muted-foreground hover:text-foreground transition-colors text-xs"
               onClick={() => {
                 const rect = svgRef.current?.getBoundingClientRect();
                 const width = rect?.width ?? window.innerWidth;
@@ -2349,10 +2324,9 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
                 const pan = calculateCenterPan(bounds, zoom, width, height);
                 updateState({ zoom, pan });
               }}
-              title="Centralizar"
             >
-              <Target size={18} />
-            </GlassButton>
+              <Target size={14} />
+            </button>
           </div>
         </div>
 
