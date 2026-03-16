@@ -222,7 +222,9 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
     };
     const center = flow.center_id ? getByType(flow.center_type, flow.center_id) : null;
     if (!center) return flowNodes;
-    return [center, ...flowNodes.filter(n => n.id !== center.id)];
+    // Avoid duplicate: filter out center from flowNodes first
+    const others = flowNodes.filter(n => !(n.id === center.id && n.type === center.type));
+    return [{ ...center, type: flow.center_type }, ...others];
   };
 
   const nodes = viewMode === 'master'
