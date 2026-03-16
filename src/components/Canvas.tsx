@@ -482,7 +482,11 @@ export const Canvas: React.FC<CanvasProps> = ({
         })}
 
         {/* Connections */}
-        {connections.map((conn, idx) => {
+        {(() => {
+          const activeNodeId = selectedNodes.length === 1 ? selectedNodes[0] : null;
+          const hasFocus = activeNodeId !== null;
+
+          return connections.map((conn, idx) => {
           const from = nodes.find(n => n.id === conn.from);
           const to = nodes.find(n => n.id === conn.to);
           if (!from || !to) return null;
@@ -499,6 +503,9 @@ export const Canvas: React.FC<CanvasProps> = ({
           const fromFlowId = getNodeFlowId(from);
           const toFlowId = getNodeFlowId(to);
           const isCrossFlow = viewMode === 'master' && fromFlowId && toFlowId && fromFlowId !== toFlowId;
+
+          // Dim connections not touching selected node
+          const isConnDimmed = hasFocus && conn.from !== activeNodeId && conn.to !== activeNodeId;
           
           let strokeColor: string, strokeWidth: number, strokeDasharray: string | undefined, opacity = 1, useGlow = false;
           
@@ -519,6 +526,7 @@ export const Canvas: React.FC<CanvasProps> = ({
             }
           }
           if (isSelected) opacity = 1;
+          if (isConnDimmed) opacity = 0.06;
           
           const { x: fromX, y: fromY } = getDisplayPos(from);
           const { x: toX, y: toY } = getDisplayPos(to);
@@ -528,7 +536,7 @@ export const Canvas: React.FC<CanvasProps> = ({
           const pathData = `M ${fromX},${fromY} Q ${midX},${controlY2} ${toX},${toY}`;
           
           return (
-            <g key={idx}>
+            <g key={idx} style={{ transition: 'opacity 0.3s ease' }}>
               <path d={pathData} stroke="transparent" strokeWidth="15" fill="none" className="cursor-pointer"
                 onClick={(e) => { e.stopPropagation(); setSelectedConnection(selectedConnection === globalIdx ? null : globalIdx); setSelectedNodes([]); }}
                 onMouseEnter={(e) => {
@@ -547,13 +555,14 @@ export const Canvas: React.FC<CanvasProps> = ({
               {/* Connection label */}
               {showLabels && conn.connection_type && (
                 <text x={midX} y={controlY2 + 4} textAnchor="middle"
-                  fill="hsl(var(--muted-foreground))" fontSize="9" fontFamily="monospace" opacity="0.6">
+                  fill="hsl(var(--muted-foreground))" fontSize="9" fontFamily="monospace" opacity={isConnDimmed ? 0.06 : 0.6}>
                   {conn.connection_type}
                 </text>
               )}
             </g>
           );
-        })}
+        });
+        })()}
         
         {/* Dragging connection line */}
         {state.isDraggingConnection && state.connectionStart && (
