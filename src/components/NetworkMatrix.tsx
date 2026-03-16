@@ -76,6 +76,7 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
   const svgRef = useRef(null);
   const isDraggingRef = useRef(false);
   const recentUpdatesRef = useRef<Set<string>>(new Set());
+  const isResettingRef = useRef(false);
 
   // Force simulation for organic layout in Single View
   const centerNodeIdForForce = (viewMode === 'single' && activeProjectId) ? (() => {
@@ -169,21 +170,22 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
   // Realtime
   useEffect(() => {
     if (!user) return;
+    const guardedReload = () => { if (!isResettingRef.current) reloadData(); };
     const channel = supabase
       .channel('network-changes')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'flows', filter: `user_id=eq.${user.id}` }, () => { toast.success('Novo flow criado!'); reloadData(); })
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'people', filter: `user_id=eq.${user.id}` }, () => reloadData())
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'projects', filter: `user_id=eq.${user.id}` }, () => reloadData())
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'brands', filter: `user_id=eq.${user.id}` }, () => reloadData())
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'connections', filter: `user_id=eq.${user.id}` }, () => reloadData())
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'people', filter: `user_id=eq.${user.id}` }, (p) => { if (!recentUpdatesRef.current.has(`people:${p.new.id}`) && !isDraggingRef.current) reloadData(); })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'projects', filter: `user_id=eq.${user.id}` }, (p) => { if (!recentUpdatesRef.current.has(`projects:${p.new.id}`) && !isDraggingRef.current) reloadData(); })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'brands', filter: `user_id=eq.${user.id}` }, (p) => { if (!recentUpdatesRef.current.has(`brands:${p.new.id}`) && !isDraggingRef.current) reloadData(); })
-      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'flows', filter: `user_id=eq.${user.id}` }, () => { toast.info('Flow removido'); reloadData(); })
-      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'people', filter: `user_id=eq.${user.id}` }, () => reloadData())
-      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'projects', filter: `user_id=eq.${user.id}` }, () => reloadData())
-      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'brands', filter: `user_id=eq.${user.id}` }, () => reloadData())
-      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'connections', filter: `user_id=eq.${user.id}` }, () => reloadData())
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'flows', filter: `user_id=eq.${user.id}` }, () => { if (!isResettingRef.current) { toast.success('Novo flow criado!'); reloadData(); } })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'people', filter: `user_id=eq.${user.id}` }, guardedReload)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'projects', filter: `user_id=eq.${user.id}` }, guardedReload)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'brands', filter: `user_id=eq.${user.id}` }, guardedReload)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'connections', filter: `user_id=eq.${user.id}` }, guardedReload)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'people', filter: `user_id=eq.${user.id}` }, (p) => { if (!recentUpdatesRef.current.has(`people:${p.new.id}`) && !isDraggingRef.current && !isResettingRef.current) reloadData(); })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'projects', filter: `user_id=eq.${user.id}` }, (p) => { if (!recentUpdatesRef.current.has(`projects:${p.new.id}`) && !isDraggingRef.current && !isResettingRef.current) reloadData(); })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'brands', filter: `user_id=eq.${user.id}` }, (p) => { if (!recentUpdatesRef.current.has(`brands:${p.new.id}`) && !isDraggingRef.current && !isResettingRef.current) reloadData(); })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'flows', filter: `user_id=eq.${user.id}` }, () => { if (!isResettingRef.current) { toast.info('Flow removido'); reloadData(); } })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'people', filter: `user_id=eq.${user.id}` }, guardedReload)
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'projects', filter: `user_id=eq.${user.id}` }, guardedReload)
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'brands', filter: `user_id=eq.${user.id}` }, guardedReload)
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'connections', filter: `user_id=eq.${user.id}` }, guardedReload)
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [user]);
@@ -881,7 +883,7 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
           <PathIndicator selectedNode={selectedNode} centerNode={centerNode} allNodes={allNodes} connections={allConnections} />
         )}
 
-        {user && <ResetButton onResetComplete={reloadData} userId={user.id} />}
+        {user && <ResetButton onResetComplete={() => { isResettingRef.current = false; reloadData({ forceReset: true }); }} onResetStart={() => { isResettingRef.current = true; }} userId={user.id} />}
         <WhatsAppNotifications />
       </div>
 

@@ -17,14 +17,16 @@ import {
 
 interface ResetButtonProps {
   onResetComplete: () => void;
+  onResetStart?: () => void;
   userId: string;
 }
 
-export const ResetButton: React.FC<ResetButtonProps> = ({ onResetComplete, userId }) => {
+export const ResetButton: React.FC<ResetButtonProps> = ({ onResetComplete, onResetStart, userId }) => {
   const [isResetting, setIsResetting] = useState(false);
 
   const resetNetwork = async () => {
     setIsResetting(true);
+    onResetStart?.();
     
     try {
       // Limpar layout salvo localmente
