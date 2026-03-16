@@ -19,6 +19,7 @@ interface NetworkToolbarProps {
   onSingleView: () => void;
   onNewFlow: () => void;
   onOpenFlows: () => void;
+  onCreateNode?: () => void;
   onOpenWhatsApp?: () => void;
   onLogout?: () => void;
   onSearch: () => void;
