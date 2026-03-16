@@ -11,6 +11,7 @@ import { WhatsAppNotifications } from './WhatsAppNotifications';
 import { useNetworkState } from '@/hooks/useNetworkState';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { useAuth } from '@/hooks/useAuth';
+import { useForceSimulation } from '@/hooks/useForceSimulation';
 import { supabase } from '@/integrations/supabase/client';
 import { ParsedLinkedInData, LinkedInImportOptions } from '@/types/linkedin';
 
@@ -72,6 +73,16 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
   const svgRef = useRef(null);
   const isDraggingRef = useRef(false);
   const recentUpdatesRef = useRef<Set<string>>(new Set());
+
+  // Force simulation for organic layout in Single View
+  const centerNodeIdForForce = (viewMode === 'single' && activeProjectId) ? (() => {
+    const currentFlowId = projects.find(p => p.id === activeProjectId)?.flow_id
+      || people.find(pe => pe.id === activeProjectId)?.flow_id
+      || brands.find(b => b.id === activeProjectId)?.flow_id
+      || null;
+    const flow = flows.find(f => f.id === currentFlowId);
+    return flow?.center_id ?? null;
+  })() : null;
 
   // ===== DATA LOADING =====
   const reloadData = async (options?: { forceReset?: boolean }) => {
@@ -234,6 +245,22 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
         return allNodes.find(n => n.id === c.from && n.flow_id === currentFlowId) 
             && allNodes.find(n => n.id === c.to && n.flow_id === currentFlowId);
       });
+
+  // Force simulation for organic layout
+  const {
+    positions: forcePositions,
+    isSimulating,
+    onDragStart: onForceDragStart,
+    onDrag: onForceDrag,
+    onDragEnd: onForceDragEnd,
+    reheat: reheatSimulation,
+  } = useForceSimulation({
+    nodes,
+    connections,
+    viewMode,
+    enabled: viewMode === 'single',
+    centerNodeId: centerNodeIdForForce,
+  });
 
   // ===== HISTORY =====
   const [history, setHistory] = useState<any[]>([]);
@@ -790,6 +817,11 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
             showLabels={showLabels}
             onOpenEditModal={(node) => { setEditingNodeInModal(node); setNodeCreationType(node.type); setShowNodeCreationModal(true); }}
             onGoToProject={(id) => { setActiveProjectId(id); setViewMode('single'); }}
+            forcePositions={forcePositions}
+            onForceDragStart={onForceDragStart}
+            onForceDrag={onForceDrag}
+            onForceDragEnd={onForceDragEnd}
+            useForceLayout={viewMode === 'single'}
           />
 
           {/* Compact zoom - bottom right */}
