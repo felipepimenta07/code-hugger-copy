@@ -1,4 +1,5 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 // Category color map
 const CATEGORY_COLORS: Record<string, string> = {
@@ -29,6 +30,8 @@ interface NetworkSidebarProps {
   nodes: any[];
   onFilterCategory?: (category: string | null) => void;
   activeCategory?: string | null;
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
 export function NetworkSidebar({
@@ -37,6 +40,8 @@ export function NetworkSidebar({
   nodes,
   onFilterCategory,
   activeCategory,
+  collapsed = false,
+  onToggleCollapse,
 }: NetworkSidebarProps) {
   // Build category groups from current nodes
   const categoryGroups = useMemo(() => {
@@ -55,30 +60,63 @@ export function NetworkSidebar({
   }, [allNodes, nodes, viewMode]);
 
   const totalNodes = viewMode === 'master' ? allNodes.length : nodes.length;
+  const sidebarWidth = collapsed ? 44 : 200;
 
   return (
-    <div className="fixed left-0 top-0 h-screen w-[200px] z-50 flex flex-col bg-[hsl(220,20%,6%)] border-r border-border/30">
+    <div
+      className="fixed left-0 top-0 h-screen z-50 flex flex-col bg-[hsl(220,20%,6%)] border-r border-border/30 transition-all duration-200"
+      style={{ width: sidebarWidth }}
+    >
       {/* Header */}
-      <div className="px-4 py-5 border-b border-border/20">
-        <h1 className="text-[11px] font-bold text-foreground tracking-[0.2em] font-mono uppercase">
-          Network Matrix
-        </h1>
-        <p className="text-[9px] text-muted-foreground font-mono mt-0.5 tracking-wider uppercase">
-          Mapa de Conexões
-        </p>
-      </div>
+      {!collapsed && (
+        <div className="px-4 py-5 border-b border-border/20">
+          <h1 className="text-[11px] font-bold text-foreground tracking-[0.2em] font-mono uppercase">
+            Network Matrix
+          </h1>
+          <p className="text-[9px] text-muted-foreground font-mono mt-0.5 tracking-wider uppercase">
+            Mapa de Conexões
+          </p>
+        </div>
+      )}
+
+      {collapsed && (
+        <div className="h-[65px] border-b border-border/20 flex items-center justify-center">
+          <span className="text-[9px] font-bold text-foreground font-mono">NM</span>
+        </div>
+      )}
 
       {/* Groups */}
-      <div className="flex-1 overflow-y-auto px-2 py-3">
-        <div className="px-2 mb-2">
-          <span className="text-[9px] font-mono text-muted-foreground/50 uppercase tracking-[0.15em]">
-            Grupos ({totalNodes})
-          </span>
-        </div>
+      <div className="flex-1 overflow-y-auto px-1 py-3">
+        {!collapsed && (
+          <div className="px-2 mb-2">
+            <span className="text-[9px] font-mono text-muted-foreground/50 uppercase tracking-[0.15em]">
+              Grupos ({totalNodes})
+            </span>
+          </div>
+        )}
         
         <div className="space-y-px">
           {categoryGroups.map(([name, data]) => {
             const isActive = activeCategory === name;
+            
+            if (collapsed) {
+              return (
+                <button
+                  key={name}
+                  className={`w-full flex items-center justify-center py-2 rounded transition-all ${
+                    isActive ? 'bg-secondary/60' : 'hover:bg-secondary/30'
+                  }`}
+                  onClick={() => onFilterCategory?.(isActive ? null : name)}
+                  title={`${name} (${data.count})`}
+                >
+                  <span
+                    className="w-2.5 h-2.5 rounded-full"
+                    style={{ backgroundColor: data.color }}
+                  />
+                </button>
+              );
+            }
+
             return (
               <button
                 key={name}
@@ -100,12 +138,22 @@ export function NetworkSidebar({
               </button>
             );
           })}
-          {categoryGroups.length === 0 && (
+          {categoryGroups.length === 0 && !collapsed && (
             <div className="px-3 py-4 text-[10px] text-muted-foreground/30 italic text-center">
               Nenhum grupo
             </div>
           )}
         </div>
+      </div>
+
+      {/* Collapse toggle */}
+      <div className="border-t border-border/20 p-2">
+        <button
+          onClick={onToggleCollapse}
+          className="w-full flex items-center justify-center py-1.5 rounded text-muted-foreground hover:text-foreground hover:bg-secondary/30 transition-colors"
+        >
+          {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+        </button>
       </div>
     </div>
   );

@@ -5,6 +5,7 @@ import { Canvas } from './Canvas';
 import { NetworkToolbar } from './NetworkToolbar';
 import { NetworkModals } from './NetworkModals';
 import { NetworkSidebar } from './NetworkSidebar';
+import { NodeDetailPanel } from './NodeDetailPanel';
 import { PathIndicator } from './PathIndicator';
 import { ResetButton } from './ResetButton';
 import { WhatsAppNotifications } from './WhatsAppNotifications';
