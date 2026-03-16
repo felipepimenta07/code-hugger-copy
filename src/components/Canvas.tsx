@@ -1120,29 +1120,7 @@ export const Canvas: React.FC<CanvasProps> = ({
                 </g>
               )}
               
-              {/* Badge Cyan (nível middle/outer) */}
-              {((node as any).level === 'middle' || (node as any).level === 'outer') && connectionCount > 0 && (
-                <>
-                  <circle
-                    cx={nodeSize + 10}
-                    cy={-nodeSize + 10}
-                    r="13"
-                    fill="none"
-                    stroke="#06b6d4"
-                    strokeWidth="2.5"
-                  />
-                  <text
-                    x={nodeSize + 10}
-                    y={-nodeSize + 15}
-                    textAnchor="middle"
-                    fill="#06b6d4"
-                    fontSize="10"
-                    fontWeight="700"
-                  >
-                    {Math.min(connectionCount * 15, 99)}%
-                  </text>
-                </>
-              )}
+              {/* Removed cyan badge - cleaner look */}
               
               {/* Indicador de múltiplos workflows */}
               {node.workflows && node.workflows.length > 1 && (
