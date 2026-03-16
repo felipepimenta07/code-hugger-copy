@@ -246,6 +246,22 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
             && allNodes.find(n => n.id === c.to && n.flow_id === currentFlowId);
       });
 
+  // Force simulation for organic layout
+  const {
+    positions: forcePositions,
+    isSimulating,
+    onDragStart: onForceDragStart,
+    onDrag: onForceDrag,
+    onDragEnd: onForceDragEnd,
+    reheat: reheatSimulation,
+  } = useForceSimulation({
+    nodes,
+    connections,
+    viewMode,
+    enabled: viewMode === 'single',
+    centerNodeId: centerNodeIdForForce,
+  });
+
   // ===== HISTORY =====
   const [history, setHistory] = useState<any[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
