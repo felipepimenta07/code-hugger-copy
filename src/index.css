@@ -8,35 +8,35 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    --background: 220 13% 13%;
-    --foreground: 0 0% 98%;
+    --background: 220 20% 7%;
+    --foreground: 0 0% 95%;
 
-    --card: 240 10% 10%;
-    --card-foreground: 0 0% 98%;
+    --card: 220 18% 10%;
+    --card-foreground: 0 0% 95%;
 
-    --popover: 240 10% 8%;
-    --popover-foreground: 0 0% 98%;
+    --popover: 220 18% 9%;
+    --popover-foreground: 0 0% 95%;
 
-    --primary: 217 91% 60%;
+    --primary: 210 100% 56%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 240 4% 16%;
-    --secondary-foreground: 0 0% 98%;
+    --secondary: 220 14% 14%;
+    --secondary-foreground: 0 0% 95%;
 
-    --muted: 240 5% 26%;
-    --muted-foreground: 240 5% 65%;
+    --muted: 220 10% 22%;
+    --muted-foreground: 220 10% 55%;
 
-    --accent: 217 91% 60%;
+    --accent: 210 100% 56%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 63% 31%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 240 6% 20%;
-    --input: 240 6% 20%;
-    --ring: 217 91% 60%;
+    --border: 220 10% 16%;
+    --input: 220 10% 16%;
+    --ring: 210 100% 56%;
 
-    --radius: 0.75rem;
+    --radius: 0.5rem;
 
     /* Network Matrix Colors */
     --node-person: 328 86% 61%;
@@ -51,10 +51,18 @@ All colors MUST be HSL.
     --node-brand-glow: 258 90% 66%;
     --node-brand-secondary: 258 90% 66%;
 
-    --connection-strong: 217 91% 60%;
+    --connection-strong: 210 100% 56%;
     --connection-weak: 215 16% 47%;
     --connection-cross: 27 96% 61%;
     --connection-path: 43 96% 56%;
+
+    /* Category colors */
+    --cat-pessoal: 210 100% 56%;
+    --cat-profissional: 158 64% 52%;
+    --cat-cliente: 43 96% 56%;
+    --cat-fornecedor: 27 96% 61%;
+    --cat-parceiro: 258 90% 66%;
+    --cat-default: 220 10% 55%;
   }
 }
 
