@@ -915,27 +915,19 @@ export const Canvas: React.FC<CanvasProps> = ({
               onMouseLeave={() => setHoveredNode(null)}
               className="cursor-pointer"
             >
-              {/* Nó Central Especial */}
+              {/* Nó Central - cleaner style */}
               {isCenterNode && (
                 <>
                   <circle 
-                    r={nodeSize + 40} 
-                    fill="url(#gradientPinkPurple)" 
-                    opacity="0.4" 
-                    filter="url(#glow)"
-                    className="animate-pulse"
-                    style={{ animationDuration: '3s' }}
-                  />
-                  <circle 
-                    r={nodeSize + 15} 
-                    fill="#8b5cf6" 
-                    opacity="0.8" 
+                    r={nodeSize + 12} 
+                    fill={colors.primary}
+                    opacity="0.15" 
                   />
                   <circle 
                     r={nodeSize} 
-                    fill="#ec4899" 
+                    fill="hsl(var(--background))"
+                    stroke={colors.primary}
                     strokeWidth="3"
-                    stroke="white"
                   />
                 </>
               )}
