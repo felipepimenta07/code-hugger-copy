@@ -21,6 +21,7 @@ interface CanvasProps {
   setConnections: (updater: any) => void;
   saveToHistory: () => void;
   onOpenEditModal?: (node: any) => void;
+  onSingleClick?: (node: any) => void;
   projects?: any[];
   flows?: any[];
   allConnections?: any[];
@@ -62,6 +63,7 @@ export const Canvas: React.FC<CanvasProps> = ({
   setConnections,
   saveToHistory,
   onOpenEditModal,
+  onSingleClick,
   projects = [],
   flows = [],
   allConnections = [],
@@ -173,6 +175,9 @@ export const Canvas: React.FC<CanvasProps> = ({
     return { x: n.x, y: n.y };
   };
   
+  const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clickCountRef = useRef(0);
+
   const handleNodeMouseDown = (e: React.MouseEvent, nodeId: number) => {
     e.stopPropagation();
     if (viewMode === 'master') {
@@ -207,8 +212,29 @@ export const Canvas: React.FC<CanvasProps> = ({
     }
   };
 
+  const handleNodeClick = (e: React.MouseEvent, nodeId: number) => {
+    // Only trigger single click if no drag happened
+    const node = nodes.find(n => n.id === nodeId);
+    if (!node) return;
+    
+    clickCountRef.current++;
+    if (clickCountRef.current === 1) {
+      clickTimerRef.current = setTimeout(() => {
+        if (clickCountRef.current === 1) {
+          // Single click → open detail panel
+          if (onSingleClick) onSingleClick(node);
+        }
+        clickCountRef.current = 0;
+      }, 250);
+    }
+  };
+
   const handleNodeDoubleClick = (e: React.MouseEvent, nodeId: number) => {
     e.stopPropagation();
+    // Cancel single click
+    clickCountRef.current = 2;
+    if (clickTimerRef.current) clearTimeout(clickTimerRef.current);
+    
     const node = nodes.find(n => n.id === nodeId);
     if (!node) return;
     if (viewMode === 'single') {
@@ -554,6 +580,7 @@ export const Canvas: React.FC<CanvasProps> = ({
           return (
             <g key={node.id} transform={`translate(${displayX}, ${displayY})`}
               onMouseDown={(e) => handleNodeMouseDown(e, node.id)}
+              onClick={(e) => { e.stopPropagation(); handleNodeClick(e, node.id); }}
               onDoubleClick={(e) => handleNodeDoubleClick(e, node.id)}
               onMouseEnter={() => setHoveredNode(node.id)}
               onMouseLeave={() => setHoveredNode(null)}

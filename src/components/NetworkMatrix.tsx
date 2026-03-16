@@ -5,6 +5,7 @@ import { Canvas } from './Canvas';
 import { NetworkToolbar } from './NetworkToolbar';
 import { NetworkModals } from './NetworkModals';
 import { NetworkSidebar } from './NetworkSidebar';
+import { NodeDetailPanel } from './NodeDetailPanel';
 import { PathIndicator } from './PathIndicator';
 import { ResetButton } from './ResetButton';
 import { WhatsAppNotifications } from './WhatsAppNotifications';
@@ -67,6 +68,8 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
   const [aiConnectionModal, setAiConnectionModal] = useState<any>(null);
   const [duplicateCheckModal, setDuplicateCheckModal] = useState<any>(null);
   const [masterViewState, setMasterViewState] = useState<any>(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [detailPanelNode, setDetailPanelNode] = useState<any>(null);
 
   const prevViewModeRef = useRef<string>(viewMode);
   const { state, updateState } = useNetworkState();
@@ -219,7 +222,9 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
     };
     const center = flow.center_id ? getByType(flow.center_type, flow.center_id) : null;
     if (!center) return flowNodes;
-    return [center, ...flowNodes.filter(n => n.id !== center.id)];
+    // Avoid duplicate: filter out center from flowNodes first
+    const others = flowNodes.filter(n => !(n.id === center.id && n.type === center.type));
+    return [{ ...center, type: flow.center_type }, ...others];
   };
 
   const nodes = viewMode === 'master'
@@ -756,10 +761,11 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
   return (
     <div className="min-h-screen h-screen flex flex-col overflow-hidden bg-background">
       {/* Sidebar - Groups only */}
-      <NetworkSidebar viewMode={viewMode} allNodes={allNodes} nodes={nodes} />
+      <NetworkSidebar viewMode={viewMode} allNodes={allNodes} nodes={nodes}
+        collapsed={sidebarCollapsed} onToggleCollapse={() => setSidebarCollapsed(c => !c)} />
 
       {/* Main area */}
-      <div className="flex-1 flex flex-col relative ml-[200px]">
+      <div className="flex-1 flex flex-col relative transition-all duration-200" style={{ marginLeft: sidebarCollapsed ? 44 : 200 }}>
         {/* Toolbar */}
         <NetworkToolbar
           viewMode={viewMode}
@@ -816,7 +822,8 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
             allConnections={allConnections}
             showLabels={showLabels}
             onOpenEditModal={(node) => { setEditingNodeInModal(node); setNodeCreationType(node.type); setShowNodeCreationModal(true); }}
-            onGoToProject={(id) => { setActiveProjectId(id); setViewMode('single'); }}
+            onSingleClick={(node) => { setDetailPanelNode(node); }}
+            onGoToProject={(id) => { setDetailPanelNode(null); setActiveProjectId(id); setViewMode('single'); }}
             forcePositions={forcePositions}
             onForceDragStart={onForceDragStart}
             onForceDrag={onForceDrag}
@@ -845,6 +852,29 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
             </button>
           </div>
         </div>
+
+        {/* Node Detail Panel */}
+        {detailPanelNode && (
+          <NodeDetailPanel
+            node={detailPanelNode}
+            connections={allConnections}
+            allNodes={allNodes}
+            onClose={() => setDetailPanelNode(null)}
+            onNavigateToNode={(nodeId) => {
+              const targetNode = allNodes.find(n => n.id === nodeId);
+              if (targetNode) {
+                setDetailPanelNode(targetNode);
+                setSelectedNodes([nodeId]);
+              }
+            }}
+            onEdit={(node) => {
+              setDetailPanelNode(null);
+              setEditingNodeInModal(node);
+              setNodeCreationType(node.type);
+              setShowNodeCreationModal(true);
+            }}
+          />
+        )}
 
         {/* Path indicator */}
         {viewMode === 'single' && (
