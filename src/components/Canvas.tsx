@@ -1021,45 +1021,23 @@ export const Canvas: React.FC<CanvasProps> = ({
                 </foreignObject>
               )}
               
-              {/* Badge de conexões ou Score (nó central) */}
-              {isCenterNode ? (
-                <>
-                  {/* Network Score no centro */}
-                  <text
-                    y="-8"
-                    textAnchor="middle"
-                    fill="white"
-                    fontSize="26"
-                    fontWeight="bold"
-                  >
-                    {connectionCount > 0 ? Math.min(connectionCount * 10, 99) : 87}
-                  </text>
-                  <text
-                    y="10"
-                    textAnchor="middle"
-                    fill="rgba(255,255,255,0.8)"
-                    fontSize="8"
-                    letterSpacing="1"
-                  >
-                    NETWORK SCORE
-                  </text>
-                </>
-              ) : connectionCount > 0 && (
+              {/* Connection count badge */}
+              {connectionCount > 0 && (
                 <>
                   <circle
-                    cx={nodeSize - 8}
-                    cy={-nodeSize + 8}
-                    r="14"
-                    fill="rgba(0, 0, 0, 0.9)"
+                    cx={nodeSize - 6}
+                    cy={-nodeSize + 6}
+                    r="11"
+                    fill="hsl(var(--background))"
                     stroke={colors.primary}
-                    strokeWidth="2"
+                    strokeWidth="1.5"
                   />
                   <text
-                    x={nodeSize - 8}
-                    y={-nodeSize + 13}
+                    x={nodeSize - 6}
+                    y={-nodeSize + 10}
                     textAnchor="middle"
-                    fill="white"
-                    fontSize="12"
+                    fill={colors.primary}
+                    fontSize="10"
                     fontWeight="bold"
                   >
                     {connectionCount}
