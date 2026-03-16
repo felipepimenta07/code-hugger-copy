@@ -962,20 +962,13 @@ export const Canvas: React.FC<CanvasProps> = ({
                 />
               )}
               
-              {/* Nós Normais (Inner/Middle) */}
+              {/* Nós Normais (Inner/Middle) - clean border style */}
               {!isCenterNode && (node as any).level !== 'outer' && (
                 <>
                   <circle
-                    r={nodeSize + (isInPath ? 35 : (isHovered ? 30 : 20))}
-                    fill={isInPath ? 'hsl(var(--connection-path))' : colors.glow}
-                    opacity={isInPath ? 0.6 : (isHovered ? 0.5 : 0.3)}
-                    filter="url(#glow)"
-                  />
-                  
-                  <circle
                     r={nodeSize + 8}
-                    fill={colors.secondary}
-                    opacity={isHovered ? 0.4 : 0.25}
+                    fill={isInPath ? 'hsl(var(--connection-path))' : colors.primary}
+                    opacity={isInPath ? 0.2 : (isHovered ? 0.15 : 0.08)}
                   />
                   
                   {node.imageUrl ? (
@@ -998,22 +991,15 @@ export const Canvas: React.FC<CanvasProps> = ({
                         r={nodeSize}
                         fill="none"
                         stroke={isInPath ? 'hsl(var(--connection-path))' : (isSelected ? 'white' : colors.primary)}
-                        strokeWidth={isInPath ? 5 : (isSelected ? 4 : 2)}
-                        style={{
-                          filter: `drop-shadow(0 0 ${isHovered ? '12' : '6'}px ${colors.primary})`
-                        }}
+                        strokeWidth={isInPath ? 4 : (isSelected ? 3 : 2)}
                       />
                     </>
                   ) : (
                     <circle
                       r={nodeSize}
-                      fill={colors.primary}
+                      fill="hsl(var(--background))"
                       stroke={isInPath ? 'hsl(var(--connection-path))' : (isSelected ? 'white' : colors.primary)}
-                      strokeWidth={isInPath ? 5 : (isSelected ? 4 : 2)}
-                      opacity="0.9"
-                      style={{
-                        filter: `drop-shadow(0 0 ${isHovered ? '12' : '6'}px ${colors.primary})`
-                      }}
+                      strokeWidth={isInPath ? 4 : (isSelected ? 3 : 2)}
                     />
                   )}
                 </>
