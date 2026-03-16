@@ -932,23 +932,20 @@ export const Canvas: React.FC<CanvasProps> = ({
                 </>
               )}
               
-              {/* Nós Outer (Cyan especial) */}
+              {/* Nós Outer - same clean style */}
               {!isCenterNode && (node as any).level === 'outer' && (
                 <>
                   <circle
-                    r={nodeSize + 15}
-                    fill="rgba(6, 182, 212, 0.3)"
-                    filter="url(#glow)"
+                    r={nodeSize + 8}
+                    fill={colors.primary}
+                    opacity={isHovered ? 0.2 : 0.1}
                   />
                   <circle
                     r={nodeSize}
-                    fill="rgba(6, 182, 212, 0.2)"
-                  />
-                  <circle
-                    r={nodeSize - 2}
-                    fill="#1a1a1a"
-                    stroke="#06b6d4"
-                    strokeWidth="3"
+                    fill="hsl(var(--background))"
+                    stroke={colors.primary}
+                    strokeWidth="2"
+                    opacity="0.9"
                   />
                 </>
               )}
