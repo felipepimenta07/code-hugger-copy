@@ -2191,34 +2191,54 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
       />
 
       {/* Área principal com canvas */}
-      <div className="flex-1 flex flex-col relative">
+      <div className="flex-1 flex flex-col relative ml-64">
         
-        {/* Barra de Busca IA + Botão Insights - Canto Superior Direito */}
-        <div className="absolute top-6 right-6 z-40 flex items-center gap-2">
-          <div className="relative w-72">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="text"
-              placeholder="Buscar com IA..."
-              value={aiSearchQuery}
-              onChange={(e) => setAiSearchQuery(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && aiSearchQuery.trim()) {
-                  setShowOpportunities(true);
-                }
-              }}
-              className="pl-10 glass-effect focus:border-indigo-400/50 rounded-full transition-all duration-300"
-            />
+        {/* Compact Toolbar - Top */}
+        <div className="absolute top-0 left-0 right-0 z-40 flex items-center justify-between px-4 py-2 bg-[hsl(220,20%,8%)]/90 backdrop-blur-sm border-b border-border/30">
+          <div className="flex items-center gap-2">
+            {/* View mode indicator */}
+            <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">
+              {viewMode === 'master' ? 'Master' : 'Single'}
+            </span>
+            <div className="h-4 w-px bg-border/50" />
+            {/* Search */}
+            <div className="relative w-48">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Buscar..."
+                value={aiSearchQuery}
+                onChange={(e) => setAiSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && aiSearchQuery.trim()) {
+                    setShowOpportunities(true);
+                  }
+                }}
+                className="pl-7 h-7 text-xs bg-secondary/50 border-border/30 rounded focus:border-primary/50"
+              />
+            </div>
           </div>
-          <Button
-            onClick={() => setShowAIInsights(prev => !prev)}
-            className={`rounded-full gap-2 transition-all duration-300 ${showAIInsights ? 'bg-purple-600 hover:bg-purple-700' : 'bg-purple-500/80 hover:bg-purple-600'}`}
-            size="sm"
-            title="Abrir painel de insights com IA"
-          >
-            <Sparkles size={15} />
-            IA
-          </Button>
+          <div className="flex items-center gap-2">
+            {/* Labels toggle */}
+            <button
+              onClick={() => setShowLegend(!showLegend)}
+              className={`px-2 py-1 text-[10px] font-mono rounded transition-colors ${showLegend ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              Rótulos
+            </button>
+            {/* AI button */}
+            <button
+              onClick={() => setShowAIInsights(prev => !prev)}
+              className={`px-2 py-1 text-[10px] font-mono rounded transition-colors flex items-center gap-1 ${showAIInsights ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              <Sparkles size={10} /> IA
+            </button>
+            <div className="h-4 w-px bg-border/50" />
+            {/* Node/Connection counter */}
+            <span className="text-[10px] font-mono text-muted-foreground">
+              {nodes.length} NÓS · {connections.length} CONEXÕES
+            </span>
+          </div>
         </div>
 
         {/* Canvas */}
