@@ -2071,10 +2071,8 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
   };
 
   return (
-    <div className="min-h-screen h-screen flex flex-col overflow-hidden">
-      {/* Animated Background Shapes */}
-      <div className="shape-1"></div>
-      <div className="shape-2"></div>
+    <div className="min-h-screen h-screen flex flex-col overflow-hidden bg-[hsl(220,20%,7%)]">
+      {/* No animated background shapes - clean dark bg */}
       
       {state.contextMenu && (
         <ContextMenu 
