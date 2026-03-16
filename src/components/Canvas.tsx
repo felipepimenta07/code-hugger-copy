@@ -580,6 +580,7 @@ export const Canvas: React.FC<CanvasProps> = ({
           return (
             <g key={node.id} transform={`translate(${displayX}, ${displayY})`}
               onMouseDown={(e) => handleNodeMouseDown(e, node.id)}
+              onClick={(e) => { e.stopPropagation(); handleNodeClick(e, node.id); }}
               onDoubleClick={(e) => handleNodeDoubleClick(e, node.id)}
               onMouseEnter={() => setHoveredNode(node.id)}
               onMouseLeave={() => setHoveredNode(null)}
