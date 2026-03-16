@@ -231,6 +231,10 @@ export const Canvas: React.FC<CanvasProps> = ({
 
   const handleNodeDoubleClick = (e: React.MouseEvent, nodeId: number) => {
     e.stopPropagation();
+    // Cancel single click
+    clickCountRef.current = 2;
+    if (clickTimerRef.current) clearTimeout(clickTimerRef.current);
+    
     const node = nodes.find(n => n.id === nodeId);
     if (!node) return;
     if (viewMode === 'single') {
