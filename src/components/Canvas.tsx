@@ -561,8 +561,20 @@ export const Canvas: React.FC<CanvasProps> = ({
             stroke="hsl(var(--connection-strong))" strokeWidth="2" strokeDasharray="5,5" />
         )}
         
-        {/* Nodes */}
-        {nodes.map(node => {
+        {/* Compute highlight set: selected node + its direct connections */}
+        {(() => {
+          const activeNodeId = selectedNodes.length === 1 ? selectedNodes[0] : null;
+          const connectedNodeIds = new Set<number>();
+          if (activeNodeId) {
+            connectedNodeIds.add(activeNodeId);
+            connections.forEach(c => {
+              if (c.from === activeNodeId) connectedNodeIds.add(c.to);
+              if (c.to === activeNodeId) connectedNodeIds.add(c.from);
+            });
+          }
+          const hasFocus = activeNodeId !== null;
+
+          return nodes.map(node => {
           const nodeType = (node.type as keyof typeof nodeColors) || 'person';
           const colors = nodeColors[nodeType] || nodeColors.person;
           const isSelected = selectedNodes.includes(node.id);
@@ -577,6 +589,9 @@ export const Canvas: React.FC<CanvasProps> = ({
           const nodeSize = isCenterNode ? Math.max(baseSize, 45) : baseSize;
           const isHovered = hoveredNode === node.id;
           
+          // Dim nodes not connected to selected node
+          const isDimmed = hasFocus && !connectedNodeIds.has(node.id);
+          
           return (
             <g key={node.id} transform={`translate(${displayX}, ${displayY})`}
               onMouseDown={(e) => handleNodeMouseDown(e, node.id)}
@@ -585,7 +600,8 @@ export const Canvas: React.FC<CanvasProps> = ({
               onMouseEnter={() => setHoveredNode(node.id)}
               onMouseLeave={() => setHoveredNode(null)}
               className="cursor-pointer"
-              style={{ transition: state.dragging === node.id ? 'none' : 'transform 0.1s ease-out' }}
+              opacity={isDimmed ? 0.15 : 1}
+              style={{ transition: state.dragging === node.id ? 'none' : 'transform 0.1s ease-out, opacity 0.3s ease' }}
             >
               {/* Hover glow */}
               {isHovered && (
