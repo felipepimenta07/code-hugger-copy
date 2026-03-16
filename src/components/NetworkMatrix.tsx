@@ -820,10 +820,9 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
         contextMenu={state.contextMenu}
         updateState={updateState}
         viewMode={viewMode}
-        onContextCreateNode={(type) => {
+        onContextCreateNode={() => {
           if (state.contextMenu) {
             setIsCreatingFlowRoot(false);
-            setNodeCreationType(type as any);
             setNodeCreationPosition({ x: state.contextMenu.canvasX, y: state.contextMenu.canvasY });
             setShowNodeCreationModal(true);
             updateState({ contextMenu: null });
