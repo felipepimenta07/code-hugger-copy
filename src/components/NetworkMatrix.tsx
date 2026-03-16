@@ -11,6 +11,7 @@ import { WhatsAppNotifications } from './WhatsAppNotifications';
 import { useNetworkState } from '@/hooks/useNetworkState';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { useAuth } from '@/hooks/useAuth';
+import { useForceSimulation } from '@/hooks/useForceSimulation';
 import { supabase } from '@/integrations/supabase/client';
 import { ParsedLinkedInData, LinkedInImportOptions } from '@/types/linkedin';
 
