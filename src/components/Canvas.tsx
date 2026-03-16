@@ -695,7 +695,7 @@ export const Canvas: React.FC<CanvasProps> = ({
         {/* Master View: no decorative rings */}
         
         
-        {/* Clusters no Master View (por flow) */}
+        {/* Clusters no Master View - subtle dotted ring only */}
         {viewMode === 'master' && flows.map(flow => {
           const clusterNodes = nodes.filter(n => getNodeFlowId(n) === flow.id);
           if (clusterNodes.length === 0) return null;
@@ -709,55 +709,20 @@ export const Canvas: React.FC<CanvasProps> = ({
           if (!pos) return null;
           
           const dottedRadius = MASTER_RING_RADIUS;
-          const filledRadius = MASTER_RING_RADIUS + 40;
- 
+
            return (
             <g key={flow.id}>
-              {/* Anel rosa/roxo decorativo */}
-              <circle
-                cx={pos.x}
-                cy={pos.y}
-                r={140}
-                fill="none"
-                stroke="url(#gradientPinkPurple)"
-                strokeWidth="15"
-                opacity="0.15"
-              />
-              
-              {/* Círculo preenchido */}
-              <circle
-                cx={pos.x}
-                cy={pos.y}
-                r={filledRadius}
-                fill="#8b5cf615"
-                opacity="0.2"
-              />
-              
-              {/* Círculo pontilhado externo */}
+              {/* Single subtle dotted ring */}
               <circle
                 cx={pos.x}
                 cy={pos.y}
                 r={dottedRadius}
                 fill="none"
-                stroke="#8b5cf6"
-                strokeWidth="2"
-                strokeDasharray="10,5"
-                opacity="0.35"
+                stroke="hsl(var(--muted))"
+                strokeWidth="1"
+                strokeDasharray="6,6"
+                opacity="0.3"
               />
-              
-              {/* Círculo pontilhado externo adicional - menos opaco */}
-              <circle
-                cx={pos.x}
-                cy={pos.y}
-                r={dottedRadius + 25}
-                fill="none"
-                stroke="#8b5cf6"
-                strokeWidth="2"
-                strokeDasharray="10,5"
-                opacity="0.25"
-              />
-              
-              {/* Labels removidos daqui - serão renderizados no final */}
             </g>
           );
         })}
