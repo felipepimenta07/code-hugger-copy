@@ -1167,11 +1167,11 @@ export const Canvas: React.FC<CanvasProps> = ({
                 x={pos.x}
                 y={pos.y - (dottedRadius + 25) - 24}
                 textAnchor="middle"
-                fill="#8b5cf6"
-                fontSize="18"
-                fontWeight="bold"
-                letterSpacing="3"
-                style={{ filter: 'drop-shadow(0 0 4px rgba(0,0,0,0.8))' }}
+                fill="hsl(var(--muted-foreground))"
+                fontSize="14"
+                fontWeight="600"
+                letterSpacing="2"
+                fontFamily="monospace"
               >
                 {flow.name.toUpperCase()}
               </text>
@@ -1179,10 +1179,10 @@ export const Canvas: React.FC<CanvasProps> = ({
                 x={pos.x}
                 y={pos.y - (dottedRadius + 25)}
                 textAnchor="middle"
-                fill="#8b5cf6"
-                fontSize="13"
-                opacity="0.7"
-                style={{ filter: 'drop-shadow(0 0 4px rgba(0,0,0,0.8))' }}
+                fill="hsl(var(--muted-foreground))"
+                fontSize="11"
+                opacity="0.6"
+                fontFamily="monospace"
               >
                 {clusterNodes.length} {clusterNodes.length === 1 ? 'nó' : 'nós'}
               </text>
