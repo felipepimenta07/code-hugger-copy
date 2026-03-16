@@ -749,6 +749,14 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
           onMasterView={handleMasterView}
           onSingleView={handleSingleView}
           onNewFlow={handleNewFlow}
+          onCreateNode={() => {
+            setIsCreatingFlowRoot(false);
+            const w = window.innerWidth; const h = window.innerHeight;
+            const cx = (w / 2 - state.pan.x) / state.zoom;
+            const cy = (h / 2 - state.pan.y) / state.zoom;
+            setNodeCreationPosition({ x: cx, y: cy });
+            setShowNodeCreationModal(true);
+          }}
           onOpenFlows={() => setShowFlowsManager(true)}
           onOpenWhatsApp={onOpenWhatsApp}
           onLogout={onLogout}

@@ -19,6 +19,7 @@ interface NetworkToolbarProps {
   onSingleView: () => void;
   onNewFlow: () => void;
   onOpenFlows: () => void;
+  onCreateNode?: () => void;
   onOpenWhatsApp?: () => void;
   onLogout?: () => void;
   onSearch: () => void;
@@ -28,7 +29,7 @@ export const NetworkToolbar: React.FC<NetworkToolbarProps> = ({
   viewMode, nodeCount, connectionCount, searchQuery, setSearchQuery,
   showLabels, setShowLabels, showAIInsights, setShowAIInsights,
   onFitToScreen, onAutoOrganize, onMasterView, onSingleView,
-  onNewFlow, onOpenFlows, onOpenWhatsApp, onLogout, onSearch,
+  onNewFlow, onOpenFlows, onCreateNode, onOpenWhatsApp, onLogout, onSearch,
 }) => {
   return (
     <div className="absolute top-0 left-0 right-0 z-40 flex items-center justify-between px-3 py-1.5 bg-[hsl(220,20%,6%)]/95 backdrop-blur-md border-b border-border/20">
@@ -97,6 +98,14 @@ export const NetworkToolbar: React.FC<NetworkToolbarProps> = ({
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
+            {viewMode === 'single' && onCreateNode && (
+              <>
+                <DropdownMenuItem onClick={onCreateNode}>
+                  <Plus size={12} className="mr-2" /> Criar Nó
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+              </>
+            )}
             <DropdownMenuItem onClick={onNewFlow}>
               <Plus size={12} className="mr-2" /> Novo Flow
             </DropdownMenuItem>
