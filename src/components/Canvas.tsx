@@ -21,6 +21,7 @@ interface CanvasProps {
   setConnections: (updater: any) => void;
   saveToHistory: () => void;
   onOpenEditModal?: (node: any) => void;
+  onSingleClick?: (node: any) => void;
   projects?: any[];
   flows?: any[];
   allConnections?: any[];
