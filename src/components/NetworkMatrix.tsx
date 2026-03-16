@@ -68,6 +68,8 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
   const [aiConnectionModal, setAiConnectionModal] = useState<any>(null);
   const [duplicateCheckModal, setDuplicateCheckModal] = useState<any>(null);
   const [masterViewState, setMasterViewState] = useState<any>(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [detailPanelNode, setDetailPanelNode] = useState<any>(null);
 
   const prevViewModeRef = useRef<string>(viewMode);
   const { state, updateState } = useNetworkState();
