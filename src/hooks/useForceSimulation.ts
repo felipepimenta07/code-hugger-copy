@@ -103,6 +103,10 @@ export const useForceSimulation = ({
       const existing = nodesRef.current.find((fn) => fn.id === n.id);
       const depth = depths.get(n.id) ?? 3;
       const isCenter = n.id === centerNodeId;
+      const isNew = !existing && nodesRef.current.length > 0; // New node added to existing sim
+      const hasConnections = conns.some((c: any) => c.from === n.id || c.to === n.id);
+      // Pin center node always; pin new unconnected nodes so they don't fly away
+      const shouldFix = isCenter || (isNew && !hasConnections);
 
       return {
         id: n.id,
@@ -115,8 +119,7 @@ export const useForceSimulation = ({
         y: existing?.y ?? n.y,
         vx: existing?.vx ?? 0,
         vy: existing?.vy ?? 0,
-        // Fix center node
-        ...(isCenter ? { fx: n.x, fy: n.y } : {}),
+        ...(shouldFix ? { fx: existing?.x ?? n.x, fy: existing?.y ?? n.y } : {}),
       };
     });
 
