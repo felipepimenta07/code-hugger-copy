@@ -27,6 +27,12 @@ interface CanvasProps {
   onGoToProject?: (id: number) => void;
   onWheel?: (e: React.WheelEvent) => void;
   showLabels?: boolean;
+  // Force simulation props
+  forcePositions?: { [nodeId: number]: { x: number; y: number } };
+  onForceDragStart?: (nodeId: number) => void;
+  onForceDrag?: (nodeId: number, x: number, y: number) => void;
+  onForceDragEnd?: (nodeId: number) => void;
+  useForceLayout?: boolean;
 }
 
 const MASTER_RING_RADIUS = 240;
@@ -62,6 +68,11 @@ export const Canvas: React.FC<CanvasProps> = ({
   onGoToProject,
   onWheel,
   showLabels = false,
+  forcePositions,
+  onForceDragStart,
+  onForceDrag,
+  onForceDragEnd,
+  useForceLayout = false,
 }) => {
   const [hoveredConnection, setHoveredConnection] = useState<{
     index: number;
@@ -149,10 +160,15 @@ export const Canvas: React.FC<CanvasProps> = ({
     return map;
   }, [viewMode, flows, nodes]);
 
+  // Position resolver — uses force positions when available in single view
   const getDisplayPos = (n: any) => {
     if (viewMode === 'master') {
       const pos = masterLayoutMap.get(n.id);
       return pos ?? { x: n.x, y: n.y };
+    }
+    // Use force simulation positions when available
+    if (useForceLayout && forcePositions && forcePositions[n.id]) {
+      return forcePositions[n.id];
     }
     return { x: n.x, y: n.y };
   };
@@ -181,7 +197,12 @@ export const Canvas: React.FC<CanvasProps> = ({
           : [...selectedNodes, nodeId]);
       } else {
         if (!selectedNodes.includes(nodeId)) setSelectedNodes([nodeId]);
-        updateState({ dragging: nodeId, offset: { x: x - node.x, y: y - node.y }, selectedNode: nodeId });
+        const pos = getDisplayPos(node);
+        updateState({ dragging: nodeId, offset: { x: x - pos.x, y: y - pos.y }, selectedNode: nodeId });
+        // Notify force simulation of drag start
+        if (useForceLayout && onForceDragStart) {
+          onForceDragStart(nodeId);
+        }
       }
     }
   };
@@ -209,10 +230,11 @@ export const Canvas: React.FC<CanvasProps> = ({
     if (viewMode === 'master') return;
     e.stopPropagation();
     const node = nodes.find(n => n.id === nodeId);
+    const pos = getDisplayPos(node);
     updateState({ 
       isDraggingConnection: true, 
-      connectionStart: { id: nodeId, x: node.x, y: node.y }, 
-      connectionEnd: { x: node.x, y: node.y },
+      connectionStart: { id: nodeId, x: pos.x, y: pos.y }, 
+      connectionEnd: { x: pos.x, y: pos.y },
       showSidebar: false
     });
   };
@@ -223,10 +245,17 @@ export const Canvas: React.FC<CanvasProps> = ({
     const y = (e.clientY - rect.top - state.pan.y) / state.zoom;
     if (state.dragging && viewMode === 'master') return;
     if (state.dragging) {
-      const draggedNode = nodes.find(n => n.id === state.dragging);
-      const dx = x - state.offset.x - draggedNode.x;
-      const dy = y - state.offset.y - draggedNode.y;
-      selectedNodes.forEach(nodeId => updateNodePosition(nodeId, dx, dy, false));
+      if (useForceLayout && onForceDrag) {
+        // In force mode, update the fixed position directly
+        const dragX = x - state.offset.x;
+        const dragY = y - state.offset.y;
+        onForceDrag(state.dragging, dragX, dragY);
+      } else {
+        const draggedNode = nodes.find(n => n.id === state.dragging);
+        const dx = x - state.offset.x - draggedNode.x;
+        const dy = y - state.offset.y - draggedNode.y;
+        selectedNodes.forEach(nodeId => updateNodePosition(nodeId, dx, dy, false));
+      }
     } else if (state.isPanning) {
       updateState({ pan: { x: e.clientX - state.panStart.x, y: e.clientY - state.panStart.y } });
     } else if (state.isDraggingConnection) {
@@ -239,7 +268,10 @@ export const Canvas: React.FC<CanvasProps> = ({
       const rect = svgRef.current!.getBoundingClientRect();
       const x = (e.clientX - rect.left - state.pan.x) / state.zoom;
       const y = (e.clientY - rect.top - state.pan.y) / state.zoom;
-      const targetNode = nodes.find(n => Math.sqrt((n.x - x) ** 2 + (n.y - y) ** 2) < 45);
+      const targetNode = nodes.find(n => {
+        const pos = getDisplayPos(n);
+        return Math.sqrt((pos.x - x) ** 2 + (pos.y - y) ** 2) < 45;
+      });
       if (targetNode && targetNode.id !== state.connectionStart.id) {
         const exists = connections.some(c => 
           (c.from === state.connectionStart.id && c.to === targetNode.id) || 
@@ -252,14 +284,28 @@ export const Canvas: React.FC<CanvasProps> = ({
       }
     }
     if (state.dragging) {
-      const draggedNode = nodes.find(n => n.id === state.dragging);
-      if (draggedNode) {
-        const rect = svgRef.current!.getBoundingClientRect();
-        const x = (e.clientX - rect.left - state.pan.x) / state.zoom;
-        const y = (e.clientY - rect.top - state.pan.y) / state.zoom;
-        const dx = x - state.offset.x - draggedNode.x;
-        const dy = y - state.offset.y - draggedNode.y;
-        selectedNodes.forEach(nodeId => updateNodePosition(nodeId, dx, dy, true));
+      if (useForceLayout && onForceDragEnd) {
+        // End force drag — save final position to DB
+        const pos = forcePositions?.[state.dragging];
+        if (pos) {
+          const draggedNode = nodes.find(n => n.id === state.dragging);
+          if (draggedNode) {
+            const dx = pos.x - draggedNode.x;
+            const dy = pos.y - draggedNode.y;
+            selectedNodes.forEach(nodeId => updateNodePosition(nodeId, dx, dy, true));
+          }
+        }
+        onForceDragEnd(state.dragging);
+      } else {
+        const draggedNode = nodes.find(n => n.id === state.dragging);
+        if (draggedNode) {
+          const rect = svgRef.current!.getBoundingClientRect();
+          const x = (e.clientX - rect.left - state.pan.x) / state.zoom;
+          const y = (e.clientY - rect.top - state.pan.y) / state.zoom;
+          const dx = x - state.offset.x - draggedNode.x;
+          const dy = y - state.offset.y - draggedNode.y;
+          selectedNodes.forEach(nodeId => updateNodePosition(nodeId, dx, dy, true));
+        }
       }
       saveToHistory();
     }
@@ -272,7 +318,10 @@ export const Canvas: React.FC<CanvasProps> = ({
     const rect = svgRef.current!.getBoundingClientRect();
     const x = (e.clientX - rect.left - state.pan.x) / state.zoom;
     const y = (e.clientY - rect.top - state.pan.y) / state.zoom;
-    const clickedNode = nodes.find(n => Math.sqrt((n.x - x) ** 2 + (n.y - y) ** 2) < 45);
+    const clickedNode = nodes.find(n => {
+      const pos = getDisplayPos(n);
+      return Math.sqrt((pos.x - x) ** 2 + (pos.y - y) ** 2) < 45;
+    });
     if (!clickedNode) {
       updateState({ contextMenu: { x: e.clientX, y: e.clientY, canvasX: x, canvasY: y, type: 'canvas' } });
     }
@@ -328,11 +377,12 @@ export const Canvas: React.FC<CanvasProps> = ({
         {viewMode === 'single' && nodes.length > 0 && (() => {
           const centerNode = nodes[0];
           if (!centerNode) return null;
+          const centerPos = getDisplayPos(centerNode);
           return (
             <g key="radial-rings" opacity="0.15">
-              <circle cx={centerNode.x} cy={centerNode.y} r={200} fill="none" stroke="hsl(var(--muted))" strokeWidth="0.5" strokeDasharray="4,12" />
-              <circle cx={centerNode.x} cy={centerNode.y} r={350} fill="none" stroke="hsl(var(--muted))" strokeWidth="0.5" strokeDasharray="4,12" />
-              <circle cx={centerNode.x} cy={centerNode.y} r={520} fill="none" stroke="hsl(var(--muted))" strokeWidth="0.5" strokeDasharray="3,12" />
+              <circle cx={centerPos.x} cy={centerPos.y} r={200} fill="none" stroke="hsl(var(--muted))" strokeWidth="0.5" strokeDasharray="4,12" />
+              <circle cx={centerPos.x} cy={centerPos.y} r={350} fill="none" stroke="hsl(var(--muted))" strokeWidth="0.5" strokeDasharray="4,12" />
+              <circle cx={centerPos.x} cy={centerPos.y} r={520} fill="none" stroke="hsl(var(--muted))" strokeWidth="0.5" strokeDasharray="3,12" />
             </g>
           );
         })()}
@@ -493,14 +543,7 @@ export const Canvas: React.FC<CanvasProps> = ({
           const isInPath = highlightedPath.includes(node.id);
           const connectionCount = connections.filter(c => c.from === node.id || c.to === node.id).length;
           
-          let displayX: number, displayY: number;
-          if (viewMode === 'master') {
-            const pos = masterLayoutMap.get(node.id);
-            displayX = pos?.x ?? node.x;
-            displayY = pos?.y ?? node.y;
-          } else {
-            displayX = node.x; displayY = node.y;
-          }
+          const { x: displayX, y: displayY } = getDisplayPos(node);
           
           // Size based on connections (organic)
           const baseSize = 20 + Math.min(connectionCount * 4, 25);
