@@ -76,6 +76,7 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
   const svgRef = useRef(null);
   const isDraggingRef = useRef(false);
   const recentUpdatesRef = useRef<Set<string>>(new Set());
+  const isResettingRef = useRef(false);
 
   // Force simulation for organic layout in Single View
   const centerNodeIdForForce = (viewMode === 'single' && activeProjectId) ? (() => {
