@@ -711,9 +711,10 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
     setViewMode('single');
   };
 
-  const handleNewFlow = (type: 'person' | 'brand' | 'project') => {
-    setNodeCreationType(type);
-    setShowFlowStarterModal(true);
+  const handleNewFlow = () => {
+    setIsCreatingFlowRoot(true);
+    setNodeCreationPosition({ x: (window.innerWidth / 2 - state.pan.x) / state.zoom, y: ((window.innerHeight - 100) / 2 - state.pan.y) / state.zoom });
+    setShowNodeCreationModal(true);
   };
 
   // Flow manager data
