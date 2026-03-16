@@ -175,6 +175,9 @@ export const Canvas: React.FC<CanvasProps> = ({
     return { x: n.x, y: n.y };
   };
   
+  const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clickCountRef = useRef(0);
+
   const handleNodeMouseDown = (e: React.MouseEvent, nodeId: number) => {
     e.stopPropagation();
     if (viewMode === 'master') {
@@ -206,6 +209,23 @@ export const Canvas: React.FC<CanvasProps> = ({
           onForceDragStart(nodeId);
         }
       }
+    }
+  };
+
+  const handleNodeClick = (e: React.MouseEvent, nodeId: number) => {
+    // Only trigger single click if no drag happened
+    const node = nodes.find(n => n.id === nodeId);
+    if (!node) return;
+    
+    clickCountRef.current++;
+    if (clickCountRef.current === 1) {
+      clickTimerRef.current = setTimeout(() => {
+        if (clickCountRef.current === 1) {
+          // Single click → open detail panel
+          if (onSingleClick) onSingleClick(node);
+        }
+        clickCountRef.current = 0;
+      }, 250);
     }
   };
 
