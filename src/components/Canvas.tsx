@@ -402,103 +402,16 @@ export const Canvas: React.FC<CanvasProps> = ({
       <g transform={`translate(${state.pan.x}, ${state.pan.y}) scale(${state.zoom})`}>
         <rect x="-5000" y="-5000" width="15000" height="15000" fill="transparent" />
         
-        {/* Anéis Decorativos Radiais (Single View) */}
+        {/* Subtle dotted rings (Single View only) */}
         {viewMode === 'single' && nodes.length > 0 && (() => {
-          // FIXED: Always use nodes[0] as center (active project)
           const centerNode = nodes[0];
           if (!centerNode) return null;
           
           return (
-            <g key="radial-rings">
-              {/* Anel rosa/roxo interno (decorativo) */}
-              <circle
-                cx={centerNode.x}
-                cy={centerNode.y}
-                r={140}
-                fill="none"
-                stroke="url(#gradientPinkPurple)"
-                strokeWidth="35"
-                opacity="0.25"
-              />
-              
-              {/* Sun Rays - Traços radiais */}
-              {Array.from({ length: 48 }).map((_, i) => {
-                const angle = (i * Math.PI * 2) / 48;
-                const innerRadius = 130;
-                const outerRadius = 165;
-                const x1 = centerNode.x + innerRadius * Math.cos(angle);
-                const y1 = centerNode.y + innerRadius * Math.sin(angle);
-                const x2 = centerNode.x + outerRadius * Math.cos(angle);
-                const y2 = centerNode.y + outerRadius * Math.sin(angle);
-                
-                return (
-                  <line
-                    key={i}
-                    x1={x1}
-                    y1={y1}
-                    x2={x2}
-                    y2={y2}
-                    stroke="rgba(139, 92, 246, 0.6)"
-                    strokeWidth="2"
-                    opacity={(i % 2 === 0) ? 0.8 : 0.4}
-                  />
-                );
-              })}
-              
-              {/* Círculo pontilhado nível 1 */}
-              <circle
-                cx={centerNode.x}
-                cy={centerNode.y}
-                r={200}
-                fill="none"
-                stroke="rgba(139, 92, 246, 0.35)"
-                strokeWidth="1.5"
-                strokeDasharray="4,8"
-              />
-              
-              {/* Círculo pontilhado nível 2 */}
-              <circle
-                cx={centerNode.x}
-                cy={centerNode.y}
-                r={280}
-                fill="none"
-                stroke="rgba(139, 92, 246, 0.25)"
-                strokeWidth="1.5"
-                strokeDasharray="4,8"
-              />
-              
-              {/* Círculo pontilhado nível 3 */}
-              <circle
-                cx={centerNode.x}
-                cy={centerNode.y}
-                r={350}
-                fill="none"
-                stroke="rgba(139, 92, 246, 0.2)"
-                strokeWidth="1.5"
-                strokeDasharray="4,8"
-              />
-              
-              {/* Círculo pontilhado nível 4 */}
-              <circle
-                cx={centerNode.x}
-                cy={centerNode.y}
-                r={440}
-                fill="none"
-                stroke="rgba(139, 92, 246, 0.15)"
-                strokeWidth="1"
-                strokeDasharray="3,6"
-              />
-              
-              {/* Círculo pontilhado nível 5 */}
-              <circle
-                cx={centerNode.x}
-                cy={centerNode.y}
-                r={520}
-                fill="none"
-                stroke="rgba(139, 92, 246, 0.1)"
-                strokeWidth="1"
-                strokeDasharray="2,6"
-              />
+            <g key="radial-rings" opacity="0.25">
+              <circle cx={centerNode.x} cy={centerNode.y} r={200} fill="none" stroke="hsl(var(--muted))" strokeWidth="1" strokeDasharray="4,8" />
+              <circle cx={centerNode.x} cy={centerNode.y} r={350} fill="none" stroke="hsl(var(--muted))" strokeWidth="1" strokeDasharray="4,8" />
+              <circle cx={centerNode.x} cy={centerNode.y} r={520} fill="none" stroke="hsl(var(--muted))" strokeWidth="0.5" strokeDasharray="3,8" />
             </g>
           );
         })()}
@@ -692,61 +605,10 @@ export const Canvas: React.FC<CanvasProps> = ({
           });
         })()}
         
-        {/* Anéis Decorativos Radiais (Master View - para cada nó raiz) */}
-        {viewMode === 'master' && flows && flows.length > 0 && flows.map(flow => {
-          const clusterNodes = nodes.filter(n => getNodeFlowId(n) === flow.id);
-          if (!clusterNodes.length) return null;
-          
-          const centerNode = 
-            clusterNodes.find(n => n.id === flow.center_id && n.type === flow.center_type) ||
-            clusterNodes.find(n => n.type === 'project') ||
-            clusterNodes[0];
-          
-          const pos = masterLayoutMap.get(centerNode.id);
-          if (!pos) return null;
-          
-          return (
-            <g key={`ring-${flow.id}`}>
-              {/* Anel rosa/roxo interno (decorativo) */}
-              <circle
-                cx={pos.x}
-                cy={pos.y}
-                r={140}
-                fill="none"
-                stroke="url(#gradientPinkPurple)"
-                strokeWidth="35"
-                opacity="0.25"
-              />
-              
-              {/* Sun Rays - Traços radiais */}
-              {Array.from({ length: 48 }).map((_, i) => {
-                const angle = (i * Math.PI * 2) / 48;
-                const innerRadius = 130;
-                const outerRadius = 165;
-                const x1 = pos.x + innerRadius * Math.cos(angle);
-                const y1 = pos.y + innerRadius * Math.sin(angle);
-                const x2 = pos.x + outerRadius * Math.cos(angle);
-                const y2 = pos.y + outerRadius * Math.sin(angle);
-                
-                return (
-                  <line
-                    key={i}
-                    x1={x1}
-                    y1={y1}
-                    x2={x2}
-                    y2={y2}
-                    stroke="rgba(139, 92, 246, 0.6)"
-                    strokeWidth="2"
-                    opacity={(i % 2 === 0) ? 0.8 : 0.4}
-                  />
-                );
-              })}
-            </g>
-          );
-        })}
+        {/* Master View: no decorative rings */}
         
         
-        {/* Clusters no Master View (por flow) */}
+        {/* Clusters no Master View - subtle dotted ring only */}
         {viewMode === 'master' && flows.map(flow => {
           const clusterNodes = nodes.filter(n => getNodeFlowId(n) === flow.id);
           if (clusterNodes.length === 0) return null;
@@ -760,55 +622,20 @@ export const Canvas: React.FC<CanvasProps> = ({
           if (!pos) return null;
           
           const dottedRadius = MASTER_RING_RADIUS;
-          const filledRadius = MASTER_RING_RADIUS + 40;
- 
+
            return (
             <g key={flow.id}>
-              {/* Anel rosa/roxo decorativo */}
-              <circle
-                cx={pos.x}
-                cy={pos.y}
-                r={140}
-                fill="none"
-                stroke="url(#gradientPinkPurple)"
-                strokeWidth="15"
-                opacity="0.15"
-              />
-              
-              {/* Círculo preenchido */}
-              <circle
-                cx={pos.x}
-                cy={pos.y}
-                r={filledRadius}
-                fill="#8b5cf615"
-                opacity="0.2"
-              />
-              
-              {/* Círculo pontilhado externo */}
+              {/* Single subtle dotted ring */}
               <circle
                 cx={pos.x}
                 cy={pos.y}
                 r={dottedRadius}
                 fill="none"
-                stroke="#8b5cf6"
-                strokeWidth="2"
-                strokeDasharray="10,5"
-                opacity="0.35"
+                stroke="hsl(var(--muted))"
+                strokeWidth="1"
+                strokeDasharray="6,6"
+                opacity="0.3"
               />
-              
-              {/* Círculo pontilhado externo adicional - menos opaco */}
-              <circle
-                cx={pos.x}
-                cy={pos.y}
-                r={dottedRadius + 25}
-                fill="none"
-                stroke="#8b5cf6"
-                strokeWidth="2"
-                strokeDasharray="10,5"
-                opacity="0.25"
-              />
-              
-              {/* Labels removidos daqui - serão renderizados no final */}
             </g>
           );
         })}
@@ -1088,48 +915,37 @@ export const Canvas: React.FC<CanvasProps> = ({
               onMouseLeave={() => setHoveredNode(null)}
               className="cursor-pointer"
             >
-              {/* Nó Central Especial */}
+              {/* Nó Central - cleaner style */}
               {isCenterNode && (
                 <>
                   <circle 
-                    r={nodeSize + 40} 
-                    fill="url(#gradientPinkPurple)" 
-                    opacity="0.4" 
-                    filter="url(#glow)"
-                    className="animate-pulse"
-                    style={{ animationDuration: '3s' }}
-                  />
-                  <circle 
-                    r={nodeSize + 15} 
-                    fill="#8b5cf6" 
-                    opacity="0.8" 
+                    r={nodeSize + 12} 
+                    fill={colors.primary}
+                    opacity="0.15" 
                   />
                   <circle 
                     r={nodeSize} 
-                    fill="#ec4899" 
+                    fill="hsl(var(--background))"
+                    stroke={colors.primary}
                     strokeWidth="3"
-                    stroke="white"
                   />
                 </>
               )}
               
-              {/* Nós Outer (Cyan especial) */}
+              {/* Nós Outer - same clean style */}
               {!isCenterNode && (node as any).level === 'outer' && (
                 <>
                   <circle
-                    r={nodeSize + 15}
-                    fill="rgba(6, 182, 212, 0.3)"
-                    filter="url(#glow)"
+                    r={nodeSize + 8}
+                    fill={colors.primary}
+                    opacity={isHovered ? 0.2 : 0.1}
                   />
                   <circle
                     r={nodeSize}
-                    fill="rgba(6, 182, 212, 0.2)"
-                  />
-                  <circle
-                    r={nodeSize - 2}
-                    fill="#1a1a1a"
-                    stroke="#06b6d4"
-                    strokeWidth="3"
+                    fill="hsl(var(--background))"
+                    stroke={colors.primary}
+                    strokeWidth="2"
+                    opacity="0.9"
                   />
                 </>
               )}
@@ -1146,20 +962,13 @@ export const Canvas: React.FC<CanvasProps> = ({
                 />
               )}
               
-              {/* Nós Normais (Inner/Middle) */}
+              {/* Nós Normais (Inner/Middle) - clean border style */}
               {!isCenterNode && (node as any).level !== 'outer' && (
                 <>
                   <circle
-                    r={nodeSize + (isInPath ? 35 : (isHovered ? 30 : 20))}
-                    fill={isInPath ? 'hsl(var(--connection-path))' : colors.glow}
-                    opacity={isInPath ? 0.6 : (isHovered ? 0.5 : 0.3)}
-                    filter="url(#glow)"
-                  />
-                  
-                  <circle
                     r={nodeSize + 8}
-                    fill={colors.secondary}
-                    opacity={isHovered ? 0.4 : 0.25}
+                    fill={isInPath ? 'hsl(var(--connection-path))' : colors.primary}
+                    opacity={isInPath ? 0.2 : (isHovered ? 0.15 : 0.08)}
                   />
                   
                   {node.imageUrl ? (
@@ -1182,22 +991,15 @@ export const Canvas: React.FC<CanvasProps> = ({
                         r={nodeSize}
                         fill="none"
                         stroke={isInPath ? 'hsl(var(--connection-path))' : (isSelected ? 'white' : colors.primary)}
-                        strokeWidth={isInPath ? 5 : (isSelected ? 4 : 2)}
-                        style={{
-                          filter: `drop-shadow(0 0 ${isHovered ? '12' : '6'}px ${colors.primary})`
-                        }}
+                        strokeWidth={isInPath ? 4 : (isSelected ? 3 : 2)}
                       />
                     </>
                   ) : (
                     <circle
                       r={nodeSize}
-                      fill={colors.primary}
+                      fill="hsl(var(--background))"
                       stroke={isInPath ? 'hsl(var(--connection-path))' : (isSelected ? 'white' : colors.primary)}
-                      strokeWidth={isInPath ? 5 : (isSelected ? 4 : 2)}
-                      opacity="0.9"
-                      style={{
-                        filter: `drop-shadow(0 0 ${isHovered ? '12' : '6'}px ${colors.primary})`
-                      }}
+                      strokeWidth={isInPath ? 4 : (isSelected ? 3 : 2)}
                     />
                   )}
                 </>
@@ -1219,45 +1021,23 @@ export const Canvas: React.FC<CanvasProps> = ({
                 </foreignObject>
               )}
               
-              {/* Badge de conexões ou Score (nó central) */}
-              {isCenterNode ? (
-                <>
-                  {/* Network Score no centro */}
-                  <text
-                    y="-8"
-                    textAnchor="middle"
-                    fill="white"
-                    fontSize="26"
-                    fontWeight="bold"
-                  >
-                    {connectionCount > 0 ? Math.min(connectionCount * 10, 99) : 87}
-                  </text>
-                  <text
-                    y="10"
-                    textAnchor="middle"
-                    fill="rgba(255,255,255,0.8)"
-                    fontSize="8"
-                    letterSpacing="1"
-                  >
-                    NETWORK SCORE
-                  </text>
-                </>
-              ) : connectionCount > 0 && (
+              {/* Connection count badge */}
+              {connectionCount > 0 && (
                 <>
                   <circle
-                    cx={nodeSize - 8}
-                    cy={-nodeSize + 8}
-                    r="14"
-                    fill="rgba(0, 0, 0, 0.9)"
+                    cx={nodeSize - 6}
+                    cy={-nodeSize + 6}
+                    r="11"
+                    fill="hsl(var(--background))"
                     stroke={colors.primary}
-                    strokeWidth="2"
+                    strokeWidth="1.5"
                   />
                   <text
-                    x={nodeSize - 8}
-                    y={-nodeSize + 13}
+                    x={nodeSize - 6}
+                    y={-nodeSize + 10}
                     textAnchor="middle"
-                    fill="white"
-                    fontSize="12"
+                    fill={colors.primary}
+                    fontSize="10"
                     fontWeight="bold"
                   >
                     {connectionCount}
@@ -1340,29 +1120,7 @@ export const Canvas: React.FC<CanvasProps> = ({
                 </g>
               )}
               
-              {/* Badge Cyan (nível middle/outer) */}
-              {((node as any).level === 'middle' || (node as any).level === 'outer') && connectionCount > 0 && (
-                <>
-                  <circle
-                    cx={nodeSize + 10}
-                    cy={-nodeSize + 10}
-                    r="13"
-                    fill="none"
-                    stroke="#06b6d4"
-                    strokeWidth="2.5"
-                  />
-                  <text
-                    x={nodeSize + 10}
-                    y={-nodeSize + 15}
-                    textAnchor="middle"
-                    fill="#06b6d4"
-                    fontSize="10"
-                    fontWeight="700"
-                  >
-                    {Math.min(connectionCount * 15, 99)}%
-                  </text>
-                </>
-              )}
+              {/* Removed cyan badge - cleaner look */}
               
               {/* Indicador de múltiplos workflows */}
               {node.workflows && node.workflows.length > 1 && (
@@ -1409,11 +1167,11 @@ export const Canvas: React.FC<CanvasProps> = ({
                 x={pos.x}
                 y={pos.y - (dottedRadius + 25) - 24}
                 textAnchor="middle"
-                fill="#8b5cf6"
-                fontSize="18"
-                fontWeight="bold"
-                letterSpacing="3"
-                style={{ filter: 'drop-shadow(0 0 4px rgba(0,0,0,0.8))' }}
+                fill="hsl(var(--muted-foreground))"
+                fontSize="14"
+                fontWeight="600"
+                letterSpacing="2"
+                fontFamily="monospace"
               >
                 {flow.name.toUpperCase()}
               </text>
@@ -1421,10 +1179,10 @@ export const Canvas: React.FC<CanvasProps> = ({
                 x={pos.x}
                 y={pos.y - (dottedRadius + 25)}
                 textAnchor="middle"
-                fill="#8b5cf6"
-                fontSize="13"
-                opacity="0.7"
-                style={{ filter: 'drop-shadow(0 0 4px rgba(0,0,0,0.8))' }}
+                fill="hsl(var(--muted-foreground))"
+                fontSize="11"
+                opacity="0.6"
+                fontFamily="monospace"
               >
                 {clusterNodes.length} {clusterNodes.length === 1 ? 'nó' : 'nós'}
               </text>

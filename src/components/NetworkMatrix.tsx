@@ -2071,10 +2071,8 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
   };
 
   return (
-    <div className="min-h-screen h-screen flex flex-col overflow-hidden">
-      {/* Animated Background Shapes */}
-      <div className="shape-1"></div>
-      <div className="shape-2"></div>
+    <div className="min-h-screen h-screen flex flex-col overflow-hidden bg-[hsl(220,20%,7%)]">
+      {/* No animated background shapes - clean dark bg */}
       
       {state.contextMenu && (
         <ContextMenu 
@@ -2193,34 +2191,54 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
       />
 
       {/* Área principal com canvas */}
-      <div className="flex-1 flex flex-col relative">
+      <div className="flex-1 flex flex-col relative ml-64">
         
-        {/* Barra de Busca IA + Botão Insights - Canto Superior Direito */}
-        <div className="absolute top-6 right-6 z-40 flex items-center gap-2">
-          <div className="relative w-72">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="text"
-              placeholder="Buscar com IA..."
-              value={aiSearchQuery}
-              onChange={(e) => setAiSearchQuery(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && aiSearchQuery.trim()) {
-                  setShowOpportunities(true);
-                }
-              }}
-              className="pl-10 glass-effect focus:border-indigo-400/50 rounded-full transition-all duration-300"
-            />
+        {/* Compact Toolbar - Top */}
+        <div className="absolute top-0 left-0 right-0 z-40 flex items-center justify-between px-4 py-2 bg-[hsl(220,20%,8%)]/90 backdrop-blur-sm border-b border-border/30">
+          <div className="flex items-center gap-2">
+            {/* View mode indicator */}
+            <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">
+              {viewMode === 'master' ? 'Master' : 'Single'}
+            </span>
+            <div className="h-4 w-px bg-border/50" />
+            {/* Search */}
+            <div className="relative w-48">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Buscar..."
+                value={aiSearchQuery}
+                onChange={(e) => setAiSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && aiSearchQuery.trim()) {
+                    setShowOpportunities(true);
+                  }
+                }}
+                className="pl-7 h-7 text-xs bg-secondary/50 border-border/30 rounded focus:border-primary/50"
+              />
+            </div>
           </div>
-          <Button
-            onClick={() => setShowAIInsights(prev => !prev)}
-            className={`rounded-full gap-2 transition-all duration-300 ${showAIInsights ? 'bg-purple-600 hover:bg-purple-700' : 'bg-purple-500/80 hover:bg-purple-600'}`}
-            size="sm"
-            title="Abrir painel de insights com IA"
-          >
-            <Sparkles size={15} />
-            IA
-          </Button>
+          <div className="flex items-center gap-2">
+            {/* Labels toggle */}
+            <button
+              onClick={() => setShowLegend(!showLegend)}
+              className={`px-2 py-1 text-[10px] font-mono rounded transition-colors ${showLegend ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              Rótulos
+            </button>
+            {/* AI button */}
+            <button
+              onClick={() => setShowAIInsights(prev => !prev)}
+              className={`px-2 py-1 text-[10px] font-mono rounded transition-colors flex items-center gap-1 ${showAIInsights ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              <Sparkles size={10} /> IA
+            </button>
+            <div className="h-4 w-px bg-border/50" />
+            {/* Node/Connection counter */}
+            <span className="text-[10px] font-mono text-muted-foreground">
+              {nodes.length} NÓS · {connections.length} CONEXÕES
+            </span>
+          </div>
         </div>
 
         {/* Canvas */}
@@ -2259,68 +2277,43 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
           }}
         />
 
-          {/* Botões Flutuantes com GlassButton - Centro-Inferior */}
-          <div className="fixed bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-3 z-30">
-            
-            {/* Zoom Out */}
-            <GlassButton 
-              size="icon" 
+          {/* Compact zoom controls - bottom right */}
+          <div className="absolute bottom-4 right-4 flex items-center gap-1 z-30">
+            <button 
+              className="w-7 h-7 flex items-center justify-center rounded bg-secondary/80 text-muted-foreground hover:text-foreground transition-colors text-xs"
               onClick={() => {
                 const width = window.innerWidth;
                 const height = window.innerHeight - 100;
                 const newZoom = Math.max(state.zoom / 1.2, 0.3);
                 const centerX = (width / 2 - state.pan.x) / state.zoom;
                 const centerY = (height / 2 - state.pan.y) / state.zoom;
-                updateState({ 
-                  zoom: newZoom,
-                  pan: {
-                    x: width / 2 - centerX * newZoom,
-                    y: height / 2 - centerY * newZoom
-                  }
-                });
+                updateState({ zoom: newZoom, pan: { x: width / 2 - centerX * newZoom, y: height / 2 - centerY * newZoom } });
               }}
-              title="Zoom Out"
             >
-              <ZoomOut size={18} />
-            </GlassButton>
-            
-            {/* Porcentagem atual (clicável para resetar para 100%) */}
-            <GlassButton
-              size="default"
+              <ZoomOut size={14} />
+            </button>
+            <button 
+              className="h-7 px-2 flex items-center justify-center rounded bg-secondary/80 text-muted-foreground hover:text-foreground transition-colors text-[10px] font-mono"
               onClick={() => updateState({ zoom: 1 })}
-              contentClassName="text-sm font-mono px-4"
-              title="Resetar Zoom (100%)"
             >
               {Math.round(state.zoom * 100)}%
-            </GlassButton>
-            
-            {/* Zoom In */}
-            <GlassButton 
-              size="icon" 
+            </button>
+            <button 
+              className="w-7 h-7 flex items-center justify-center rounded bg-secondary/80 text-muted-foreground hover:text-foreground transition-colors text-xs"
               onClick={() => {
                 const width = window.innerWidth;
                 const height = window.innerHeight - 100;
                 const newZoom = Math.min(state.zoom * 1.2, 3);
                 const centerX = (width / 2 - state.pan.x) / state.zoom;
                 const centerY = (height / 2 - state.pan.y) / state.zoom;
-                updateState({ 
-                  zoom: newZoom,
-                  pan: {
-                    x: width / 2 - centerX * newZoom,
-                    y: height / 2 - centerY * newZoom
-                  }
-                });
+                updateState({ zoom: newZoom, pan: { x: width / 2 - centerX * newZoom, y: height / 2 - centerY * newZoom } });
               }}
-              title="Zoom In"
             >
-              <ZoomIn size={18} />
-            </GlassButton>
-
-            <div className="h-8 w-px bg-primary-foreground/30 mx-1" />
-            
-            {/* Centralizar */}
-            <GlassButton 
-              size="icon" 
+              <ZoomIn size={14} />
+            </button>
+            <div className="h-5 w-px bg-border/30 mx-1" />
+            <button 
+              className="w-7 h-7 flex items-center justify-center rounded bg-secondary/80 text-muted-foreground hover:text-foreground transition-colors text-xs"
               onClick={() => {
                 const rect = svgRef.current?.getBoundingClientRect();
                 const width = rect?.width ?? window.innerWidth;
@@ -2331,10 +2324,9 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
                 const pan = calculateCenterPan(bounds, zoom, width, height);
                 updateState({ zoom, pan });
               }}
-              title="Centralizar"
             >
-              <Target size={18} />
-            </GlassButton>
+              <Target size={14} />
+            </button>
           </div>
         </div>
 

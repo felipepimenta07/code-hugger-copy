@@ -23,7 +23,7 @@ export const WhatsAppDialog = ({ open, onOpenChange }: WhatsAppDialogProps) => {
   const [phoneNumber, setPhoneNumber] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [checkingConnection, setCheckingConnection] = useState(true);
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     if (!open) return;
