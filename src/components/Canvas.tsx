@@ -402,103 +402,16 @@ export const Canvas: React.FC<CanvasProps> = ({
       <g transform={`translate(${state.pan.x}, ${state.pan.y}) scale(${state.zoom})`}>
         <rect x="-5000" y="-5000" width="15000" height="15000" fill="transparent" />
         
-        {/* Anéis Decorativos Radiais (Single View) */}
+        {/* Subtle dotted rings (Single View only) */}
         {viewMode === 'single' && nodes.length > 0 && (() => {
-          // FIXED: Always use nodes[0] as center (active project)
           const centerNode = nodes[0];
           if (!centerNode) return null;
           
           return (
-            <g key="radial-rings">
-              {/* Anel rosa/roxo interno (decorativo) */}
-              <circle
-                cx={centerNode.x}
-                cy={centerNode.y}
-                r={140}
-                fill="none"
-                stroke="url(#gradientPinkPurple)"
-                strokeWidth="35"
-                opacity="0.25"
-              />
-              
-              {/* Sun Rays - Traços radiais */}
-              {Array.from({ length: 48 }).map((_, i) => {
-                const angle = (i * Math.PI * 2) / 48;
-                const innerRadius = 130;
-                const outerRadius = 165;
-                const x1 = centerNode.x + innerRadius * Math.cos(angle);
-                const y1 = centerNode.y + innerRadius * Math.sin(angle);
-                const x2 = centerNode.x + outerRadius * Math.cos(angle);
-                const y2 = centerNode.y + outerRadius * Math.sin(angle);
-                
-                return (
-                  <line
-                    key={i}
-                    x1={x1}
-                    y1={y1}
-                    x2={x2}
-                    y2={y2}
-                    stroke="rgba(139, 92, 246, 0.6)"
-                    strokeWidth="2"
-                    opacity={(i % 2 === 0) ? 0.8 : 0.4}
-                  />
-                );
-              })}
-              
-              {/* Círculo pontilhado nível 1 */}
-              <circle
-                cx={centerNode.x}
-                cy={centerNode.y}
-                r={200}
-                fill="none"
-                stroke="rgba(139, 92, 246, 0.35)"
-                strokeWidth="1.5"
-                strokeDasharray="4,8"
-              />
-              
-              {/* Círculo pontilhado nível 2 */}
-              <circle
-                cx={centerNode.x}
-                cy={centerNode.y}
-                r={280}
-                fill="none"
-                stroke="rgba(139, 92, 246, 0.25)"
-                strokeWidth="1.5"
-                strokeDasharray="4,8"
-              />
-              
-              {/* Círculo pontilhado nível 3 */}
-              <circle
-                cx={centerNode.x}
-                cy={centerNode.y}
-                r={350}
-                fill="none"
-                stroke="rgba(139, 92, 246, 0.2)"
-                strokeWidth="1.5"
-                strokeDasharray="4,8"
-              />
-              
-              {/* Círculo pontilhado nível 4 */}
-              <circle
-                cx={centerNode.x}
-                cy={centerNode.y}
-                r={440}
-                fill="none"
-                stroke="rgba(139, 92, 246, 0.15)"
-                strokeWidth="1"
-                strokeDasharray="3,6"
-              />
-              
-              {/* Círculo pontilhado nível 5 */}
-              <circle
-                cx={centerNode.x}
-                cy={centerNode.y}
-                r={520}
-                fill="none"
-                stroke="rgba(139, 92, 246, 0.1)"
-                strokeWidth="1"
-                strokeDasharray="2,6"
-              />
+            <g key="radial-rings" opacity="0.25">
+              <circle cx={centerNode.x} cy={centerNode.y} r={200} fill="none" stroke="hsl(var(--muted))" strokeWidth="1" strokeDasharray="4,8" />
+              <circle cx={centerNode.x} cy={centerNode.y} r={350} fill="none" stroke="hsl(var(--muted))" strokeWidth="1" strokeDasharray="4,8" />
+              <circle cx={centerNode.x} cy={centerNode.y} r={520} fill="none" stroke="hsl(var(--muted))" strokeWidth="0.5" strokeDasharray="3,8" />
             </g>
           );
         })()}
