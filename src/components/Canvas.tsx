@@ -63,6 +63,7 @@ export const Canvas: React.FC<CanvasProps> = ({
   setConnections,
   saveToHistory,
   onOpenEditModal,
+  onSingleClick,
   projects = [],
   flows = [],
   allConnections = [],
