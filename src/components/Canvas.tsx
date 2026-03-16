@@ -672,7 +672,9 @@ export const Canvas: React.FC<CanvasProps> = ({
               )}
             </g>
           );
-        })}
+        });
+        })()}
+
         
         {/* Flow labels (Master View) */}
         {viewMode === 'master' && flows?.map(flow => {
