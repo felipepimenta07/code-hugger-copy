@@ -761,10 +761,11 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
   return (
     <div className="min-h-screen h-screen flex flex-col overflow-hidden bg-background">
       {/* Sidebar - Groups only */}
-      <NetworkSidebar viewMode={viewMode} allNodes={allNodes} nodes={nodes} />
+      <NetworkSidebar viewMode={viewMode} allNodes={allNodes} nodes={nodes}
+        collapsed={sidebarCollapsed} onToggleCollapse={() => setSidebarCollapsed(c => !c)} />
 
       {/* Main area */}
-      <div className="flex-1 flex flex-col relative ml-[200px]">
+      <div className="flex-1 flex flex-col relative transition-all duration-200" style={{ marginLeft: sidebarCollapsed ? 44 : 200 }}>
         {/* Toolbar */}
         <NetworkToolbar
           viewMode={viewMode}
