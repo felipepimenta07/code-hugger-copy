@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { User, Target, Building2, Copy } from 'lucide-react';
+import { User, Target, Building2 } from 'lucide-react';
 import { ConnectionTooltip } from './ConnectionTooltip';
 
 interface CanvasProps {
@@ -26,6 +26,7 @@ interface CanvasProps {
   allConnections?: any[];
   onGoToProject?: (id: number) => void;
   onWheel?: (e: React.WheelEvent) => void;
+  showLabels?: boolean;
 }
 
 const MASTER_RING_RADIUS = 240;
@@ -59,18 +60,18 @@ export const Canvas: React.FC<CanvasProps> = ({
   flows = [],
   allConnections = [],
   onGoToProject,
-  onWheel
+  onWheel,
+  showLabels = false,
 }) => {
   const [hoveredConnection, setHoveredConnection] = useState<{
     index: number;
     position: { x: number; y: number };
   } | null>(null);
 
-  // BFS to calculate depth from center node (for connection styling by distance)
+  // BFS to calculate depth from center node
   const calculateNodeDepths = () => {
     if (viewMode !== 'single' || nodes.length === 0) return new Map<number, number>();
-    
-    const centerNode = nodes[0]; // Active project is always first in single view
+    const centerNode = nodes[0];
     const depths = new Map<number, number>();
     const queue: Array<{ id: number; depth: number }> = [{ id: centerNode.id, depth: 0 }];
     const visited = new Set<number>();
@@ -78,11 +79,8 @@ export const Canvas: React.FC<CanvasProps> = ({
     while (queue.length > 0) {
       const current = queue.shift()!;
       if (visited.has(current.id)) continue;
-      
       visited.add(current.id);
       depths.set(current.id, current.depth);
-      
-      // Find all connected nodes (using filtered connections for current view)
       connections
         .filter(c => c.from === current.id || c.to === current.id)
         .forEach(c => {
@@ -92,61 +90,45 @@ export const Canvas: React.FC<CanvasProps> = ({
           }
         });
     }
-    
     return depths;
   };
   
   const nodeDepths = calculateNodeDepths();
   
-  // Offsets estáveis por flow no Master View para evitar sobreposição
   const getFlowOffset = (flowId: number) => {
     if (!flows || flows.length === 0) return { dx: 0, dy: 0 };
     const idx = Math.max(0, flows.findIndex(f => f.id === flowId));
     const angle = (idx / Math.max(flows.length, 1)) * Math.PI * 2;
-
-    // Raio dinâmico: garante que os anéis grandes não se sobreponham e fiquem o mais próximos possível
     const count = Math.max(flows.length, 1);
     let radius = 0;
     if (count > 1) {
-      const filledRadius = MASTER_RING_RADIUS + 40; // 280 (raio do maior círculo decorativo)
-      const LABEL_CLEARANCE = 120; // espaço adicional para acomodar labels
-      const safeGap = 16 + LABEL_CLEARANCE; // gap mínimo + zona de label
-      const neededChord = 2 * filledRadius + safeGap; // distância mínima entre centros adjacentes
-      radius = neededChord / (2 * Math.sin(Math.PI / count)); // R = chord / (2*sin(pi/n))
+      const filledRadius = MASTER_RING_RADIUS + 40;
+      const LABEL_CLEARANCE = 120;
+      const safeGap = 16 + LABEL_CLEARANCE;
+      const neededChord = 2 * filledRadius + safeGap;
+      radius = neededChord / (2 * Math.sin(Math.PI / count));
     }
-
     return { dx: Math.cos(angle) * radius, dy: Math.sin(angle) * radius };
   };
+
   const getNodeFlowId = (n: any) => n?.flow_id ?? (n?.type === 'project' ? n.id : null);
   
   // Layout determinístico para Master View
   const masterLayoutMap = React.useMemo(() => {
     if (viewMode !== 'master' || !flows?.length) return new Map<number, {x:number, y:number}>();
-    
     const map = new Map<number, {x:number, y:number}>();
     const typeOrder = (t?: string) => (t === 'project' ? 0 : t === 'brand' ? 1 : 2);
     
     flows.forEach(flow => {
       const clusterNodes = nodes.filter(n => getNodeFlowId(n) === flow.id);
       if (!clusterNodes.length) return;
-      
-      // Encontrar nó central
       const centerNode = 
         clusterNodes.find(n => n.id === flow.center_id && n.type === flow.center_type) ||
         clusterNodes.find(n => n.type === 'project') ||
         clusterNodes[0];
-      
-      // Centro do cluster = posição do nó central + offset do flow
-      const anchorX = 0;
-      const anchorY = 0;
       const { dx, dy } = getFlowOffset(flow.id);
-      const cx = anchorX + dx;
-      const cy = anchorY + dy;
+      map.set(centerNode.id, { x: dx, y: dy });
       
-      // Posição do central
-      map.set(centerNode.id, { x: cx, y: cy });
-      
-      // Distribuição uniforme dos demais nós
       const others = clusterNodes.filter(n => n.id !== centerNode.id);
       const sorted = [...others].sort((a, b) => {
         const t = typeOrder(a.type) - typeOrder(b.type);
@@ -157,96 +139,68 @@ export const Canvas: React.FC<CanvasProps> = ({
       });
       
       const N = Math.max(sorted.length, 1);
-      const start = -Math.PI / 2; // começa no topo
+      const start = -Math.PI / 2;
       const step = (2 * Math.PI) / N;
-      
       sorted.forEach((n, i) => {
         const angle = start + i * step;
-        const x = cx + MASTER_RING_RADIUS * Math.cos(angle);
-        const y = cy + MASTER_RING_RADIUS * Math.sin(angle);
-        map.set(n.id, { x, y });
+        map.set(n.id, { x: dx + MASTER_RING_RADIUS * Math.cos(angle), y: dy + MASTER_RING_RADIUS * Math.sin(angle) });
       });
     });
-    
     return map;
   }, [viewMode, flows, nodes]);
+
+  const getDisplayPos = (n: any) => {
+    if (viewMode === 'master') {
+      const pos = masterLayoutMap.get(n.id);
+      return pos ?? { x: n.x, y: n.y };
+    }
+    return { x: n.x, y: n.y };
+  };
   
   const handleNodeMouseDown = (e: React.MouseEvent, nodeId: number) => {
     e.stopPropagation();
-    
-    // BLOQUEAR dragging no Master View - apenas permite seleção
     if (viewMode === 'master') {
       if (e.shiftKey) {
-        if (selectedNodes.includes(nodeId)) {
-          setSelectedNodes(selectedNodes.filter(id => id !== nodeId));
-        } else {
-          setSelectedNodes([...selectedNodes, nodeId]);
-        }
+        setSelectedNodes(selectedNodes.includes(nodeId) 
+          ? selectedNodes.filter(id => id !== nodeId) 
+          : [...selectedNodes, nodeId]);
       } else {
-        if (!selectedNodes.includes(nodeId)) {
-          setSelectedNodes([nodeId]);
-        }
+        if (!selectedNodes.includes(nodeId)) setSelectedNodes([nodeId]);
         updateState({ selectedNode: nodeId });
       }
       return;
     }
-    
-    // Código original para Single View
     if (e.button === 0 && !(e.ctrlKey || e.metaKey)) {
       const node = nodes.find(n => n.id === nodeId);
       const rect = svgRef.current!.getBoundingClientRect();
       const x = (e.clientX - rect.left - state.pan.x) / state.zoom;
       const y = (e.clientY - rect.top - state.pan.y) / state.zoom;
-      
       if (e.shiftKey) {
-        if (selectedNodes.includes(nodeId)) {
-          setSelectedNodes(selectedNodes.filter(id => id !== nodeId));
-        } else {
-          setSelectedNodes([...selectedNodes, nodeId]);
-        }
+        setSelectedNodes(selectedNodes.includes(nodeId) 
+          ? selectedNodes.filter(id => id !== nodeId) 
+          : [...selectedNodes, nodeId]);
       } else {
-        if (!selectedNodes.includes(nodeId)) {
-          setSelectedNodes([nodeId]);
-        }
+        if (!selectedNodes.includes(nodeId)) setSelectedNodes([nodeId]);
         updateState({ dragging: nodeId, offset: { x: x - node.x, y: y - node.y }, selectedNode: nodeId });
       }
     }
-  };
-
-  const handleNodeClick = (e: React.MouseEvent, nodeId: number) => {
-    e.stopPropagation();
-    // Simple click does nothing, let double click handle editing
   };
 
   const handleNodeDoubleClick = (e: React.MouseEvent, nodeId: number) => {
     e.stopPropagation();
     const node = nodes.find(n => n.id === nodeId);
     if (!node) return;
-    
-    // No Single View: abre o editor lateral
     if (viewMode === 'single') {
-      if (onOpenEditModal) {
-        onOpenEditModal(node);
-      }
+      if (onOpenEditModal) onOpenEditModal(node);
       return;
     }
-    
-    // No Master View: navegar para o flow (verificando se é nó central)
     if (onGoToProject) {
-      // Primeiro: verificar se este nó é o centro de algum flow
-      const centerFlow = flows.find(f => 
-        f.center_id === node.id && f.center_type === node.type
-      );
-      
+      const centerFlow = flows.find(f => f.center_id === node.id && f.center_type === node.type);
       if (centerFlow) {
-        // É um nó central → ir para Single View usando o center_id
         onGoToProject(centerFlow.center_id);
       } else if (node.flow_id) {
-        // Não é centro, mas pertence a um flow → encontrar o center desse flow
         const belongsToFlow = flows.find(f => f.id === node.flow_id);
-        if (belongsToFlow) {
-          onGoToProject(belongsToFlow.center_id);
-        }
+        if (belongsToFlow) onGoToProject(belongsToFlow.center_id);
       }
     }
   };
@@ -267,19 +221,12 @@ export const Canvas: React.FC<CanvasProps> = ({
     const rect = svgRef.current!.getBoundingClientRect();
     const x = (e.clientX - rect.left - state.pan.x) / state.zoom;
     const y = (e.clientY - rect.top - state.pan.y) / state.zoom;
-    
-    // BLOQUEAR movimento de nós no Master View
     if (state.dragging && viewMode === 'master') return;
-    
     if (state.dragging) {
       const draggedNode = nodes.find(n => n.id === state.dragging);
       const dx = x - state.offset.x - draggedNode.x;
       const dy = y - state.offset.y - draggedNode.y;
-      
-      // Durante o drag: NÃO salvar no DB
-      selectedNodes.forEach(nodeId => {
-        updateNodePosition(nodeId, dx, dy, false);
-      });
+      selectedNodes.forEach(nodeId => updateNodePosition(nodeId, dx, dy, false));
     } else if (state.isPanning) {
       updateState({ pan: { x: e.clientX - state.panStart.x, y: e.clientY - state.panStart.y } });
     } else if (state.isDraggingConnection) {
@@ -293,27 +240,18 @@ export const Canvas: React.FC<CanvasProps> = ({
       const x = (e.clientX - rect.left - state.pan.x) / state.zoom;
       const y = (e.clientY - rect.top - state.pan.y) / state.zoom;
       const targetNode = nodes.find(n => Math.sqrt((n.x - x) ** 2 + (n.y - y) ** 2) < 45);
-      
       if (targetNode && targetNode.id !== state.connectionStart.id) {
-        
         const exists = connections.some(c => 
           (c.from === state.connectionStart.id && c.to === targetNode.id) || 
           (c.from === targetNode.id && c.to === state.connectionStart.id)
         );
         if (!exists) {
           saveToHistory();
-          setConnections(prev => [...prev, { 
-            from: state.connectionStart.id, 
-            to: targetNode.id,
-            type: 'strong',
-            directional: false
-          }]);
+          setConnections(prev => [...prev, { from: state.connectionStart.id, to: targetNode.id, type: 'strong', directional: false }]);
         }
       }
     }
-    
     if (state.dragging) {
-      // Ao finalizar o drag: SALVAR no DB
       const draggedNode = nodes.find(n => n.id === state.dragging);
       if (draggedNode) {
         const rect = svgRef.current!.getBoundingClientRect();
@@ -321,32 +259,28 @@ export const Canvas: React.FC<CanvasProps> = ({
         const y = (e.clientY - rect.top - state.pan.y) / state.zoom;
         const dx = x - state.offset.x - draggedNode.x;
         const dy = y - state.offset.y - draggedNode.y;
-        
-        selectedNodes.forEach(nodeId => {
-          updateNodePosition(nodeId, dx, dy, true);
-        });
+        selectedNodes.forEach(nodeId => updateNodePosition(nodeId, dx, dy, true));
       }
       saveToHistory();
     }
-    
-    updateState({ 
-      dragging: null, 
-      isPanning: false, 
-      isDraggingConnection: false, 
-      connectionStart: null
-    });
+    updateState({ dragging: null, isPanning: false, isDraggingConnection: false, connectionStart: null });
   };
 
   const handleCanvasContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
     if (viewMode === 'master') return;
-                      const rect = svgRef.current!.getBoundingClientRect();
+    const rect = svgRef.current!.getBoundingClientRect();
     const x = (e.clientX - rect.left - state.pan.x) / state.zoom;
     const y = (e.clientY - rect.top - state.pan.y) / state.zoom;
     const clickedNode = nodes.find(n => Math.sqrt((n.x - x) ** 2 + (n.y - y) ** 2) < 45);
     if (!clickedNode) {
       updateState({ contextMenu: { x: e.clientX, y: e.clientY, canvasX: x, canvasY: y, type: 'canvas' } });
     }
+  };
+
+  // Get initial of node name for display
+  const getInitial = (name: string) => {
+    return name ? name.charAt(0).toUpperCase() : '?';
   };
 
   return (
@@ -361,16 +295,13 @@ export const Canvas: React.FC<CanvasProps> = ({
       onMouseDown={(e) => {
         if (e.button === 0 && !e.shiftKey) {
           setSelectedNodes([]);
-          updateState({ 
-            isPanning: true, 
-            panStart: { x: e.clientX - state.pan.x, y: e.clientY - state.pan.y } 
-          });
+          updateState({ isPanning: true, panStart: { x: e.clientX - state.pan.x, y: e.clientY - state.pan.y } });
         }
       }}
     >
       <defs>
-        <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-          <feGaussianBlur stdDeviation="10" result="coloredBlur"/>
+        <filter id="glow-node" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="8" result="coloredBlur"/>
           <feMerge>
             <feMergeNode in="coloredBlur"/>
             <feMergeNode in="SourceGraphic"/>
@@ -388,802 +319,293 @@ export const Canvas: React.FC<CanvasProps> = ({
         </marker>
       </defs>
 
-      <defs>
-        <radialGradient id="gradientPinkPurple">
-          <stop offset="0%" stopColor="#ec4899" />
-          <stop offset="100%" stopColor="#8b5cf6" />
-        </radialGradient>
-        <radialGradient id="gradientCyan">
-          <stop offset="0%" stopColor="#06b6d4" />
-          <stop offset="100%" stopColor="#0891b2" />
-        </radialGradient>
-      </defs>
-
-      <g transform={`translate(${state.pan.x}, ${state.pan.y}) scale(${state.zoom})`}>
+      <g transform={`translate(${state.pan.x}, ${state.pan.y}) scale(${state.zoom})`}
+         style={{ transition: state.isPanning || state.dragging ? 'none' : 'transform 0.15s ease-out' }}
+      >
         <rect x="-5000" y="-5000" width="15000" height="15000" fill="transparent" />
         
         {/* Subtle dotted rings (Single View only) */}
         {viewMode === 'single' && nodes.length > 0 && (() => {
           const centerNode = nodes[0];
           if (!centerNode) return null;
-          
           return (
-            <g key="radial-rings" opacity="0.25">
-              <circle cx={centerNode.x} cy={centerNode.y} r={200} fill="none" stroke="hsl(var(--muted))" strokeWidth="1" strokeDasharray="4,8" />
-              <circle cx={centerNode.x} cy={centerNode.y} r={350} fill="none" stroke="hsl(var(--muted))" strokeWidth="1" strokeDasharray="4,8" />
-              <circle cx={centerNode.x} cy={centerNode.y} r={520} fill="none" stroke="hsl(var(--muted))" strokeWidth="0.5" strokeDasharray="3,8" />
+            <g key="radial-rings" opacity="0.15">
+              <circle cx={centerNode.x} cy={centerNode.y} r={200} fill="none" stroke="hsl(var(--muted))" strokeWidth="0.5" strokeDasharray="4,12" />
+              <circle cx={centerNode.x} cy={centerNode.y} r={350} fill="none" stroke="hsl(var(--muted))" strokeWidth="0.5" strokeDasharray="4,12" />
+              <circle cx={centerNode.x} cy={centerNode.y} r={520} fill="none" stroke="hsl(var(--muted))" strokeWidth="0.5" strokeDasharray="3,12" />
             </g>
           );
         })()}
         
-        {/* Conexões Específicas entre Pessoas em Flows Diferentes (Master View) */}
+        {/* Cross-flow connections (Master View) */}
         {viewMode === 'master' && (() => {
           const specificConnections: Array<{
-            personA: any;
-            personB: any;
-            flowA: number;
-            flowB: number;
-            company?: string;
-            emailDomain?: string;
-            type: 'company' | 'email' | 'indirect';
-            strength: number;
+            personA: any; personB: any; flowA: number; flowB: number;
+            company?: string; emailDomain?: string; type: 'company' | 'email'; strength: number;
           }> = [];
           
           const peopleWithCompany = nodes.filter(n => n.type === 'person' && n.company);
           const peopleWithEmail = nodes.filter(n => n.type === 'person' && n.email);
           
-          console.log('🔍 [Cross-Flow] Pessoas com empresa:', peopleWithCompany.length);
-          console.log('🔍 [Cross-Flow] Pessoas com email:', peopleWithEmail.length);
-          
-          // TIPO 1: Conexões por Empresa (mais forte)
           for (let i = 0; i < peopleWithCompany.length; i++) {
             for (let j = i + 1; j < peopleWithCompany.length; j++) {
-              const pA = peopleWithCompany[i];
-              const pB = peopleWithCompany[j];
-              const flowA = getNodeFlowId(pA);
-              const flowB = getNodeFlowId(pB);
-
+              const pA = peopleWithCompany[i]; const pB = peopleWithCompany[j];
+              const flowA = getNodeFlowId(pA); const flowB = getNodeFlowId(pB);
               const compA = typeof pA.company === 'string' ? pA.company.trim().toLowerCase() : '';
               const compB = typeof pB.company === 'string' ? pB.company.trim().toLowerCase() : '';
-              
               if (flowA !== flowB && compA && compA === compB) {
-                // Força baseada em categoria (se igual, mais forte)
-                const strength = pA.category === pB.category ? 3 : 2;
-                specificConnections.push({
-                  personA: pA,
-                  personB: pB,
-                  flowA,
-                  flowB,
-                  company: pA.company,
-                  type: 'company',
-                  strength
-                });
-                console.log(`✅ Conexão por empresa: ${pA.name} ↔ ${pB.name} (${pA.company}) - força ${strength}`);
+                specificConnections.push({ personA: pA, personB: pB, flowA, flowB, company: pA.company, type: 'company', strength: pA.category === pB.category ? 3 : 2 });
               }
             }
           }
           
-          // TIPO 2: Conexões por Email Domain (média)
           for (let i = 0; i < peopleWithEmail.length; i++) {
             for (let j = i + 1; j < peopleWithEmail.length; j++) {
-              const pA = peopleWithEmail[i];
-              const pB = peopleWithEmail[j];
-              const flowA = getNodeFlowId(pA);
-              const flowB = getNodeFlowId(pB);
-              
+              const pA = peopleWithEmail[i]; const pB = peopleWithEmail[j];
+              const flowA = getNodeFlowId(pA); const flowB = getNodeFlowId(pB);
               if (flowA !== flowB && pA.email && pB.email) {
                 const domainA = pA.email.split('@')[1]?.toLowerCase();
                 const domainB = pB.email.split('@')[1]?.toLowerCase();
-                
                 if (domainA && domainB && domainA === domainB && !['gmail.com', 'hotmail.com', 'outlook.com', 'yahoo.com'].includes(domainA)) {
-                  // Verificar se já não existe conexão por empresa
-                  const alreadyConnected = specificConnections.some(
-                    c => (c.personA.id === pA.id && c.personB.id === pB.id) ||
-                         (c.personA.id === pB.id && c.personB.id === pA.id)
-                  );
-                  
+                  const alreadyConnected = specificConnections.some(c => 
+                    (c.personA.id === pA.id && c.personB.id === pB.id) || (c.personA.id === pB.id && c.personB.id === pA.id));
                   if (!alreadyConnected) {
-                    specificConnections.push({
-                      personA: pA,
-                      personB: pB,
-                      flowA,
-                      flowB,
-                      emailDomain: domainA,
-                      type: 'email',
-                      strength: 1
-                    });
-                    console.log(`📧 Conexão por email: ${pA.name} ↔ ${pB.name} (@${domainA})`);
+                    specificConnections.push({ personA: pA, personB: pB, flowA, flowB, emailDomain: domainA, type: 'email', strength: 1 });
                   }
                 }
               }
             }
           }
           
-          console.log('📊 Total de conexões encontradas:', specificConnections.length);
-          
-          // Renderizar conexões específicas pessoa-a-pessoa
           return specificConnections.map((conn, idx) => {
             const posA = masterLayoutMap.get(conn.personA.id);
             const posB = masterLayoutMap.get(conn.personB.id);
             if (!posA || !posB) return null;
-            
-            const flowA = flows?.find(f => f.id === conn.flowA);
-            const flowB = flows?.find(f => f.id === conn.flowB);
-            
-            // Cores e estilos baseados no tipo
-            const getConnectionStyle = () => {
-              switch (conn.type) {
-                case 'company':
-                  return {
-                    stroke: conn.strength === 3 ? 'hsl(var(--connection-path))' : 'hsl(var(--connection-cross))',
-                    strokeWidth: conn.strength === 3 ? '3' : '2.5',
-                    opacity: '0.7',
-                    dasharray: '6,4'
-                  };
-                case 'email':
-                  return {
-                    stroke: 'hsl(var(--primary))',
-                    strokeWidth: '2',
-                    opacity: '0.5',
-                    dasharray: '8,6'
-                  };
-                default:
-                  return {
-                    stroke: 'hsl(var(--connection-weak))',
-                    strokeWidth: '1.5',
-                    opacity: '0.4',
-                    dasharray: '4,8'
-                  };
-              }
-            };
-            
-            const style = getConnectionStyle();
-            
+            const style = conn.type === 'company' 
+              ? { stroke: 'hsl(var(--connection-cross))', strokeWidth: conn.strength === 3 ? '2.5' : '2', dasharray: '6,4', opacity: '0.5' }
+              : { stroke: 'hsl(var(--primary))', strokeWidth: '1.5', dasharray: '8,6', opacity: '0.35' };
             return (
-              <g key={`specific-conn-${idx}`}>
-                <path
-                  d={`M ${posA.x} ${posA.y} L ${posB.x} ${posB.y}`}
-                  stroke={style.stroke}
-                  strokeWidth={style.strokeWidth}
-                  strokeDasharray={style.dasharray}
-                  opacity={style.opacity}
-                  className="pointer-events-auto cursor-pointer hover:opacity-90 transition-opacity"
-                  onMouseEnter={(e) => {
-                    const rect = svgRef.current?.getBoundingClientRect();
-                    if (rect) {
-                      setHoveredConnection({ 
-                        index: -2000 - idx, 
-                        position: { x: e.clientX - rect.left, y: e.clientY - rect.top }
-                      });
-                    }
-                  }}
-                  onMouseLeave={() => setHoveredConnection(null)}
-                />
-                {hoveredConnection?.index === -2000 - idx && (
-                  <foreignObject 
-                    x={hoveredConnection.position.x - 120} 
-                    y={hoveredConnection.position.y - 75} 
-                    width="240" 
-                    height="100"
-                    className="pointer-events-none"
-                  >
-                    <div className="bg-popover text-popover-foreground px-4 py-3 rounded-lg shadow-xl text-xs border border-border">
-                      <div className="font-semibold text-primary mb-2">Conexão entre Flows</div>
-                      <div className="space-y-1.5 text-[10px]">
-                        <div>
-                          <span className="font-medium">{conn.personA.name}</span>
-                          <div className="text-muted-foreground">Flow: {flowA?.name || 'Desconhecido'}</div>
-                        </div>
-                        <div className="text-center text-muted-foreground">↕</div>
-                        <div>
-                          <span className="font-medium">{conn.personB.name}</span>
-                          <div className="text-muted-foreground">Flow: {flowB?.name || 'Desconhecido'}</div>
-                        </div>
-                        <div className="pt-1.5 border-t border-border mt-1.5">
-                          {conn.type === 'company' && (
-                            <div>
-                              <strong className="text-[hsl(var(--connection-cross))]">Empresa:</strong> {conn.company}
-                              {conn.strength === 3 && (
-                                <div className="text-[10px] text-[hsl(var(--connection-path))] mt-1">
-                                  ⭐ Mesma categoria
-                                </div>
-                              )}
-                            </div>
-                          )}
-                          {conn.type === 'email' && (
-                            <div>
-                              <strong className="text-[hsl(var(--primary))]">Email Domain:</strong> @{conn.emailDomain}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </foreignObject>
-                )}
-              </g>
+              <path key={`xflow-${idx}`} d={`M ${posA.x} ${posA.y} L ${posB.x} ${posB.y}`}
+                stroke={style.stroke} strokeWidth={style.strokeWidth} strokeDasharray={style.dasharray}
+                opacity={style.opacity} fill="none" className="pointer-events-none" />
             );
           });
         })()}
         
-        {/* Master View: no decorative rings */}
-        
-        
-        {/* Clusters no Master View - subtle dotted ring only */}
+        {/* Cluster rings (Master View) */}
         {viewMode === 'master' && flows.map(flow => {
           const clusterNodes = nodes.filter(n => getNodeFlowId(n) === flow.id);
           if (clusterNodes.length === 0) return null;
-          
-          const centerNode = 
-            clusterNodes.find(n => n.id === flow.center_id && n.type === flow.center_type) ||
-            clusterNodes.find(n => n.type === 'project') ||
-            clusterNodes[0];
-          
+          const centerNode = clusterNodes.find(n => n.id === flow.center_id && n.type === flow.center_type) || clusterNodes.find(n => n.type === 'project') || clusterNodes[0];
           const pos = masterLayoutMap.get(centerNode.id);
           if (!pos) return null;
-          
-          const dottedRadius = MASTER_RING_RADIUS;
-
-           return (
-            <g key={flow.id}>
-              {/* Single subtle dotted ring */}
-              <circle
-                cx={pos.x}
-                cy={pos.y}
-                r={dottedRadius}
-                fill="none"
-                stroke="hsl(var(--muted))"
-                strokeWidth="1"
-                strokeDasharray="6,6"
-                opacity="0.3"
-              />
-            </g>
+          return (
+            <circle key={flow.id} cx={pos.x} cy={pos.y} r={MASTER_RING_RADIUS} fill="none"
+              stroke="hsl(var(--muted))" strokeWidth="0.5" strokeDasharray="4,8" opacity="0.2" />
           );
         })}
 
-        {/* Conexões */}
+        {/* Connections */}
         {connections.map((conn, idx) => {
           const from = nodes.find(n => n.id === conn.from);
           const to = nodes.find(n => n.id === conn.to);
           if (!from || !to) return null;
           
-          // Permitir conexões projeto↔projeto também no Single View
-          
-          // Encontrar índice correto em allConnections
-          const globalIdx = allConnections.findIndex(c => 
-            (c.from === conn.from && c.to === conn.to) || 
-            (c.from === conn.to && c.to === conn.from)
-          );
+          const globalIdx = allConnections.findIndex(c => (c.from === conn.from && c.to === conn.to) || (c.from === conn.to && c.to === conn.from));
           const isSelected = selectedConnection === globalIdx;
-          
-          // Calculate connection depth level based on node depths (distance from center)
           const fromDepth = nodeDepths.get(from.id) ?? 0;
           const toDepth = nodeDepths.get(to.id) ?? 0;
           const connectionLevel = Math.min(fromDepth, toDepth);
+          const isInPath = highlightedPath.length > 0 && highlightedPath.some((id, i) => 
+            i < highlightedPath.length - 1 && 
+            ((highlightedPath[i] === from.id && highlightedPath[i + 1] === to.id) || (highlightedPath[i] === to.id && highlightedPath[i + 1] === from.id)));
           
-          const isInPath = highlightedPath.length > 0 && 
-            highlightedPath.some((id, i) => 
-              i < highlightedPath.length - 1 && 
-              ((highlightedPath[i] === from.id && highlightedPath[i + 1] === to.id) ||
-                (highlightedPath[i] === to.id && highlightedPath[i + 1] === from.id))
-            );
-          
-          // Detectar cross-flow: conexões entre flows diferentes no Master View
           const fromFlowId = getNodeFlowId(from);
           const toFlowId = getNodeFlowId(to);
-          const isCrossFlow = viewMode === 'master' &&
-            fromFlowId && toFlowId && fromFlowId !== toFlowId;
+          const isCrossFlow = viewMode === 'master' && fromFlowId && toFlowId && fromFlowId !== toFlowId;
           
-          // Styling based on priority: path > selected > cross-project > depth-based
-          let strokeColor;
-          let strokeWidth;
-          let strokeDasharray = undefined;
-          let opacity = 1;
-          let useGlow = false;
+          let strokeColor: string, strokeWidth: number, strokeDasharray: string | undefined, opacity = 1, useGlow = false;
           
-          if (isInPath) {
-            strokeColor = '#10b981';
-            strokeWidth = 5;
-          } else if (isSelected) {
-            strokeColor = '#f59e0b';
-            strokeWidth = isCrossFlow ? 4 : (conn.type === 'strong' ? 3 : 2);
-          } else if (isCrossFlow) {
-            strokeColor = 'hsl(var(--connection-cross))';
-            strokeWidth = 4;
-            strokeDasharray = '8,4';
-          } else {
-            // Sistema de gradiente visual baseado em nível
+          if (isInPath) { strokeColor = '#10b981'; strokeWidth = 4; }
+          else if (isSelected) { strokeColor = '#f59e0b'; strokeWidth = isCrossFlow ? 3 : 2.5; }
+          else if (isCrossFlow) { strokeColor = 'hsl(var(--connection-cross))'; strokeWidth = 2; strokeDasharray = '8,4'; opacity = 0.5; }
+          else {
             strokeColor = conn.type === 'strong' ? '#a855f7' : '#6366f1';
-            
-            if (viewMode === 'single' && connectionLevel >= 0) {
-              // Gradiente progressivo de força
+            if (viewMode === 'single') {
               switch (connectionLevel) {
-                case 0: // Conexão direta ao centro
-                  strokeWidth = conn.type === 'strong' ? 4 : 3;
-                  opacity = 1;
-                  useGlow = true;
-                  break;
-                case 1: // 1 grau de separação
-                  strokeWidth = conn.type === 'strong' ? 3 : 2;
-                  opacity = 0.9;
-                  break;
-                case 2: // 2 graus de separação
-                  strokeWidth = conn.type === 'strong' ? 2.5 : 2;
-                  opacity = 0.75;
-                  strokeDasharray = '6,4';
-                  break;
-                case 3: // 3 graus de separação
-                  strokeWidth = 2;
-                  opacity = 0.6;
-                  strokeDasharray = '4,6';
-                  strokeColor = conn.type === 'strong' ? '#9333ea' : '#4f46e5';
-                  break;
-                default: // 4+ graus de separação
-                  strokeWidth = 1.5;
-                  opacity = 0.4;
-                  strokeDasharray = '3,8';
-                  strokeColor = conn.type === 'strong' ? '#7c3aed' : '#4338ca';
-                  break;
+                case 0: strokeWidth = 3; opacity = 0.9; useGlow = true; break;
+                case 1: strokeWidth = 2; opacity = 0.7; break;
+                case 2: strokeWidth = 1.5; opacity = 0.5; strokeDasharray = '6,4'; break;
+                default: strokeWidth = 1; opacity = 0.3; strokeDasharray = '3,8'; break;
               }
             } else {
-              // Master view
-              strokeWidth = conn.type === 'strong' ? 3 : 2;
-              opacity = 0.4;
+              strokeWidth = 2; opacity = 0.3;
             }
           }
-          
-          if (isSelected) {
-            opacity = 1;
-          }
-          
-          // Usar coordenadas corretas para conexões baseadas no viewMode + offset por flow no Master View
-          const getDisplayPos = (n: any) => {
-            if (viewMode === 'master') {
-              const pos = masterLayoutMap.get(n.id);
-              return pos ?? { x: n.x, y: n.y };
-            }
-            return { x: n.x, y: n.y };
-          };
+          if (isSelected) opacity = 1;
           
           const { x: fromX, y: fromY } = getDisplayPos(from);
           const { x: toX, y: toY } = getDisplayPos(to);
-          
-          const controlX = (fromX + toX) / 2;
-          const controlY = (fromY + toY) / 2 - 80;
-          const pathData = `M ${fromX},${fromY} Q ${controlX},${controlY} ${toX},${toY}`;
-          
-          // Gerar tooltip inteligente para conexões cross-flow
-          let tooltipText = '';
-          if (isCrossFlow) {
-            // Pessoa ↔ Pessoa (projetos diferentes)
-            if (from.type === 'person' && to.type === 'person') {
-              tooltipText = `${from.name} conectado(a) a ${to.name} (projetos diferentes)`;
-            }
-            // Pessoa ↔ Marca
-            else if ((from.type === 'person' && to.type === 'brand') || (from.type === 'brand' && to.type === 'person')) {
-              const person = from.type === 'person' ? from : to;
-              const brand = from.type === 'brand' ? from : to;
-              tooltipText = `${person.name} trabalha na ${brand.name}`;
-            }
-            // Marca ↔ Marca (projetos diferentes)
-            else if (from.type === 'brand' && to.type === 'brand') {
-              tooltipText = `${from.name} parceira de ${to.name} (projetos diferentes)`;
-            }
-            // Pessoa ↔ Projeto (projetos diferentes)
-            else if ((from.type === 'person' && to.type === 'project') || (from.type === 'project' && to.type === 'person')) {
-              const person = from.type === 'person' ? from : to;
-              const project = from.type === 'project' ? from : to;
-              tooltipText = `${person.name} participa do projeto ${project.name}`;
-            }
-            // Marca ↔ Projeto (projetos diferentes)
-            else if ((from.type === 'brand' && to.type === 'project') || (from.type === 'project' && to.type === 'brand')) {
-              const brand = from.type === 'brand' ? from : to;
-              const project = from.type === 'project' ? from : to;
-              tooltipText = `${brand.name} participa do projeto ${project.name}`;
-            }
-          }
+          const midX = (fromX + toX) / 2;
+          const midY = (fromY + toY) / 2;
+          const controlY2 = midY - 60;
+          const pathData = `M ${fromX},${fromY} Q ${midX},${controlY2} ${toX},${toY}`;
           
           return (
             <g key={idx}>
-              {/* Área de hover maior para cross-flow */}
-              {isCrossFlow ? (
-                <>
-                  <path
-                    d={pathData}
-                    stroke="transparent"
-                    strokeWidth="20"
-                    fill="none"
-                    className="cursor-pointer"
-                    onClick={(e) => { 
-                      e.stopPropagation(); 
-                      setSelectedConnection(selectedConnection === globalIdx ? null : globalIdx);
-                      setSelectedNodes([]);
-                    }}
-                    onMouseEnter={(e) => {
-                      const rect = svgRef.current!.getBoundingClientRect();
-                      const { x: fromX, y: fromY } = getDisplayPos(from);
-                      const { x: toX, y: toY } = getDisplayPos(to);
-                      const midX = ((fromX + toX) / 2) * state.zoom + state.pan.x + rect.left;
-                      const midY = ((fromY + toY) / 2 - 80) * state.zoom + state.pan.y + rect.top;
-                      setHoveredConnection({ index: idx, position: { x: midX, y: midY } });
-                    }}
-                    onMouseLeave={() => setHoveredConnection(null)}
-                  />
-                  <path
-                    d={pathData}
-                    stroke={strokeColor}
-                    strokeWidth={strokeWidth}
-                    fill="none"
-                    strokeDasharray={strokeDasharray}
-                    opacity={opacity}
-                    markerEnd={conn.directional ? 'url(#arrowhead)' : ''}
-                    filter={useGlow ? "url(#connectionGlow)" : undefined}
-                    className="pointer-events-none"
-                  />
-                </>
-              ) : (
-                <>
-                  <path
-                    d={pathData}
-                    stroke="transparent"
-                    strokeWidth="15"
-                    fill="none"
-                    className="cursor-pointer"
-                    onClick={(e) => { 
-                      e.stopPropagation(); 
-                      setSelectedConnection(selectedConnection === globalIdx ? null : globalIdx);
-                      setSelectedNodes([]);
-                    }}
-                    onMouseEnter={(e) => {
-                      const rect = svgRef.current!.getBoundingClientRect();
-                      const { x: fromX, y: fromY } = getDisplayPos(from);
-                      const { x: toX, y: toY } = getDisplayPos(to);
-                      const midX = ((fromX + toX) / 2) * state.zoom + state.pan.x + rect.left;
-                      const midY = ((fromY + toY) / 2 - 80) * state.zoom + state.pan.y + rect.top;
-                      setHoveredConnection({ index: idx, position: { x: midX, y: midY } });
-                    }}
-                    onMouseLeave={() => setHoveredConnection(null)}
-                  />
-                  <path
-                    d={pathData}
-                    stroke={strokeColor}
-                    strokeWidth={strokeWidth}
-                    fill="none"
-                    strokeDasharray={strokeDasharray}
-                    opacity={opacity}
-                    markerEnd={conn.directional ? 'url(#arrowhead)' : ''}
-                    filter={useGlow ? "url(#connectionGlow)" : undefined}
-                    className="pointer-events-none"
-                  />
-                </>
+              <path d={pathData} stroke="transparent" strokeWidth="15" fill="none" className="cursor-pointer"
+                onClick={(e) => { e.stopPropagation(); setSelectedConnection(selectedConnection === globalIdx ? null : globalIdx); setSelectedNodes([]); }}
+                onMouseEnter={(e) => {
+                  const rect = svgRef.current!.getBoundingClientRect();
+                  const mx = midX * state.zoom + state.pan.x + rect.left;
+                  const my = controlY2 * state.zoom + state.pan.y + rect.top;
+                  setHoveredConnection({ index: idx, position: { x: mx, y: my } });
+                }}
+                onMouseLeave={() => setHoveredConnection(null)}
+              />
+              <path d={pathData} stroke={strokeColor} strokeWidth={strokeWidth} fill="none"
+                strokeDasharray={strokeDasharray} opacity={opacity}
+                markerEnd={conn.directional ? 'url(#arrowhead)' : ''}
+                filter={useGlow ? "url(#connectionGlow)" : undefined}
+                className="pointer-events-none" />
+              {/* Connection label */}
+              {showLabels && conn.connection_type && (
+                <text x={midX} y={controlY2 + 4} textAnchor="middle"
+                  fill="hsl(var(--muted-foreground))" fontSize="9" fontFamily="monospace" opacity="0.6">
+                  {conn.connection_type}
+                </text>
               )}
             </g>
           );
         })}
         
+        {/* Dragging connection line */}
         {state.isDraggingConnection && state.connectionStart && (
-          <line 
-            x1={state.connectionStart.x} 
-            y1={state.connectionStart.y} 
-            x2={state.connectionEnd.x} 
-            y2={state.connectionEnd.y} 
-            stroke="hsl(var(--connection-strong))" 
-            strokeWidth="3"
-            strokeDasharray="5,5"
-          />
+          <line x1={state.connectionStart.x} y1={state.connectionStart.y} x2={state.connectionEnd.x} y2={state.connectionEnd.y}
+            stroke="hsl(var(--connection-strong))" strokeWidth="2" strokeDasharray="5,5" />
         )}
         
-        {/* Nós */}
+        {/* Nodes */}
         {nodes.map(node => {
-          // Garantir que node.type existe e é válido
           const nodeType = (node.type as keyof typeof nodeColors) || 'person';
           const colors = nodeColors[nodeType] || nodeColors.person;
           const isSelected = selectedNodes.includes(node.id);
           const isInPath = highlightedPath.includes(node.id);
           const connectionCount = connections.filter(c => c.from === node.id || c.to === node.id).length;
           
-          // Usar coordenadas corretas baseadas no viewMode + offset por flow no Master View
-          let displayX, displayY;
+          let displayX: number, displayY: number;
           if (viewMode === 'master') {
             const pos = masterLayoutMap.get(node.id);
             displayX = pos?.x ?? node.x;
             displayY = pos?.y ?? node.y;
           } else {
-            displayX = node.x;
-            displayY = node.y;
+            displayX = node.x; displayY = node.y;
           }
           
-          // Tamanho por nível hierárquico
-          let baseSize = 40;
-          if ((node as any).level === 'center') baseSize = 70;
-          else if ((node as any).level === 'inner') baseSize = 55;
-          else if ((node as any).level === 'middle') baseSize = 35;
-          else if ((node as any).level === 'outer') baseSize = 22;
-          else baseSize = 40 + Math.min(connectionCount * 2, 15);
-          
-          const nodeSize = baseSize;
+          // Size based on connections (organic)
+          const baseSize = 20 + Math.min(connectionCount * 4, 25);
+          const isCenterNode = (node as any).level === 'center' || (viewMode === 'single' && nodes[0]?.id === node.id);
+          const nodeSize = isCenterNode ? Math.max(baseSize, 45) : baseSize;
           const isHovered = hoveredNode === node.id;
-          const isCenterNode = (node as any).level === 'center';
           
           return (
-            <g 
-              key={node.id} 
-              transform={`translate(${displayX}, ${displayY})`}
+            <g key={node.id} transform={`translate(${displayX}, ${displayY})`}
               onMouseDown={(e) => handleNodeMouseDown(e, node.id)}
-              onClick={(e) => handleNodeClick(e, node.id)}
               onDoubleClick={(e) => handleNodeDoubleClick(e, node.id)}
               onMouseEnter={() => setHoveredNode(node.id)}
               onMouseLeave={() => setHoveredNode(null)}
               className="cursor-pointer"
+              style={{ transition: state.dragging === node.id ? 'none' : 'transform 0.1s ease-out' }}
             >
-              {/* Nó Central - cleaner style */}
-              {isCenterNode && (
-                <>
-                  <circle 
-                    r={nodeSize + 12} 
-                    fill={colors.primary}
-                    opacity="0.15" 
-                  />
-                  <circle 
-                    r={nodeSize} 
-                    fill="hsl(var(--background))"
-                    stroke={colors.primary}
-                    strokeWidth="3"
-                  />
-                </>
+              {/* Hover glow */}
+              {isHovered && (
+                <circle r={nodeSize + 12} fill={colors.primary} opacity="0.12" filter="url(#glow-node)" />
               )}
               
-              {/* Nós Outer - same clean style */}
-              {!isCenterNode && (node as any).level === 'outer' && (
-                <>
-                  <circle
-                    r={nodeSize + 8}
-                    fill={colors.primary}
-                    opacity={isHovered ? 0.2 : 0.1}
-                  />
-                  <circle
-                    r={nodeSize}
-                    fill="hsl(var(--background))"
-                    stroke={colors.primary}
-                    strokeWidth="2"
-                    opacity="0.9"
-                  />
-                </>
+              {/* Selection ring */}
+              {isSelected && (
+                <circle r={nodeSize + 6} fill="none" stroke="white" strokeWidth="2" opacity="0.8" strokeDasharray="4,3" />
               )}
               
-              {/* Yellow highlight for new nodes */}
+              {/* Path highlight */}
+              {isInPath && (
+                <circle r={nodeSize + 8} fill="none" stroke="hsl(var(--connection-path))" strokeWidth="3" opacity="0.6" />
+              )}
+
+              {/* New node highlight */}
               {(node as any).isNewHighlight && (
-                <circle 
-                  r={nodeSize + 10} 
-                  fill="none" 
-                  stroke="#facc15" 
-                  strokeWidth="4" 
-                  opacity="0.9"
-                  className="animate-pulse"
-                />
+                <circle r={nodeSize + 10} fill="none" stroke="#facc15" strokeWidth="3" opacity="0.8" className="animate-pulse" />
               )}
               
-              {/* Nós Normais (Inner/Middle) - clean border style */}
-              {!isCenterNode && (node as any).level !== 'outer' && (
+              {/* Node body */}
+              {node.profile_picture_url ? (
                 <>
-                  <circle
-                    r={nodeSize + 8}
-                    fill={isInPath ? 'hsl(var(--connection-path))' : colors.primary}
-                    opacity={isInPath ? 0.2 : (isHovered ? 0.15 : 0.08)}
-                  />
-                  
-                  {node.imageUrl ? (
-                    <>
-                      <defs>
-                        <clipPath id={`clip-${node.id}`}>
-                          <circle r={nodeSize} />
-                        </clipPath>
-                      </defs>
-                      <image
-                        href={node.imageUrl}
-                        x={-nodeSize}
-                        y={-nodeSize}
-                        width={nodeSize * 2}
-                        height={nodeSize * 2}
-                        clipPath={`url(#clip-${node.id})`}
-                        preserveAspectRatio="xMidYMid slice"
-                      />
-                      <circle
-                        r={nodeSize}
-                        fill="none"
-                        stroke={isInPath ? 'hsl(var(--connection-path))' : (isSelected ? 'white' : colors.primary)}
-                        strokeWidth={isInPath ? 4 : (isSelected ? 3 : 2)}
-                      />
-                    </>
-                  ) : (
-                    <circle
-                      r={nodeSize}
-                      fill="hsl(var(--background))"
-                      stroke={isInPath ? 'hsl(var(--connection-path))' : (isSelected ? 'white' : colors.primary)}
-                      strokeWidth={isInPath ? 4 : (isSelected ? 3 : 2)}
-                    />
-                  )}
+                  <defs>
+                    <clipPath id={`clip-${node.id}`}>
+                      <circle r={nodeSize} />
+                    </clipPath>
+                  </defs>
+                  <image href={node.profile_picture_url} x={-nodeSize} y={-nodeSize}
+                    width={nodeSize * 2} height={nodeSize * 2}
+                    clipPath={`url(#clip-${node.id})`} preserveAspectRatio="xMidYMid slice" />
+                  <circle r={nodeSize} fill="none" stroke={colors.primary} strokeWidth={isCenterNode ? 3 : 2} />
                 </>
-              )}
-              
-              {!node.imageUrl && node.type === 'person' && (
-                <foreignObject x={-14} y={-14} width={28} height={28}>
-                  <User size={28} stroke="white" strokeWidth={2} />
-                </foreignObject>
-              )}
-              {!node.imageUrl && node.type === 'project' && (
-                <foreignObject x={-14} y={-14} width={28} height={28}>
-                  <Target size={28} stroke="white" strokeWidth={2} />
-                </foreignObject>
-              )}
-              {!node.imageUrl && node.type === 'brand' && (
-                <foreignObject x={-14} y={-14} width={28} height={28}>
-                  <Building2 size={28} stroke="white" strokeWidth={2} />
-                </foreignObject>
-              )}
-              
-              {/* Connection count badge */}
-              {connectionCount > 0 && (
+              ) : (
                 <>
-                  <circle
-                    cx={nodeSize - 6}
-                    cy={-nodeSize + 6}
-                    r="11"
-                    fill="hsl(var(--background))"
-                    stroke={colors.primary}
-                    strokeWidth="1.5"
-                  />
-                  <text
-                    x={nodeSize - 6}
-                    y={-nodeSize + 10}
-                    textAnchor="middle"
-                    fill={colors.primary}
-                    fontSize="10"
-                    fontWeight="bold"
-                  >
-                    {connectionCount}
+                  <circle r={nodeSize} fill="hsl(var(--background))" stroke={colors.primary}
+                    strokeWidth={isCenterNode ? 3 : 2} opacity="0.95" />
+                  {/* Initial letter */}
+                  <text textAnchor="middle" dominantBaseline="central"
+                    fill={colors.primary} fontSize={nodeSize * 0.6} fontWeight="600" fontFamily="monospace">
+                    {getInitial(node.name)}
                   </text>
                 </>
               )}
               
-              {/* Alerta visual para nós órfãos */}
-              {(node as any).anchorProjectId === null && node.type !== 'project' && (
-                <g>
-                  <circle 
-                    cx={nodeSize - 8} 
-                    cy={-nodeSize + 8} 
-                    r="12" 
-                    fill="#ef4444" 
-                    stroke="white" 
-                    strokeWidth="2"
-                  />
-                  <text 
-                    x={nodeSize - 8} 
-                    y={-nodeSize + 12} 
-                    fontSize="14" 
-                    fontWeight="bold" 
-                    fill="white" 
-                    textAnchor="middle"
-                  >⚠</text>
-                </g>
-              )}
-              
+              {/* Connection dot (Single View only) */}
               {viewMode === 'single' && (
-                <circle
-                  cx={nodeSize + 10}
-                  cy="0"
-                  r="9"
-                  fill="rgba(59, 130, 246, 0.95)"
-                  stroke="white"
-                  strokeWidth="2.5"
-                  className="cursor-crosshair"
-                  onMouseDown={(e) => handleConnectionDotMouseDown(e, node.id)}
-                  style={{ pointerEvents: 'all' }}
-                />
+                <circle cx={nodeSize + 8} cy="0" r="6"
+                  fill="rgba(59, 130, 246, 0.9)" stroke="white" strokeWidth="1.5"
+                  className="cursor-crosshair" style={{ pointerEvents: 'all' }}
+                  onMouseDown={(e) => handleConnectionDotMouseDown(e, node.id)} />
               )}
               
-              <text
-                y={nodeSize + (isHovered ? 26 : 24)}
-                textAnchor="middle"
-                fill="white"
-                fontSize={isHovered ? 14 : 13}
-                fontWeight={isHovered ? 600 : 500}
-              >
-                {node.name.length > 15 ? node.name.substring(0, 15) + '...' : node.name}
+              {/* Name label */}
+              <text y={nodeSize + 18} textAnchor="middle" fill="hsl(var(--foreground))"
+                fontSize={isHovered ? 12 : 11} fontWeight={isHovered ? 600 : 400}
+                style={{ transition: 'font-size 0.15s ease' }}>
+                {node.name.length > 18 ? node.name.substring(0, 18) + '…' : node.name}
               </text>
               
+              {/* Category / notes subtitle */}
               {node.category && (
-              <text
-                y={nodeSize + (isHovered ? 42 : 40)}
-                textAnchor="middle"
-                fill={colors.primary}
-                fontSize="10"
-                opacity={isHovered ? 1 : 0.7}
-              >
-                {node.category}
-              </text>
+                <text y={nodeSize + 32} textAnchor="middle" fill={colors.primary}
+                  fontSize="9" opacity={isHovered ? 0.9 : 0.5} fontFamily="monospace">
+                  {node.category}
+                </text>
               )}
-              
-              {/* Indicador de nó copiado */}
-              {node.original_node_id && (
-                <g>
-                  <circle
-                    cx={-nodeSize + 10}
-                    cy={-nodeSize + 10}
-                    r="12"
-                    fill="hsl(217 91% 60%)"
-                    stroke="white"
-                    strokeWidth="2"
-                  />
-                  <foreignObject x={-nodeSize + 10 - 6} y={-nodeSize + 10 - 6} width={12} height={12}>
-                    <Copy size={12} stroke="white" strokeWidth={2.5} />
-                  </foreignObject>
-                </g>
-              )}
-              
-              {/* Removed cyan badge - cleaner look */}
-              
-              {/* Indicador de múltiplos workflows */}
-              {node.workflows && node.workflows.length > 1 && (
-                <>
-                  <circle
-                    cx={nodeSize - 8}
-                    cy={nodeSize - 8}
-                    r="10"
-                    fill="gold"
-                    stroke="white"
-                    strokeWidth="2"
-                  />
-                  <text
-                    x={nodeSize - 8}
-                    y={nodeSize - 4}
-                    textAnchor="middle"
-                    fill="black"
-                    fontSize="10"
-                    fontWeight="bold"
-                  >
-                    {node.workflows.length}
-                  </text>
-                </>
-              )}
-              
             </g>
           );
         })}
         
-        {/* Labels dos flows - renderizadas por último para ficarem acima de tudo */}
+        {/* Flow labels (Master View) */}
         {viewMode === 'master' && flows?.map(flow => {
           const clusterNodes = nodes.filter(n => n.flow_id === flow.id);
           if (clusterNodes.length === 0) return null;
           const centerNode = clusterNodes.find(n => n.id === flow.center_id && n.type === flow.center_type) 
-            || clusterNodes.find(n => n.type === 'project') 
-            || clusterNodes[0];
+            || clusterNodes.find(n => n.type === 'project') || clusterNodes[0];
           const pos = masterLayoutMap.get(centerNode.id);
           if (!pos) return null;
-          const dottedRadius = MASTER_RING_RADIUS;
           
           return (
             <g key={`label-${flow.id}`} pointerEvents="none">
-              <text
-                x={pos.x}
-                y={pos.y - (dottedRadius + 25) - 24}
-                textAnchor="middle"
-                fill="hsl(var(--muted-foreground))"
-                fontSize="14"
-                fontWeight="600"
-                letterSpacing="2"
-                fontFamily="monospace"
-              >
+              <text x={pos.x} y={pos.y - MASTER_RING_RADIUS - 40} textAnchor="middle"
+                fill="hsl(var(--muted-foreground))" fontSize="12" fontWeight="600"
+                letterSpacing="2" fontFamily="monospace">
                 {flow.name.toUpperCase()}
               </text>
-              <text
-                x={pos.x}
-                y={pos.y - (dottedRadius + 25)}
-                textAnchor="middle"
-                fill="hsl(var(--muted-foreground))"
-                fontSize="11"
-                opacity="0.6"
-                fontFamily="monospace"
-              >
+              <text x={pos.x} y={pos.y - MASTER_RING_RADIUS - 24} textAnchor="middle"
+                fill="hsl(var(--muted-foreground))" fontSize="10" opacity="0.4" fontFamily="monospace">
                 {clusterNodes.length} {clusterNodes.length === 1 ? 'nó' : 'nós'}
               </text>
             </g>
@@ -1192,22 +614,15 @@ export const Canvas: React.FC<CanvasProps> = ({
       </g>
     </svg>
     
-    {/* Tooltip de conexão */}
+    {/* Connection tooltip */}
     {hoveredConnection && (() => {
       const conn = connections[hoveredConnection.index];
       const from = nodes.find(n => n.id === conn?.from);
       const to = nodes.find(n => n.id === conn?.to);
-      
       if (!conn || !from || !to) return null;
-      
       return (
-        <ConnectionTooltip
-          connection={conn}
-          fromNode={from}
-          toNode={to}
-          position={hoveredConnection.position}
-          connectionType={conn.type}
-        />
+        <ConnectionTooltip connection={conn} fromNode={from} toNode={to}
+          position={hoveredConnection.position} connectionType={conn.type} />
       );
     })()}
     </>
