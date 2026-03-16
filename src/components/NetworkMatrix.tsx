@@ -842,26 +842,15 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
         onAutoOrganize={autoOrganize}
         onFitToScreen={handleFitToScreen}
         onExport={exportData}
-        showFlowStarterModal={showFlowStarterModal}
-        setShowFlowStarterModal={setShowFlowStarterModal}
         setIsCreatingFlowRoot={setIsCreatingFlowRoot}
-        onSelectFlowType={(type) => {
-          setShowFlowStarterModal(false);
-          setIsCreatingFlowRoot(true);
-          setNodeCreationType(type);
-          setNodeCreationPosition({ x: (window.innerWidth / 2 - state.pan.x) / state.zoom, y: ((window.innerHeight - 100) / 2 - state.pan.y) / state.zoom });
-          setShowNodeCreationModal(true);
-        }}
+        isCreatingFlow={isCreatingFlowRoot}
         showNodeCreationModal={showNodeCreationModal}
         setShowNodeCreationModal={setShowNodeCreationModal}
-        nodeCreationType={nodeCreationType}
         editingNodeInModal={editingNodeInModal}
         setEditingNodeInModal={setEditingNodeInModal}
         getAllCategories={getAllCategories}
         onCreateNode={handleNodeCreation}
         onUpdateNode={handleNodeUpdate}
-        workflows={workflows}
-        onAddWorkflow={handleAddWorkflow}
         showFlowsManager={showFlowsManager}
         setShowFlowsManager={setShowFlowsManager}
         flowsForManager={flowsForManager}
