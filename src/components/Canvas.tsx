@@ -692,58 +692,7 @@ export const Canvas: React.FC<CanvasProps> = ({
           });
         })()}
         
-        {/* Anéis Decorativos Radiais (Master View - para cada nó raiz) */}
-        {viewMode === 'master' && flows && flows.length > 0 && flows.map(flow => {
-          const clusterNodes = nodes.filter(n => getNodeFlowId(n) === flow.id);
-          if (!clusterNodes.length) return null;
-          
-          const centerNode = 
-            clusterNodes.find(n => n.id === flow.center_id && n.type === flow.center_type) ||
-            clusterNodes.find(n => n.type === 'project') ||
-            clusterNodes[0];
-          
-          const pos = masterLayoutMap.get(centerNode.id);
-          if (!pos) return null;
-          
-          return (
-            <g key={`ring-${flow.id}`}>
-              {/* Anel rosa/roxo interno (decorativo) */}
-              <circle
-                cx={pos.x}
-                cy={pos.y}
-                r={140}
-                fill="none"
-                stroke="url(#gradientPinkPurple)"
-                strokeWidth="35"
-                opacity="0.25"
-              />
-              
-              {/* Sun Rays - Traços radiais */}
-              {Array.from({ length: 48 }).map((_, i) => {
-                const angle = (i * Math.PI * 2) / 48;
-                const innerRadius = 130;
-                const outerRadius = 165;
-                const x1 = pos.x + innerRadius * Math.cos(angle);
-                const y1 = pos.y + innerRadius * Math.sin(angle);
-                const x2 = pos.x + outerRadius * Math.cos(angle);
-                const y2 = pos.y + outerRadius * Math.sin(angle);
-                
-                return (
-                  <line
-                    key={i}
-                    x1={x1}
-                    y1={y1}
-                    x2={x2}
-                    y2={y2}
-                    stroke="rgba(139, 92, 246, 0.6)"
-                    strokeWidth="2"
-                    opacity={(i % 2 === 0) ? 0.8 : 0.4}
-                  />
-                );
-              })}
-            </g>
-          );
-        })}
+        {/* Master View: no decorative rings */}
         
         
         {/* Clusters no Master View (por flow) */}
