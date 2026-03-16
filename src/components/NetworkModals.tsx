@@ -9,8 +9,6 @@ import { AIInsightsPanel } from './AIInsightsPanel';
 import { AIConnectionModal } from './AIConnectionModal';
 import { OpportunitiesPanel } from './OpportunitiesPanel';
 import { ContextMenu } from './ContextMenu';
-import { Drawer, DrawerContent } from '@/components/ui/drawer';
-import { NodeEditor } from './NodeEditor';
 
 interface NetworkModalsProps {
   contextMenu: any;

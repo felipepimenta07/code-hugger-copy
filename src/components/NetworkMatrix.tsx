@@ -853,6 +853,29 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
           </div>
         </div>
 
+        {/* Node Detail Panel */}
+        {detailPanelNode && (
+          <NodeDetailPanel
+            node={detailPanelNode}
+            connections={allConnections}
+            allNodes={allNodes}
+            onClose={() => setDetailPanelNode(null)}
+            onNavigateToNode={(nodeId) => {
+              const targetNode = allNodes.find(n => n.id === nodeId);
+              if (targetNode) {
+                setDetailPanelNode(targetNode);
+                setSelectedNodes([nodeId]);
+              }
+            }}
+            onEdit={(node) => {
+              setDetailPanelNode(null);
+              setEditingNodeInModal(node);
+              setNodeCreationType(node.type);
+              setShowNodeCreationModal(true);
+            }}
+          />
+        )}
+
         {/* Path indicator */}
         {viewMode === 'single' && (
           <PathIndicator selectedNode={selectedNode} centerNode={centerNode} allNodes={allNodes} connections={allConnections} />
