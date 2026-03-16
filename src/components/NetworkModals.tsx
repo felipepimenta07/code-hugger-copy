@@ -1,7 +1,6 @@
 import React from 'react';
 import { PathFinderModal } from './PathFinderModal';
 import { QuickActionsMenu } from './QuickActionsMenu';
-import { FlowStarterModal } from './FlowStarterModal';
 import { NodeCreationModal } from './NodeCreationModal';
 import { FlowManagerPanel } from './FlowManagerPanel';
 import { LinkedInImportModal } from './LinkedInImportModal';
@@ -14,13 +13,11 @@ import { Drawer, DrawerContent } from '@/components/ui/drawer';
 import { NodeEditor } from './NodeEditor';
 
 interface NetworkModalsProps {
-  // Context Menu
   contextMenu: any;
   updateState: (updates: any) => void;
   viewMode: string;
-  onContextCreateNode: (type: string) => void;
+  onContextCreateNode: () => void;
 
-  // Path Finder
   showPathFinder: boolean;
   setShowPathFinder: (show: boolean) => void;
   pathStart: any;
@@ -31,55 +28,43 @@ interface NetworkModalsProps {
   nodes: any[];
   connections: any[];
 
-  // Quick Actions
   showQuickActions: boolean;
   setShowQuickActions: (show: boolean) => void;
   onAutoOrganize: () => void;
   onFitToScreen: () => void;
   onExport: () => void;
 
-  // Flow Starter
-  showFlowStarterModal: boolean;
-  setShowFlowStarterModal: (show: boolean) => void;
-  setIsCreatingFlowRoot: (v: boolean) => void;
-  onSelectFlowType: (type: 'person' | 'brand' | 'project') => void;
-
-  // Node Creation
   showNodeCreationModal: boolean;
   setShowNodeCreationModal: (show: boolean) => void;
-  nodeCreationType: string;
   editingNodeInModal: any;
   setEditingNodeInModal: (n: any) => void;
   getAllCategories: (type: string) => string[];
   onCreateNode: (data: any) => void;
   onUpdateNode: (data: any) => void;
-  workflows: any[];
-  onAddWorkflow: (name: string, color: string) => void;
+  isCreatingFlow: boolean;
+  setIsCreatingFlowRoot: (v: boolean) => void;
 
-  // Flow Manager
   showFlowsManager: boolean;
   setShowFlowsManager: (show: boolean) => void;
   flowsForManager: any[];
   onSelectFlow: (flowId: number) => void;
   onDeleteFlow: (flowId: number) => void;
 
-  // LinkedIn Import
   showLinkedInImport: boolean;
   setShowLinkedInImport: (show: boolean) => void;
   onLinkedInImport: (data: any, options: any) => void;
   projects: any[];
 
-  // Duplicate Check
   duplicateCheckModal: any;
   onDuplicateConfirmSame: () => void;
   onDuplicateConfirmDifferent: () => void;
   onDuplicateCancel: () => void;
 
-  // AI Insights
   showAIInsights: boolean;
   setShowAIInsights: (show: boolean) => void;
   allNodes: any[];
   allConnections: any[];
+  workflows: any[];
   flows: any[];
   people: any[];
   brands: any[];
@@ -87,17 +72,14 @@ interface NetworkModalsProps {
   onFocusNode: (id: number) => void;
   onOpenConnectionModal: (conn: any, nodes: any[], type: string) => void;
 
-  // AI Connection Modal
   aiConnectionModal: any;
   setAiConnectionModal: (m: any) => void;
   onAiConnectionFocusNode: (id: number) => void;
 
-  // Opportunities
   showOpportunities: boolean;
   setShowOpportunities: (show: boolean) => void;
   onSelectOpportunityNode: (id: number) => void;
 
-  // Node Editor Drawer
   showSidebar: boolean;
   editingNode: any;
   addCustomCategory: (type: string, cat: string) => boolean;
@@ -142,20 +124,8 @@ export const NetworkModals: React.FC<NetworkModalsProps> = (props) => {
         />
       )}
 
-      {props.showFlowStarterModal && (
-        <FlowStarterModal
-          isOpen={props.showFlowStarterModal}
-          onClose={() => {
-            props.setShowFlowStarterModal(false);
-            props.setIsCreatingFlowRoot(false);
-          }}
-          onSelectType={props.onSelectFlowType}
-        />
-      )}
-
       {props.showNodeCreationModal && (
         <NodeCreationModal
-          type={props.editingNodeInModal?.type || props.nodeCreationType}
           getAllCategories={props.getAllCategories}
           onClose={() => {
             props.setShowNodeCreationModal(false);
@@ -164,8 +134,8 @@ export const NetworkModals: React.FC<NetworkModalsProps> = (props) => {
           }}
           onCreate={props.editingNodeInModal ? props.onUpdateNode : props.onCreateNode}
           editingNode={props.editingNodeInModal}
-          workflows={props.workflows}
-          onAddWorkflow={props.onAddWorkflow}
+          isCreatingFlow={props.isCreatingFlow}
+          defaultType={props.editingNodeInModal?.type}
         />
       )}
 

@@ -600,11 +600,12 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
   };
 
   const handleCreateNode = async (nodeData: any, originalNodeId: number | null) => {
-    const insertedNode = await createNodeInDatabase(nodeCreationType, nodeData, originalNodeId);
+    const nodeType = nodeData.nodeType || 'person';
+    const insertedNode = await createNodeInDatabase(nodeType, nodeData, originalNodeId);
     if (!insertedNode) return;
-    const newNode = { ...insertedNode, type: nodeCreationType, isNewHighlight: true };
-    if (nodeCreationType === 'project') setProjects(prev => [...prev, newNode]);
-    else if (nodeCreationType === 'person') setPeople(prev => [...prev, newNode]);
+    const newNode = { ...insertedNode, type: nodeType, isNewHighlight: true };
+    if (nodeType === 'project') setProjects(prev => [...prev, newNode]);
+    else if (nodeType === 'person') setPeople(prev => [...prev, newNode]);
     else setBrands(prev => [...prev, newNode]);
     if (isCreatingFlowRoot) { setActiveProjectId(insertedNode.id); setViewMode('single'); setIsCreatingFlowRoot(false); }
     setShowNodeCreationModal(false);
@@ -614,9 +615,10 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
   const handleNodeCreation = async (nodeData: any) => {
     if (!user) return;
     saveToHistory();
-    const tableName = nodeCreationType === 'person' ? 'people' : nodeCreationType === 'brand' ? 'brands' : 'projects';
+    const nodeType = nodeData.nodeType || 'person';
+    const tableName = nodeType === 'person' ? 'people' : nodeType === 'brand' ? 'brands' : 'projects';
     const { data: existingNodes } = await supabase.from(tableName).select('*').eq('name', nodeData.name.trim()).eq('user_id', user.id).limit(1);
-    if (existingNodes?.length > 0) { setDuplicateCheckModal({ show: true, existingNode: existingNodes[0], newNodeData: nodeData, nodeType: nodeCreationType }); return; }
+    if (existingNodes?.length > 0) { setDuplicateCheckModal({ show: true, existingNode: existingNodes[0], newNodeData: nodeData, nodeType }); return; }
     await handleCreateNode(nodeData, null);
   };
 
@@ -709,9 +711,10 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
     setViewMode('single');
   };
 
-  const handleNewFlow = (type: 'person' | 'brand' | 'project') => {
-    setNodeCreationType(type);
-    setShowFlowStarterModal(true);
+  const handleNewFlow = () => {
+    setIsCreatingFlowRoot(true);
+    setNodeCreationPosition({ x: (window.innerWidth / 2 - state.pan.x) / state.zoom, y: ((window.innerHeight - 100) / 2 - state.pan.y) / state.zoom });
+    setShowNodeCreationModal(true);
   };
 
   // Flow manager data
@@ -817,10 +820,9 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
         contextMenu={state.contextMenu}
         updateState={updateState}
         viewMode={viewMode}
-        onContextCreateNode={(type) => {
+        onContextCreateNode={() => {
           if (state.contextMenu) {
             setIsCreatingFlowRoot(false);
-            setNodeCreationType(type as any);
             setNodeCreationPosition({ x: state.contextMenu.canvasX, y: state.contextMenu.canvasY });
             setShowNodeCreationModal(true);
             updateState({ contextMenu: null });
@@ -840,26 +842,15 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
         onAutoOrganize={autoOrganize}
         onFitToScreen={handleFitToScreen}
         onExport={exportData}
-        showFlowStarterModal={showFlowStarterModal}
-        setShowFlowStarterModal={setShowFlowStarterModal}
         setIsCreatingFlowRoot={setIsCreatingFlowRoot}
-        onSelectFlowType={(type) => {
-          setShowFlowStarterModal(false);
-          setIsCreatingFlowRoot(true);
-          setNodeCreationType(type);
-          setNodeCreationPosition({ x: (window.innerWidth / 2 - state.pan.x) / state.zoom, y: ((window.innerHeight - 100) / 2 - state.pan.y) / state.zoom });
-          setShowNodeCreationModal(true);
-        }}
+        isCreatingFlow={isCreatingFlowRoot}
         showNodeCreationModal={showNodeCreationModal}
         setShowNodeCreationModal={setShowNodeCreationModal}
-        nodeCreationType={nodeCreationType}
         editingNodeInModal={editingNodeInModal}
         setEditingNodeInModal={setEditingNodeInModal}
         getAllCategories={getAllCategories}
         onCreateNode={handleNodeCreation}
         onUpdateNode={handleNodeUpdate}
-        workflows={workflows}
-        onAddWorkflow={handleAddWorkflow}
         showFlowsManager={showFlowsManager}
         setShowFlowsManager={setShowFlowsManager}
         flowsForManager={flowsForManager}
@@ -884,6 +875,7 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
         onDuplicateConfirmSame={handleDuplicateConfirmSame}
         onDuplicateConfirmDifferent={handleDuplicateConfirmDifferent}
         onDuplicateCancel={handleDuplicateCancel}
+        workflows={workflows}
         showAIInsights={showAIInsights}
         setShowAIInsights={setShowAIInsights}
         allNodes={allNodes}
