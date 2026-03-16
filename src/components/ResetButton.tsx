@@ -26,6 +26,7 @@ export const ResetButton: React.FC<ResetButtonProps> = ({ onResetComplete, onRes
 
   const resetNetwork = async () => {
     setIsResetting(true);
+    onResetStart?.();
     
     try {
       // Limpar layout salvo localmente

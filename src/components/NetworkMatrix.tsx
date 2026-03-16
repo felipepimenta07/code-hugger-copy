@@ -882,7 +882,7 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
           <PathIndicator selectedNode={selectedNode} centerNode={centerNode} allNodes={allNodes} connections={allConnections} />
         )}
 
-        {user && <ResetButton onResetComplete={reloadData} userId={user.id} />}
+        {user && <ResetButton onResetComplete={() => { isResettingRef.current = false; reloadData({ forceReset: true }); }} onResetStart={() => { isResettingRef.current = true; }} userId={user.id} />}
         <WhatsAppNotifications />
       </div>
 
