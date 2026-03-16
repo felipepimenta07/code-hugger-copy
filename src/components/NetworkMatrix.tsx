@@ -600,11 +600,12 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
   };
 
   const handleCreateNode = async (nodeData: any, originalNodeId: number | null) => {
-    const insertedNode = await createNodeInDatabase(nodeCreationType, nodeData, originalNodeId);
+    const nodeType = nodeData.nodeType || 'person';
+    const insertedNode = await createNodeInDatabase(nodeType, nodeData, originalNodeId);
     if (!insertedNode) return;
-    const newNode = { ...insertedNode, type: nodeCreationType, isNewHighlight: true };
-    if (nodeCreationType === 'project') setProjects(prev => [...prev, newNode]);
-    else if (nodeCreationType === 'person') setPeople(prev => [...prev, newNode]);
+    const newNode = { ...insertedNode, type: nodeType, isNewHighlight: true };
+    if (nodeType === 'project') setProjects(prev => [...prev, newNode]);
+    else if (nodeType === 'person') setPeople(prev => [...prev, newNode]);
     else setBrands(prev => [...prev, newNode]);
     if (isCreatingFlowRoot) { setActiveProjectId(insertedNode.id); setViewMode('single'); setIsCreatingFlowRoot(false); }
     setShowNodeCreationModal(false);
@@ -614,9 +615,10 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
   const handleNodeCreation = async (nodeData: any) => {
     if (!user) return;
     saveToHistory();
-    const tableName = nodeCreationType === 'person' ? 'people' : nodeCreationType === 'brand' ? 'brands' : 'projects';
+    const nodeType = nodeData.nodeType || 'person';
+    const tableName = nodeType === 'person' ? 'people' : nodeType === 'brand' ? 'brands' : 'projects';
     const { data: existingNodes } = await supabase.from(tableName).select('*').eq('name', nodeData.name.trim()).eq('user_id', user.id).limit(1);
-    if (existingNodes?.length > 0) { setDuplicateCheckModal({ show: true, existingNode: existingNodes[0], newNodeData: nodeData, nodeType: nodeCreationType }); return; }
+    if (existingNodes?.length > 0) { setDuplicateCheckModal({ show: true, existingNode: existingNodes[0], newNodeData: nodeData, nodeType }); return; }
     await handleCreateNode(nodeData, null);
   };
 
