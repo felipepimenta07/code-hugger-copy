@@ -875,6 +875,7 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
         onDuplicateConfirmSame={handleDuplicateConfirmSame}
         onDuplicateConfirmDifferent={handleDuplicateConfirmDifferent}
         onDuplicateCancel={handleDuplicateCancel}
+        workflows={workflows}
         showAIInsights={showAIInsights}
         setShowAIInsights={setShowAIInsights}
         allNodes={allNodes}
