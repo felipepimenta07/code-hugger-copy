@@ -822,7 +822,8 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
             allConnections={allConnections}
             showLabels={showLabels}
             onOpenEditModal={(node) => { setEditingNodeInModal(node); setNodeCreationType(node.type); setShowNodeCreationModal(true); }}
-            onGoToProject={(id) => { setActiveProjectId(id); setViewMode('single'); }}
+            onSingleClick={(node) => { setDetailPanelNode(node); }}
+            onGoToProject={(id) => { setDetailPanelNode(null); setActiveProjectId(id); setViewMode('single'); }}
             forcePositions={forcePositions}
             onForceDragStart={onForceDragStart}
             onForceDrag={onForceDrag}
