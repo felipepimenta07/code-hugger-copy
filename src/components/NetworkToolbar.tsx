@@ -98,6 +98,14 @@ export const NetworkToolbar: React.FC<NetworkToolbarProps> = ({
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
+            {viewMode === 'single' && onCreateNode && (
+              <>
+                <DropdownMenuItem onClick={onCreateNode}>
+                  <Plus size={12} className="mr-2" /> Criar Nó
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+              </>
+            )}
             <DropdownMenuItem onClick={onNewFlow}>
               <Plus size={12} className="mr-2" /> Novo Flow
             </DropdownMenuItem>
