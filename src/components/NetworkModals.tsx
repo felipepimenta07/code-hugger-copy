@@ -203,23 +203,6 @@ export const NetworkModals: React.FC<NetworkModalsProps> = (props) => {
         onSelectNode={props.onSelectOpportunityNode}
       />
 
-      <Drawer open={props.showSidebar && props.editingNode !== null} onOpenChange={(open) => {
-        if (!open) props.onNodeEditorClose();
-      }}>
-        <DrawerContent className="h-[90vh]">
-          {props.editingNode && (
-            <NodeEditor
-              node={props.editingNode}
-              getAllCategories={props.getAllCategories}
-              addCustomCategory={props.addCustomCategory}
-              onUpdate={props.onNodeEditorUpdate}
-              onClose={props.onNodeEditorClose}
-              onDelete={props.onNodeEditorDelete}
-              onConfirm={props.onNodeEditorConfirm}
-            />
-          )}
-        </DrawerContent>
-      </Drawer>
     </>
   );
 };
