@@ -74,6 +74,16 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
   const isDraggingRef = useRef(false);
   const recentUpdatesRef = useRef<Set<string>>(new Set());
 
+  // Force simulation for organic layout in Single View
+  const centerNodeIdForForce = (viewMode === 'single' && activeProjectId) ? (() => {
+    const currentFlowId = projects.find(p => p.id === activeProjectId)?.flow_id
+      || people.find(pe => pe.id === activeProjectId)?.flow_id
+      || brands.find(b => b.id === activeProjectId)?.flow_id
+      || null;
+    const flow = flows.find(f => f.id === currentFlowId);
+    return flow?.center_id ?? null;
+  })() : null;
+
   // ===== DATA LOADING =====
   const reloadData = async (options?: { forceReset?: boolean }) => {
     if (!user) return;
