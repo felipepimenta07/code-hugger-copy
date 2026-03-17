@@ -37,6 +37,10 @@ export const LinkedInImportModal = ({ open, onOpenChange, onImport, projects }: 
     try {
       const content = await file.text();
       const parsed = parseLinkedInCSV(content);
+      if (parsed.totalContacts === 0) {
+        toast.error('Nenhum contato encontrado no CSV. Verifique se o arquivo é uma exportação válida do LinkedIn.');
+        return;
+      }
       setParsedData(parsed);
       toast.success(`${parsed.totalContacts} contatos encontrados!`);
     } catch (error) {
