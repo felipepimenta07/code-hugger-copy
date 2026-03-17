@@ -17,6 +17,7 @@ interface NetworkToolbarProps {
   onSingleView: () => void;
   onOpenFlows: () => void;
   onOpenWhatsApp?: () => void;
+  onOpenLinkedIn?: () => void;
   onLogout?: () => void;
   onSearch: () => void;
 }
