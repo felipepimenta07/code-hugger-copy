@@ -22,7 +22,7 @@ interface NetworkModalsProps {
   pathEnd: any;
   setPathStart: (n: any) => void;
   setPathEnd: (n: any) => void;
-  setHighlightedPath: (path: number[]) => void;
+  setHighlightedPath: (path: string[]) => void;
   nodes: any[];
   connections: any[];
 
