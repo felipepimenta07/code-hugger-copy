@@ -878,7 +878,7 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
           </div>
 
           {/* FABs — bottom center */}
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 z-30">
+          <div className="absolute bottom-16 left-1/2 -translate-x-1/2 flex items-center gap-2 z-30">
             {viewMode === 'single' && (
               <button
                 className="px-4 py-2.5 rounded-full bg-primary/20 text-primary hover:bg-primary/30 transition-colors text-sm font-mono flex items-center gap-2 border border-primary/30"
