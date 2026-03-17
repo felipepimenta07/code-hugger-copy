@@ -147,6 +147,8 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
 
   useEffect(() => { isDraggingRef.current = state.dragging !== null; }, [state.dragging]);
 
+  const initialLoadDoneRef = useRef(false);
+
   // Initial load
   useEffect(() => {
     if (!user) return;
@@ -174,6 +176,7 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
           const firstFlow = flowsRes.data[0];
           setActiveNodeRef(makeRef(firstFlow.center_type, firstFlow.center_id));
         }
+        initialLoadDoneRef.current = true;
       } catch (error) {
         console.error('Erro ao carregar dados:', error);
         toast.error('Erro ao carregar dados');
@@ -183,6 +186,23 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
     };
     loadData();
   }, [user]);
+
+  // Auto-center on initial load
+  useEffect(() => {
+    if (!isLoadingData && initialLoadDoneRef.current && allNodes.length > 0) {
+      const timer = setTimeout(() => {
+        if (svgRef.current) {
+          const rect = svgRef.current.getBoundingClientRect();
+          const nodesToCenter = viewMode === 'master' ? allNodes : nodes;
+          const bounds = calculateBounds(nodesToCenter);
+          const zoom = calculateOptimalZoom(bounds, rect.width, rect.height);
+          const pan = calculateCenterPan(bounds, zoom, rect.width, rect.height);
+          updateState({ zoom, pan });
+        }
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [isLoadingData, allNodes.length]);
 
   // Realtime
   useEffect(() => {
