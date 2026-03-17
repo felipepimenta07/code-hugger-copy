@@ -288,14 +288,14 @@ ${networkContext}`
                               </div>
                               <p className="text-xs text-muted-foreground">{conn.description}</p>
                               <div className="flex flex-wrap gap-1">
-                                {conn.node_ids?.map((id: number) => (
+                                {conn.node_ids?.map((id: any) => (
                                   <Badge
-                                    key={id}
+                                    key={String(id)}
                                     variant="outline"
                                     className="text-xs cursor-pointer hover:bg-accent"
-                                    onClick={() => onFocusNode(id)}
+                                    onClick={() => onFocusNode(String(id))}
                                   >
-                                    {getNodeName(id)}
+                                    {getNodeName(String(id))}
                                   </Badge>
                                 ))}
                               </div>
