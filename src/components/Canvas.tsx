@@ -729,8 +729,8 @@ export const Canvas: React.FC<CanvasProps> = ({
         })()}
 
         
-        {/* Flow labels (Master View) */}
-        {viewMode === 'master' && flows?.map(flow => {
+        {/* Flow labels (Master View) - hidden in bubble mode */}
+        {viewMode === 'master' && state.zoom >= 0.15 && flows?.map(flow => {
           const clusterNodes = nodes.filter(n => n.flow_id === flow.id);
           if (clusterNodes.length === 0) return null;
           const centerNode = clusterNodes.find(n => n.id === flow.center_id && n.type === flow.center_type)
