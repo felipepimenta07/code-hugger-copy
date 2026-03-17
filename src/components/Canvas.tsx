@@ -664,27 +664,24 @@ export const Canvas: React.FC<CanvasProps> = ({
         })()}
 
         
-        {/* Flow labels (Master View) - hidden in bubble mode */}
-        {viewMode === 'master' && state.zoom >= 0.15 && flows?.map(flow => {
+        {/* Flow labels (Master View) — positioned at flow centroid */}
+        {viewMode === 'master' && flows?.map((flow, flowIdx) => {
           const clusterNodes = nodes.filter(n => n.flow_id === flow.id);
           if (clusterNodes.length === 0) return null;
-          const centerNode = clusterNodes.find(n => n.id === flow.center_id && n.type === flow.center_type)
-            || clusterNodes.find(n => n.id === flow.center_id)
-            || clusterNodes.find(n => n.type === 'project') || clusterNodes[0];
-          const pos = masterLayoutMap.get(centerNode.node_ref);
-          if (!pos) return null;
-          const ringRadius = getFlowRingRadius(clusterNodes.length);
-          
+          // Calculate centroid from actual node positions
+          const positions = clusterNodes.map(n => masterLayoutMap.get(n.node_ref)).filter(Boolean) as {x:number,y:number}[];
+          if (positions.length === 0) return null;
+          const cx = positions.reduce((s, p) => s + p.x, 0) / positions.length;
+          const cy = positions.reduce((s, p) => s + p.y, 0) / positions.length;
+          // Find bounding radius of the cluster
+          const maxDist = Math.max(...positions.map(p => Math.sqrt((p.x - cx) ** 2 + (p.y - cy) ** 2)), 30);
+          const flowColor = FLOW_COLORS[flowIdx % FLOW_COLORS.length];
           return (
             <g key={`label-${flow.id}`} pointerEvents="none">
-                <text x={pos.x} y={pos.y - ringRadius - 40} textAnchor="middle"
-                fill="hsl(var(--muted-foreground))" fontSize="16" fontWeight="600"
-                letterSpacing="2" fontFamily="monospace">
+              <text x={cx} y={cy - maxDist - 12} textAnchor="middle"
+                fill={flowColor} fontSize="13" fontWeight="700"
+                letterSpacing="1.5" fontFamily="monospace" opacity="0.85">
                 {flow.name.toUpperCase()}
-              </text>
-              <text x={pos.x} y={pos.y - ringRadius - 22} textAnchor="middle"
-                fill="hsl(var(--muted-foreground))" fontSize="14" opacity="0.4" fontFamily="monospace">
-                {clusterNodes.length} {clusterNodes.length === 1 ? 'nó' : 'nós'}
               </text>
             </g>
           );
