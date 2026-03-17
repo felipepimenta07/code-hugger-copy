@@ -628,7 +628,7 @@ export const Canvas: React.FC<CanvasProps> = ({
                   <image href={node.profile_picture_url} x={-nodeSize} y={-nodeSize}
                     width={nodeSize * 2} height={nodeSize * 2}
                     clipPath={`url(#clip-${node.type}-${node.id})`} preserveAspectRatio="xMidYMid slice" />
-                  <circle r={nodeSize} fill="none" stroke={colors.primary} strokeWidth={isCenterNode ? 3 : 2} />
+                  <circle r={nodeSize} fill="none" stroke={nodeColor} strokeWidth={isCenterNode ? 3 : 2} />
                 </>
               ) : (
                 <>
