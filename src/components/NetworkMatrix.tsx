@@ -626,15 +626,15 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
     else if (nodeType === 'brand') { baseData.website = nodeData.website || null; }
 
     const tableName = getTableName(nodeType);
-    const { data: insertedNode, error } = await supabase.from(tableName).insert([baseData]).select().single();
+    const { data: insertedNode, error } = await (supabase.from as any)(tableName).insert([baseData]).select().single();
     if (error || !insertedNode) { toast.error(`Erro ao criar ${nodeType}`); return null; }
 
     if (isNewFlow && currentFlowId) {
-      await supabase.from('flows').update({ center_id: insertedNode.id }).eq('id', currentFlowId);
+      await supabase.from('flows').update({ center_id: (insertedNode as any).id }).eq('id', currentFlowId);
       const { data: updatedFlow } = await supabase.from('flows').select('*').eq('id', currentFlowId).single();
       if (updatedFlow) setFlows(prev => [...prev, updatedFlow]);
     }
-    return { ...insertedNode, type: nodeType, node_ref: makeRef(nodeType, insertedNode.id) };
+    return { ...insertedNode, type: nodeType, node_ref: makeRef(nodeType, (insertedNode as any).id) };
   };
 
   const handleCreateNode = async (nodeData: any, originalNodeId: number | null) => {
