@@ -7,7 +7,7 @@ import { NetworkModals } from './NetworkModals';
 import { NetworkSidebar } from './NetworkSidebar';
 import { NodeDetailPanel } from './NodeDetailPanel';
 import { PathIndicator } from './PathIndicator';
-import { ResetButton } from './ResetButton';
+import { FlowManagerPanel } from './FlowManagerPanel';
 import { WhatsAppNotifications } from './WhatsAppNotifications';
 import { useNetworkState } from '@/hooks/useNetworkState';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
