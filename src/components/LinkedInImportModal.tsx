@@ -213,6 +213,12 @@ export const LinkedInImportModal = ({ open, onOpenChange, onImport, projects }: 
                 </div>
               </div>
 
+              {/* Detected Headers */}
+              <div className="bg-muted/50 rounded-lg p-3">
+                <p className="text-xs font-medium mb-1 text-muted-foreground">Headers detectados:</p>
+                <p className="text-xs text-muted-foreground truncate">{parsedData.detectedHeaders.join(', ')}</p>
+              </div>
+
               {/* Sample Preview */}
               <div className="bg-muted/50 rounded-lg p-4 max-h-40 overflow-y-auto">
                 <p className="text-sm font-medium mb-2">Primeiros contatos:</p>
