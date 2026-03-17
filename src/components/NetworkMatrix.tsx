@@ -476,26 +476,32 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
     if (nodesList.length === 0) return { minX: 0, maxX: 1000, minY: 0, maxY: 800 };
     const MASTER_RING_RADIUS = 240;
     if (viewMode === 'master' && flows) {
+      const count = Math.max(flows.length, 1);
+      
+      // For bubble mode (many flows), use tighter bubble spacing
+      if (count > 12) {
+        const cols = Math.ceil(Math.sqrt(count));
+        const spacing = 280; // matches bubbleLayoutMap in Canvas
+        const rows = Math.ceil(count / cols);
+        const totalW = (cols - 1) * spacing;
+        const totalH = (rows - 1) * spacing;
+        const margin = 200;
+        return {
+          minX: -totalW / 2 - margin,
+          maxX: totalW / 2 + margin,
+          minY: -totalH / 2 - margin,
+          maxY: totalH / 2 + margin
+        };
+      }
+      
       const positions: { x: number; y: number }[] = [];
       const getFlowOffset = (flowId: number) => {
         const idx = Math.max(0, flows.findIndex(f => f.id === flowId));
-        const count = Math.max(flows.length, 1);
         
-        if (count <= 12) {
-          const angle = (idx / count) * Math.PI * 2;
-          let radius = 0;
-          if (count > 1) { radius = (2 * (MASTER_RING_RADIUS + 40) + 136) / (2 * Math.sin(Math.PI / count)); }
-          return { dx: Math.cos(angle) * radius, dy: Math.sin(angle) * radius };
-        }
-        
-        // Grid layout for many flows
-        const cols = Math.ceil(Math.sqrt(count));
-        const spacing = 2 * MASTER_RING_RADIUS + 300;
-        const row = Math.floor(idx / cols);
-        const col = idx % cols;
-        const totalWidth = (cols - 1) * spacing;
-        const totalHeight = (Math.ceil(count / cols) - 1) * spacing;
-        return { dx: col * spacing - totalWidth / 2, dy: row * spacing - totalHeight / 2 };
+        const angle = (idx / count) * Math.PI * 2;
+        let radius = 0;
+        if (count > 1) { radius = (2 * (MASTER_RING_RADIUS + 40) + 136) / (2 * Math.sin(Math.PI / count)); }
+        return { dx: Math.cos(angle) * radius, dy: Math.sin(angle) * radius };
       };
       flows.forEach((flow: any) => {
         const clusterNodes = nodesList.filter(n => n.flow_id === flow.id);
@@ -517,7 +523,7 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
     return { minX: Math.min(...xs) - margin, maxX: Math.max(...xs) + margin, minY: Math.min(...ys) - margin, maxY: Math.max(...ys) + margin };
   };
 
-  const calculateOptimalZoom = (bounds: any, width: number, height: number) => Math.max(Math.min((width * 0.85) / (bounds.maxX - bounds.minX), (height * 0.85) / (bounds.maxY - bounds.minY), 1.2), 0.04);
+  const calculateOptimalZoom = (bounds: any, width: number, height: number) => Math.max(Math.min((width * 0.85) / (bounds.maxX - bounds.minX), (height * 0.85) / (bounds.maxY - bounds.minY), 1.2), 0.06);
 
   const calculateCenterPan = (bounds: any, zoom: number, width: number, height: number) => ({
     x: width / 2 - ((bounds.minX + bounds.maxX) / 2) * zoom,
