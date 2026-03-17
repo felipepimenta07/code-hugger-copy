@@ -17,8 +17,8 @@ interface AIInsightsPanelProps {
   people?: any[];
   brands?: any[];
   projects?: any[];
-  onHighlightPath: (nodeIds: number[]) => void;
-  onFocusNode: (nodeId: number) => void;
+  onHighlightPath: (nodeIds: string[]) => void;
+  onFocusNode: (nodeId: string) => void;
   onClose: () => void;
   onOpenConnectionModal?: (connection: any, involvedNodes: any[], type: 'hidden' | 'bridge' | 'opportunity' | 'alert' | 'action') => void;
 }
