@@ -697,7 +697,7 @@ export const Canvas: React.FC<CanvasProps> = ({
           return (
             <g key={`label-${flow.id}`} pointerEvents="none">
                 <text x={pos.x} y={pos.y - MASTER_RING_RADIUS - 40} textAnchor="middle"
-                fill="hsl(var(--muted-foreground))" fontSize="14" fontWeight="600"
+                fill="hsl(var(--muted-foreground))" fontSize="16" fontWeight="600"
                 letterSpacing="2" fontFamily="monospace">
                 {flow.name.toUpperCase()}
               </text>
