@@ -599,28 +599,30 @@ export const Canvas: React.FC<CanvasProps> = ({
         {viewMode === 'master' && state.zoom < 0.15 && flows.map((flow, flowIdx) => {
           const clusterNodes = nodes.filter(n => getNodeFlowId(n) === flow.id);
           if (clusterNodes.length === 0) return null;
-          const centerNode = clusterNodes.find(n => n.id === flow.center_id && n.type === flow.center_type) || clusterNodes.find(n => n.id === flow.center_id) || clusterNodes.find(n => n.type === 'project') || clusterNodes[0];
-          const pos = masterLayoutMap.get(centerNode.node_ref);
-          if (!pos) return null;
-          const bubbleRadius = Math.max(30, Math.sqrt(clusterNodes.length) * 18);
+          const bubble = bubbleLayoutMap.get(flow.id);
+          if (!bubble) return null;
+          const { x: bx, y: by, radius: bubbleRadius } = bubble;
           const flowColor = FLOW_COLORS[flowIdx % FLOW_COLORS.length];
           const isHovered = hoveredNode === `bubble-${flow.id}`;
-          const isSelected = selectedNodes.includes(centerNode.node_ref);
+          const centerNode = clusterNodes.find(n => n.id === flow.center_id && n.type === flow.center_type) || clusterNodes[0];
+          const isSelected = centerNode && selectedNodes.includes(centerNode.node_ref);
           return (
-            <g key={`bubble-${flow.id}`} transform={`translate(${pos.x}, ${pos.y})`}
+            <g key={`bubble-${flow.id}`} transform={`translate(${bx}, ${by})`}
               className="cursor-pointer"
               onMouseEnter={() => setHoveredNode(`bubble-${flow.id}`)}
               onMouseLeave={() => setHoveredNode(null)}
-              onClick={(e) => { e.stopPropagation(); setSelectedNodes([centerNode.node_ref]); updateState({ selectedNode: centerNode.node_ref }); }}
+              onClick={(e) => { e.stopPropagation(); if (centerNode) { setSelectedNodes([centerNode.node_ref]); updateState({ selectedNode: centerNode.node_ref }); } }}
               onDoubleClick={(e) => { e.stopPropagation(); if (onGoToFlow) onGoToFlow(flow.id); }}
             >
-              {isHovered && <circle r={bubbleRadius + 8} fill={flowColor} opacity="0.15" filter="url(#glow-node)" />}
-              {isSelected && <circle r={bubbleRadius + 4} fill="none" stroke="white" strokeWidth="2" opacity="0.8" strokeDasharray="4,3" />}
-              <circle r={bubbleRadius} fill={flowColor} opacity={isHovered ? 0.85 : 0.6} stroke={flowColor} strokeWidth="2" />
-              <text textAnchor="middle" dominantBaseline="central" fill="white" fontSize={Math.max(14, bubbleRadius * 0.35)} fontWeight="700" fontFamily="monospace">
-                {flow.name.length > 12 ? flow.name.substring(0, 12) + '…' : flow.name}
+              {/* Glow shadow always visible */}
+              <circle r={bubbleRadius + 6} fill={flowColor} opacity="0.12" />
+              {isHovered && <circle r={bubbleRadius + 12} fill={flowColor} opacity="0.2" filter="url(#glow-node)" />}
+              {isSelected && <circle r={bubbleRadius + 6} fill="none" stroke="white" strokeWidth="3" opacity="0.9" strokeDasharray="6,4" />}
+              <circle r={bubbleRadius} fill={flowColor} opacity={isHovered ? 0.9 : 0.7} stroke={flowColor} strokeWidth="3" />
+              <text textAnchor="middle" dominantBaseline="central" fill="white" fontSize={Math.max(16, bubbleRadius * 0.38)} fontWeight="700" fontFamily="monospace" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>
+                {flow.name.length > 14 ? flow.name.substring(0, 14) + '…' : flow.name}
               </text>
-              <text y={bubbleRadius * 0.45} textAnchor="middle" dominantBaseline="central" fill="white" fontSize={Math.max(11, bubbleRadius * 0.25)} opacity="0.7" fontFamily="monospace">
+              <text y={bubbleRadius * 0.5} textAnchor="middle" dominantBaseline="central" fill="white" fontSize={Math.max(12, bubbleRadius * 0.28)} opacity="0.8" fontFamily="monospace">
                 {clusterNodes.length} {clusterNodes.length === 1 ? 'nó' : 'nós'}
               </text>
             </g>
