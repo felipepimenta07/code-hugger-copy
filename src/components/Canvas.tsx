@@ -571,7 +571,13 @@ export const Canvas: React.FC<CanvasProps> = ({
 
           return nodes.map(node => {
           const nodeType = (node.type as keyof typeof nodeColors) || 'person';
+          const depth = nodeDepths.get(node.node_ref);
+          const useDepthColor = viewMode === 'single' && depth !== undefined;
+          const depthColor = useDepthColor
+            ? (depthColors[Math.min(depth, depthColors.length - 1)])
+            : (depth === undefined && viewMode === 'single' ? depthUnconnected : undefined);
           const colors = nodeColors[nodeType] || nodeColors.person;
+          const nodeColor = depthColor || colors.primary;
           const isSelected = selectedNodes.includes(node.node_ref);
           const isInPath = highlightedPath.includes(node.node_ref);
           const connectionCount = connections.filter(c => c.from_ref === node.node_ref || c.to_ref === node.node_ref).length;
