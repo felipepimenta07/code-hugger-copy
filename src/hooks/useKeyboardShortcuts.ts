@@ -1,8 +1,9 @@
 import { useEffect } from 'react';
+import { parseRef, getTableName } from '@/utils/nodeRef';
 
 interface KeyboardShortcutsProps {
-  selectedNodes: number[];
-  setSelectedNodes: (nodes: number[]) => void;
+  selectedNodes: string[];
+  setSelectedNodes: (nodes: string[]) => void;
   setNodes: (updater: any) => void;
   setConnections: (updater: any) => void;
   updateState: (updates: any) => void;
@@ -14,7 +15,7 @@ interface KeyboardShortcutsProps {
   selectedConnection: number | null;
   setSelectedConnection: (connection: any) => void;
   setShowPathFinder: (show: boolean) => void;
-  setHighlightedPath: (path: number[]) => void;
+  setHighlightedPath: (path: string[]) => void;
   nodes?: any[];
   allNodes?: any[];
   viewMode?: string;
@@ -62,17 +63,17 @@ export const useKeyboardShortcuts = ({
             deleteConnectionByIndex(selectedConnection);
           } else {
             saveToHistory();
-            setSelectedNodes([]); // Limpar selectedNodes primeiro
+            setSelectedNodes([]);
             setConnections((prev: any[]) => prev.filter((_, idx) => idx !== selectedConnection));
             setSelectedConnection(null);
           }
-          return; // IMPORTANTE: Não executar o bloco de deletar nós
+          return;
         } else if (selectedNodes.length > 0) {
           saveToHistory();
-          const idsToDelete = new Set(selectedNodes);
-          setNodes((prev: any[]) => prev.filter((n: any) => !idsToDelete.has(n.id)));
+          const refsToDelete = new Set(selectedNodes);
+          setNodes((prev: any[]) => prev.filter((n: any) => !refsToDelete.has(n.node_ref)));
           setConnections((prev: any[]) => 
-            prev.filter((c: any) => !idsToDelete.has(c.from) && !idsToDelete.has(c.to))
+            prev.filter((c: any) => !refsToDelete.has(c.from_ref) && !refsToDelete.has(c.to_ref))
           );
           setSelectedNodes([]);
         }
@@ -101,16 +102,13 @@ export const useKeyboardShortcuts = ({
 
       // C - center view
       if (e.key === 'c' || e.key === 'C') {
-        // Resetar estado do Master View para forçar reorganização
         if (setMasterViewState) {
           setMasterViewState(null);
         }
         
-        // Se estiver no Master View, reorganiza
         if (viewMode === 'master' && autoOrganize) {
           autoOrganize();
         } else {
-          // Se estiver no Single View, centraliza normalmente
           const width = window.innerWidth;
           const height = window.innerHeight - 100;
           const nodesToCenter = viewMode === 'single' ? (nodes || []) : (allNodes || []);

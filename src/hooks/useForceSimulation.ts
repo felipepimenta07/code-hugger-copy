@@ -14,6 +14,7 @@ import {
 
 export interface ForceNode extends SimulationNodeDatum {
   id: number;
+  nodeRef: string;
   type: string;
   depth?: number;
   isCenterNode?: boolean;
@@ -22,8 +23,8 @@ export interface ForceNode extends SimulationNodeDatum {
 }
 
 export interface ForceLink extends SimulationLinkDatum<ForceNode> {
-  source: number | ForceNode;
-  target: number | ForceNode;
+  source: string | ForceNode;
+  target: string | ForceNode;
 }
 
 interface UseForceSimulationOptions {
@@ -31,11 +32,11 @@ interface UseForceSimulationOptions {
   connections: any[];
   viewMode: string;
   enabled: boolean;
-  centerNodeId?: number | null;
+  centerNodeRef?: string | null;
 }
 
 interface ForcePositions {
-  [nodeId: number]: { x: number; y: number };
+  [nodeRef: string]: { x: number; y: number };
 }
 
 export const useForceSimulation = ({
@@ -43,7 +44,7 @@ export const useForceSimulation = ({
   connections,
   viewMode,
   enabled,
-  centerNodeId,
+  centerNodeRef,
 }: UseForceSimulationOptions) => {
   const simulationRef = useRef<Simulation<ForceNode, ForceLink> | null>(null);
   const [positions, setPositions] = useState<ForcePositions>({});
@@ -53,22 +54,22 @@ export const useForceSimulation = ({
   const connectionsRef = useRef<any[]>([]);
   const prevNodesLengthRef = useRef(0);
 
-  const calculateDepths = useCallback((nodeList: any[], conns: any[], centerId?: number | null) => {
-    const depths = new Map<number, number>();
-    if (!centerId || nodeList.length === 0) return depths;
-    const queue: Array<{ id: number; depth: number }> = [{ id: centerId, depth: 0 }];
-    const visited = new Set<number>();
+  const calculateDepths = useCallback((nodeList: any[], conns: any[], centerRef?: string | null) => {
+    const depths = new Map<string, number>();
+    if (!centerRef || nodeList.length === 0) return depths;
+    const queue: Array<{ ref: string; depth: number }> = [{ ref: centerRef, depth: 0 }];
+    const visited = new Set<string>();
     while (queue.length > 0) {
       const current = queue.shift()!;
-      if (visited.has(current.id)) continue;
-      visited.add(current.id);
-      depths.set(current.id, current.depth);
+      if (visited.has(current.ref)) continue;
+      visited.add(current.ref);
+      depths.set(current.ref, current.depth);
       conns
-        .filter((c: any) => c.from === current.id || c.to === current.id)
+        .filter((c: any) => c.from_ref === current.ref || c.to_ref === current.ref)
         .forEach((c: any) => {
-          const neighborId = c.from === current.id ? c.to : c.from;
-          if (!visited.has(neighborId) && nodeList.some((n: any) => n.id === neighborId)) {
-            queue.push({ id: neighborId, depth: current.depth + 1 });
+          const neighborRef = c.from_ref === current.ref ? c.to_ref : c.from_ref;
+          if (!visited.has(neighborRef) && nodeList.some((n: any) => n.node_ref === neighborRef)) {
+            queue.push({ ref: neighborRef, depth: current.depth + 1 });
           }
         });
     }
@@ -84,22 +85,24 @@ export const useForceSimulation = ({
       }
       if (nodes.length > 0) {
         const pos: ForcePositions = {};
-        nodes.forEach((n: any) => { pos[n.id] = { x: n.x, y: n.y }; });
+        nodes.forEach((n: any) => { pos[n.node_ref] = { x: n.x, y: n.y }; });
         setPositions(pos);
       }
       return;
     }
 
-    const depths = calculateDepths(nodes, connections, centerNodeId);
+    const depths = calculateDepths(nodes, connections, centerNodeRef);
     connectionsRef.current = connections;
 
     const forceNodes: ForceNode[] = nodes.map((n: any) => {
-      const existing = nodesRef.current.find((fn) => fn.id === n.id);
-      const depth = depths.get(n.id) ?? 3;
-      const isCenter = n.id === centerNodeId;
+      const nodeRef = n.node_ref;
+      const existing = nodesRef.current.find((fn) => fn.nodeRef === nodeRef);
+      const depth = depths.get(nodeRef) ?? 3;
+      const isCenter = nodeRef === centerNodeRef;
 
       return {
         id: n.id,
+        nodeRef,
         type: n.type,
         depth,
         isCenterNode: isCenter,
@@ -109,7 +112,6 @@ export const useForceSimulation = ({
         y: existing?.y ?? n.y,
         vx: existing?.vx ?? 0,
         vy: existing?.vy ?? 0,
-        // Bug 5 fix: Only pin center node
         ...(isCenter ? { fx: existing?.x ?? n.x, fy: existing?.y ?? n.y } : {}),
       };
     });
@@ -117,10 +119,12 @@ export const useForceSimulation = ({
     nodesRef.current = forceNodes;
 
     const forceLinks: ForceLink[] = connections
-      .filter((c: any) => forceNodes.some((n) => n.id === c.from) && forceNodes.some((n) => n.id === c.to))
-      .map((c: any) => ({ source: c.from, target: c.to }));
+      .filter((c: any) => forceNodes.some((n) => n.nodeRef === c.from_ref) && forceNodes.some((n) => n.nodeRef === c.to_ref))
+      .map((c: any) => ({ source: c.from_ref, target: c.to_ref }));
 
     if (simulationRef.current) simulationRef.current.stop();
+
+    const centerNode = nodes.find((n: any) => n.node_ref === centerNodeRef);
 
     const sim = forceSimulation<ForceNode>(forceNodes)
       .force('charge', forceManyBody<ForceNode>().strength((d) => {
@@ -132,16 +136,16 @@ export const useForceSimulation = ({
         }
       }))
       .force('center', forceCenter(
-        centerNodeId ? (nodes.find((n: any) => n.id === centerNodeId)?.x ?? 500) : 500,
-        centerNodeId ? (nodes.find((n: any) => n.id === centerNodeId)?.y ?? 300) : 300
+        centerNode ? (centerNode.x ?? 500) : 500,
+        centerNode ? (centerNode.y ?? 300) : 300
       ).strength(0.04))
       .force('collision', forceCollide<ForceNode>().radius((d) => {
-        const connectionCount = connections.filter((c: any) => c.from === d.id || c.to === d.id).length;
+        const connectionCount = connections.filter((c: any) => c.from_ref === d.nodeRef || c.to_ref === d.nodeRef).length;
         const baseSize = 20 + Math.min(connectionCount * 4, 25);
         return (d.isCenterNode ? Math.max(baseSize, 45) : baseSize) + 15;
       }))
       .force('link', forceLink<ForceNode, ForceLink>(forceLinks)
-        .id((d) => d.id)
+        .id((d) => d.nodeRef)
         .distance((link) => {
           const s = link.source as ForceNode;
           const t = link.target as ForceNode;
@@ -154,7 +158,6 @@ export const useForceSimulation = ({
       )
       .force('x', forceX<ForceNode>((d) => d.initialX).strength(0.02))
       .force('y', forceY<ForceNode>((d) => d.initialY).strength(0.02))
-      // Bug 3 fix: faster convergence
       .alpha(0.5)
       .alphaDecay(0.05)
       .velocityDecay(0.45);
@@ -166,7 +169,7 @@ export const useForceSimulation = ({
       tickCountRef.current++;
       if (tickCountRef.current % 2 === 0 || tickCountRef.current < 10) {
         const pos: ForcePositions = {};
-        forceNodes.forEach((n) => { pos[n.id] = { x: n.x ?? n.initialX, y: n.y ?? n.initialY }; });
+        forceNodes.forEach((n) => { pos[n.nodeRef] = { x: n.x ?? n.initialX, y: n.y ?? n.initialY }; });
         setPositions(pos);
       }
     });
@@ -174,7 +177,7 @@ export const useForceSimulation = ({
     sim.on('end', () => {
       setIsSimulating(false);
       const pos: ForcePositions = {};
-      forceNodes.forEach((n) => { pos[n.id] = { x: n.x ?? n.initialX, y: n.y ?? n.initialY }; });
+      forceNodes.forEach((n) => { pos[n.nodeRef] = { x: n.x ?? n.initialX, y: n.y ?? n.initialY }; });
       setPositions(pos);
     });
 
@@ -182,43 +185,41 @@ export const useForceSimulation = ({
     prevNodesLengthRef.current = nodes.length;
 
     return () => { sim.stop(); };
-    // Bug 4 fix: Only recreate simulation when nodes change, NOT connections
-  }, [enabled, viewMode, nodes.length, centerNodeId]);
+  }, [enabled, viewMode, nodes.length, centerNodeRef]);
 
-  // Bug 4 fix: Separate effect for connection changes — gentle reheat only
+  // Separate effect for connection changes — gentle reheat only
   useEffect(() => {
     if (!simulationRef.current || !enabled || viewMode !== 'single') return;
     
     connectionsRef.current = connections;
     const forceLinks: ForceLink[] = connections
-      .filter((c: any) => nodesRef.current.some((n) => n.id === c.from) && nodesRef.current.some((n) => n.id === c.to))
-      .map((c: any) => ({ source: c.from, target: c.to }));
+      .filter((c: any) => nodesRef.current.some((n) => n.nodeRef === c.from_ref) && nodesRef.current.some((n) => n.nodeRef === c.to_ref))
+      .map((c: any) => ({ source: c.from_ref, target: c.to_ref }));
 
     const linkForce = simulationRef.current.force('link') as any;
     if (linkForce) {
       linkForce.links(forceLinks);
     }
-    // Gentle reheat instead of full restart
     simulationRef.current.alpha(0.15).restart();
     setIsSimulating(true);
   }, [connections.length, enabled, viewMode]);
 
-  const onDragStart = useCallback((nodeId: number) => {
+  const onDragStart = useCallback((nodeRef: string) => {
     if (!simulationRef.current) return;
     simulationRef.current.alphaTarget(0.3).restart();
-    const node = nodesRef.current.find((n) => n.id === nodeId);
+    const node = nodesRef.current.find((n) => n.nodeRef === nodeRef);
     if (node) { node.fx = node.x; node.fy = node.y; }
   }, []);
 
-  const onDrag = useCallback((nodeId: number, x: number, y: number) => {
-    const node = nodesRef.current.find((n) => n.id === nodeId);
+  const onDrag = useCallback((nodeRef: string, x: number, y: number) => {
+    const node = nodesRef.current.find((n) => n.nodeRef === nodeRef);
     if (node) { node.fx = x; node.fy = y; }
   }, []);
 
-  const onDragEnd = useCallback((nodeId: number) => {
+  const onDragEnd = useCallback((nodeRef: string) => {
     if (!simulationRef.current) return;
     simulationRef.current.alphaTarget(0);
-    const node = nodesRef.current.find((n) => n.id === nodeId);
+    const node = nodesRef.current.find((n) => n.nodeRef === nodeRef);
     if (node && !node.isCenterNode) {
       node.fx = null;
       node.fy = null;
@@ -233,8 +234,8 @@ export const useForceSimulation = ({
   }, []);
 
   const getNodePosition = useCallback(
-    (nodeId: number, fallbackX: number, fallbackY: number) => {
-      const pos = positions[nodeId];
+    (nodeRef: string, fallbackX: number, fallbackY: number) => {
+      const pos = positions[nodeRef];
       return pos ?? { x: fallbackX, y: fallbackY };
     },
     [positions]

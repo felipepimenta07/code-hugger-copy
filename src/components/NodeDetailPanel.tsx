@@ -34,7 +34,7 @@ interface NodeDetailPanelProps {
   connections: any[];
   allNodes: any[];
   onClose: () => void;
-  onNavigateToNode: (nodeId: number) => void;
+  onNavigateToNode: (nodeRef: string) => void;
   onEdit: (node: any) => void;
 }
 
@@ -46,15 +46,17 @@ export const NodeDetailPanel: React.FC<NodeDetailPanelProps> = ({
   onNavigateToNode,
   onEdit,
 }) => {
-  // Find direct connections
+  const nodeRef = node.node_ref || `${node.type}:${node.id}`;
+
+  // Find direct connections using from_ref/to_ref
   const directConnections = connections
-    .filter(c => c.from === node.id || c.to === node.id)
+    .filter(c => c.from_ref === nodeRef || c.to_ref === nodeRef)
     .map(c => {
-      const otherId = c.from === node.id ? c.to : c.from;
-      const otherNode = allNodes.find(n => n.id === otherId);
-      return otherNode ? { node: otherNode, connectionType: c.connection_type || c.type || 'related' } : null;
+      const otherRef = c.from_ref === nodeRef ? c.to_ref : c.from_ref;
+      const otherNode = allNodes.find(n => n.node_ref === otherRef);
+      return otherNode ? { node: otherNode, connectionType: c.connection_type || c.type || 'related', connId: c.id } : null;
     })
-    .filter(Boolean) as Array<{ node: any; connectionType: string }>;
+    .filter(Boolean) as Array<{ node: any; connectionType: string; connId: any }>;
 
   const catColor = getCatColor(node.category || '');
 
@@ -146,13 +148,14 @@ export const NodeDetailPanel: React.FC<NodeDetailPanelProps> = ({
 
       <div className="flex-1 overflow-y-auto px-3 pb-4">
         <div className="space-y-px">
-          {directConnections.map(({ node: otherNode, connectionType }) => {
+          {directConnections.map(({ node: otherNode, connectionType, connId }) => {
             const otherCatColor = getCatColor(otherNode.category || '');
+            const key = otherNode.node_ref || `${otherNode.type}:${otherNode.id}`;
             return (
               <button
-                key={otherNode.id}
+                key={`${key}-${connId}`}
                 className="w-full flex items-start gap-2.5 px-2 py-2.5 rounded text-left hover:bg-secondary/30 transition-colors group"
-                onClick={() => onNavigateToNode(otherNode.id)}
+                onClick={() => onNavigateToNode(otherNode.node_ref)}
               >
                 <span className="w-3 h-3 rounded-full flex-shrink-0 mt-1.5"
                   style={{ backgroundColor: otherCatColor }} />

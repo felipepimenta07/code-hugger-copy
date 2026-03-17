@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { User, Target, Building2 } from 'lucide-react';
 import { ConnectionTooltip } from './ConnectionTooltip';
+import { parseRef } from '@/utils/nodeRef';
 
 interface CanvasProps {
   svgRef: React.RefObject<SVGSVGElement>;
@@ -10,14 +11,14 @@ interface CanvasProps {
   workflows: any[];
   nodes: any[];
   connections: any[];
-  selectedNodes: number[];
-  setSelectedNodes: (nodes: number[]) => void;
+  selectedNodes: string[];
+  setSelectedNodes: (nodes: string[]) => void;
   selectedConnection: number | null;
   setSelectedConnection: (connection: number | null) => void;
-  highlightedPath: number[];
-  hoveredNode: number | null;
-  setHoveredNode: (node: number | null) => void;
-  updateNodePosition: (nodeId: number, deltaX: number, deltaY: number, saveToDb?: boolean) => void;
+  highlightedPath: string[];
+  hoveredNode: string | null;
+  setHoveredNode: (node: string | null) => void;
+  updateNodePosition: (nodeRef: string, deltaX: number, deltaY: number, saveToDb?: boolean) => void;
   setConnections: (updater: any) => void;
   saveToHistory: () => void;
   onOpenEditModal?: (node: any) => void;
@@ -25,18 +26,15 @@ interface CanvasProps {
   projects?: any[];
   flows?: any[];
   allConnections?: any[];
-  onGoToProject?: (id: number) => void;
+  onGoToFlow?: (flowId: number) => void;
   onWheel?: (e: React.WheelEvent) => void;
   showLabels?: boolean;
-  // Force simulation props
-  forcePositions?: { [nodeId: number]: { x: number; y: number } };
-  onForceDragStart?: (nodeId: number) => void;
-  onForceDrag?: (nodeId: number, x: number, y: number) => void;
-  onForceDragEnd?: (nodeId: number) => void;
+  forcePositions?: { [nodeRef: string]: { x: number; y: number } };
+  onForceDragStart?: (nodeRef: string) => void;
+  onForceDrag?: (nodeRef: string, x: number, y: number) => void;
+  onForceDragEnd?: (nodeRef: string) => void;
   useForceLayout?: boolean;
 }
-
-// Bug 1 fix: no longer a constant — computed per-flow based on node count
 
 const nodeColors = {
   person: { primary: 'hsl(var(--node-person))', glow: 'hsl(var(--node-person-glow))', secondary: 'hsl(var(--node-person-secondary))' },
@@ -45,35 +43,13 @@ const nodeColors = {
 };
 
 export const Canvas: React.FC<CanvasProps> = ({
-  svgRef,
-  state,
-  updateState,
-  viewMode,
-  workflows,
-  nodes,
-  connections,
-  selectedNodes,
-  setSelectedNodes,
-  selectedConnection,
-  setSelectedConnection,
-  highlightedPath,
-  hoveredNode,
-  setHoveredNode,
-  updateNodePosition,
-  setConnections,
-  saveToHistory,
-  onOpenEditModal,
-  onSingleClick,
-  projects = [],
-  flows = [],
-  allConnections = [],
-  onGoToProject,
-  onWheel,
-  showLabels = false,
-  forcePositions,
-  onForceDragStart,
-  onForceDrag,
-  onForceDragEnd,
+  svgRef, state, updateState, viewMode, workflows, nodes, connections,
+  selectedNodes, setSelectedNodes, selectedConnection, setSelectedConnection,
+  highlightedPath, hoveredNode, setHoveredNode, updateNodePosition,
+  setConnections, saveToHistory, onOpenEditModal, onSingleClick,
+  projects = [], flows = [], allConnections = [],
+  onGoToFlow, onWheel, showLabels = false,
+  forcePositions, onForceDragStart, onForceDrag, onForceDragEnd,
   useForceLayout = false,
 }) => {
   const [hoveredConnection, setHoveredConnection] = useState<{
@@ -81,25 +57,25 @@ export const Canvas: React.FC<CanvasProps> = ({
     position: { x: number; y: number };
   } | null>(null);
 
-  // BFS to calculate depth from center node
+  // BFS to calculate depth from center node using node_ref
   const calculateNodeDepths = () => {
-    if (viewMode !== 'single' || nodes.length === 0) return new Map<number, number>();
+    if (viewMode !== 'single' || nodes.length === 0) return new Map<string, number>();
     const centerNode = nodes[0];
-    const depths = new Map<number, number>();
-    const queue: Array<{ id: number; depth: number }> = [{ id: centerNode.id, depth: 0 }];
-    const visited = new Set<number>();
+    const depths = new Map<string, number>();
+    const queue: Array<{ ref: string; depth: number }> = [{ ref: centerNode.node_ref, depth: 0 }];
+    const visited = new Set<string>();
     
     while (queue.length > 0) {
       const current = queue.shift()!;
-      if (visited.has(current.id)) continue;
-      visited.add(current.id);
-      depths.set(current.id, current.depth);
+      if (visited.has(current.ref)) continue;
+      visited.add(current.ref);
+      depths.set(current.ref, current.depth);
       connections
-        .filter(c => c.from === current.id || c.to === current.id)
+        .filter(c => c.from_ref === current.ref || c.to_ref === current.ref)
         .forEach(c => {
-          const neighborId = c.from === current.id ? c.to : c.from;
-          if (!visited.has(neighborId) && nodes.some(n => n.id === neighborId)) {
-            queue.push({ id: neighborId, depth: current.depth + 1 });
+          const neighborRef = c.from_ref === current.ref ? c.to_ref : c.from_ref;
+          if (!visited.has(neighborRef) && nodes.some(n => n.node_ref === neighborRef)) {
+            queue.push({ ref: neighborRef, depth: current.depth + 1 });
           }
         });
     }
@@ -124,18 +100,15 @@ export const Canvas: React.FC<CanvasProps> = ({
     return { dx: Math.cos(angle) * radius, dy: Math.sin(angle) * radius };
   };
 
-  // Calculate dynamic ring radius per flow
   const getFlowRingRadius = (nodeCount: number) => Math.max(240, nodeCount * 30);
-
   const getNodeFlowId = (n: any) => n?.flow_id ?? (n?.type === 'project' ? n.id : null);
   
-  // Layout determinístico para Master View
+  // Layout determinístico para Master View — keyed by node_ref
   const masterLayoutMap = React.useMemo(() => {
-    if (viewMode !== 'master' || !flows?.length) return new Map<number, {x:number, y:number}>();
-    const map = new Map<number, {x:number, y:number}>();
+    if (viewMode !== 'master' || !flows?.length) return new Map<string, {x:number, y:number}>();
+    const map = new Map<string, {x:number, y:number}>();
     const typeOrder = (t?: string) => (t === 'project' ? 0 : t === 'brand' ? 1 : 2);
     
-    // Pre-compute max ring radius for offset calculation
     const maxRingRadius = flows.reduce((max, flow) => {
       const count = nodes.filter(n => getNodeFlowId(n) === flow.id).length;
       return Math.max(max, getFlowRingRadius(count));
@@ -151,9 +124,9 @@ export const Canvas: React.FC<CanvasProps> = ({
         clusterNodes[0];
       const ringRadius = getFlowRingRadius(clusterNodes.length);
       const { dx, dy } = getFlowOffset(flow.id, maxRingRadius);
-      map.set(centerNode.id, { x: dx, y: dy });
+      map.set(centerNode.node_ref, { x: dx, y: dy });
       
-      const others = clusterNodes.filter(n => n.id !== centerNode.id);
+      const others = clusterNodes.filter(n => n.node_ref !== centerNode.node_ref);
       const sorted = [...others].sort((a, b) => {
         const t = typeOrder(a.type) - typeOrder(b.type);
         if (t !== 0) return t;
@@ -167,21 +140,20 @@ export const Canvas: React.FC<CanvasProps> = ({
       const step = (2 * Math.PI) / N;
       sorted.forEach((n, i) => {
         const angle = start + i * step;
-        map.set(n.id, { x: dx + ringRadius * Math.cos(angle), y: dy + ringRadius * Math.sin(angle) });
+        map.set(n.node_ref, { x: dx + ringRadius * Math.cos(angle), y: dy + ringRadius * Math.sin(angle) });
       });
     });
     return map;
   }, [viewMode, flows, nodes]);
 
-  // Position resolver — uses force positions when available in single view
+  // Position resolver
   const getDisplayPos = (n: any) => {
     if (viewMode === 'master') {
-      const pos = masterLayoutMap.get(n.id);
+      const pos = masterLayoutMap.get(n.node_ref);
       return pos ?? { x: n.x, y: n.y };
     }
-    // Use force simulation positions when available
-    if (useForceLayout && forcePositions && forcePositions[n.id]) {
-      return forcePositions[n.id];
+    if (useForceLayout && forcePositions && forcePositions[n.node_ref]) {
+      return forcePositions[n.node_ref];
     }
     return { x: n.x, y: n.y };
   };
@@ -189,50 +161,44 @@ export const Canvas: React.FC<CanvasProps> = ({
   const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clickCountRef = useRef(0);
 
-  const handleNodeMouseDown = (e: React.MouseEvent, nodeId: number) => {
+  const handleNodeMouseDown = (e: React.MouseEvent, node: any) => {
     e.stopPropagation();
+    const nodeRef = node.node_ref;
     if (viewMode === 'master') {
       if (e.shiftKey) {
-        setSelectedNodes(selectedNodes.includes(nodeId) 
-          ? selectedNodes.filter(id => id !== nodeId) 
-          : [...selectedNodes, nodeId]);
+        setSelectedNodes(selectedNodes.includes(nodeRef) 
+          ? selectedNodes.filter(r => r !== nodeRef) 
+          : [...selectedNodes, nodeRef]);
       } else {
-        if (!selectedNodes.includes(nodeId)) setSelectedNodes([nodeId]);
-        updateState({ selectedNode: nodeId });
+        if (!selectedNodes.includes(nodeRef)) setSelectedNodes([nodeRef]);
+        updateState({ selectedNode: nodeRef });
       }
       return;
     }
     if (e.button === 0 && !(e.ctrlKey || e.metaKey)) {
-      const node = nodes.find(n => n.id === nodeId);
       const rect = svgRef.current!.getBoundingClientRect();
       const x = (e.clientX - rect.left - state.pan.x) / state.zoom;
       const y = (e.clientY - rect.top - state.pan.y) / state.zoom;
       if (e.shiftKey) {
-        setSelectedNodes(selectedNodes.includes(nodeId) 
-          ? selectedNodes.filter(id => id !== nodeId) 
-          : [...selectedNodes, nodeId]);
+        setSelectedNodes(selectedNodes.includes(nodeRef) 
+          ? selectedNodes.filter(r => r !== nodeRef) 
+          : [...selectedNodes, nodeRef]);
       } else {
-        if (!selectedNodes.includes(nodeId)) setSelectedNodes([nodeId]);
+        if (!selectedNodes.includes(nodeRef)) setSelectedNodes([nodeRef]);
         const pos = getDisplayPos(node);
-        updateState({ dragging: nodeId, offset: { x: x - pos.x, y: y - pos.y }, selectedNode: nodeId });
-        // Notify force simulation of drag start
+        updateState({ dragging: nodeRef, offset: { x: x - pos.x, y: y - pos.y }, selectedNode: nodeRef });
         if (useForceLayout && onForceDragStart) {
-          onForceDragStart(nodeId);
+          onForceDragStart(nodeRef);
         }
       }
     }
   };
 
-  const handleNodeClick = (e: React.MouseEvent, nodeId: number) => {
-    // Only trigger single click if no drag happened
-    const node = nodes.find(n => n.id === nodeId);
-    if (!node) return;
-    
+  const handleNodeClick = (e: React.MouseEvent, node: any) => {
     clickCountRef.current++;
     if (clickCountRef.current === 1) {
       clickTimerRef.current = setTimeout(() => {
         if (clickCountRef.current === 1) {
-          // Single click → open detail panel
           if (onSingleClick) onSingleClick(node);
         }
         clickCountRef.current = 0;
@@ -240,37 +206,32 @@ export const Canvas: React.FC<CanvasProps> = ({
     }
   };
 
-  const handleNodeDoubleClick = (e: React.MouseEvent, nodeId: number) => {
+  const handleNodeDoubleClick = (e: React.MouseEvent, node: any) => {
     e.stopPropagation();
-    // Cancel single click
     clickCountRef.current = 2;
     if (clickTimerRef.current) clearTimeout(clickTimerRef.current);
     
-    const node = nodes.find(n => n.id === nodeId);
-    if (!node) return;
     if (viewMode === 'single') {
       if (onOpenEditModal) onOpenEditModal(node);
       return;
     }
-    if (onGoToProject) {
+    if (onGoToFlow) {
       const centerFlow = flows.find(f => f.center_id === node.id && f.center_type === node.type);
       if (centerFlow) {
-        onGoToProject(centerFlow.center_id);
+        onGoToFlow(centerFlow.id);
       } else if (node.flow_id) {
-        const belongsToFlow = flows.find(f => f.id === node.flow_id);
-        if (belongsToFlow) onGoToProject(belongsToFlow.center_id);
+        onGoToFlow(node.flow_id);
       }
     }
   };
 
-  const handleConnectionDotMouseDown = (e: React.MouseEvent, nodeId: number) => {
+  const handleConnectionDotMouseDown = (e: React.MouseEvent, node: any) => {
     if (viewMode === 'master') return;
     e.stopPropagation();
-    const node = nodes.find(n => n.id === nodeId);
     const pos = getDisplayPos(node);
     updateState({ 
       isDraggingConnection: true, 
-      connectionStart: { id: nodeId, x: pos.x, y: pos.y }, 
+      connectionStart: { ref: node.node_ref, x: pos.x, y: pos.y }, 
       connectionEnd: { x: pos.x, y: pos.y },
       showSidebar: false
     });
@@ -283,15 +244,16 @@ export const Canvas: React.FC<CanvasProps> = ({
     if (state.dragging && viewMode === 'master') return;
     if (state.dragging) {
       if (useForceLayout && onForceDrag) {
-        // In force mode, update the fixed position directly
         const dragX = x - state.offset.x;
         const dragY = y - state.offset.y;
         onForceDrag(state.dragging, dragX, dragY);
       } else {
-        const draggedNode = nodes.find(n => n.id === state.dragging);
-        const dx = x - state.offset.x - draggedNode.x;
-        const dy = y - state.offset.y - draggedNode.y;
-        selectedNodes.forEach(nodeId => updateNodePosition(nodeId, dx, dy, false));
+        const draggedNode = nodes.find(n => n.node_ref === state.dragging);
+        if (draggedNode) {
+          const dx = x - state.offset.x - draggedNode.x;
+          const dy = y - state.offset.y - draggedNode.y;
+          selectedNodes.forEach(nodeRef => updateNodePosition(nodeRef, dx, dy, false));
+        }
       }
     } else if (state.isPanning) {
       updateState({ pan: { x: e.clientX - state.panStart.x, y: e.clientY - state.panStart.y } });
@@ -309,39 +271,44 @@ export const Canvas: React.FC<CanvasProps> = ({
         const pos = getDisplayPos(n);
         return Math.sqrt((pos.x - x) ** 2 + (pos.y - y) ** 2) < 45;
       });
-      if (targetNode && targetNode.id !== state.connectionStart.id) {
+      if (targetNode && targetNode.node_ref !== state.connectionStart.ref) {
         const exists = connections.some(c => 
-          (c.from === state.connectionStart.id && c.to === targetNode.id) || 
-          (c.from === targetNode.id && c.to === state.connectionStart.id)
+          (c.from_ref === state.connectionStart.ref && c.to_ref === targetNode.node_ref) || 
+          (c.from_ref === targetNode.node_ref && c.to_ref === state.connectionStart.ref)
         );
         if (!exists) {
+          const startParsed = parseRef(state.connectionStart.ref);
           saveToHistory();
-          setConnections(prev => [...prev, { from: state.connectionStart.id, to: targetNode.id, type: 'strong', directional: false }]);
+          setConnections(prev => [...prev, { 
+            from: startParsed.id, to: targetNode.id,
+            from_ref: state.connectionStart.ref, to_ref: targetNode.node_ref,
+            from_type: startParsed.type, to_type: targetNode.type,
+            type: 'strong', directional: false 
+          }]);
         }
       }
     }
     if (state.dragging) {
       if (useForceLayout && onForceDragEnd) {
-        // End force drag — save final position to DB
         const pos = forcePositions?.[state.dragging];
         if (pos) {
-          const draggedNode = nodes.find(n => n.id === state.dragging);
+          const draggedNode = nodes.find(n => n.node_ref === state.dragging);
           if (draggedNode) {
             const dx = pos.x - draggedNode.x;
             const dy = pos.y - draggedNode.y;
-            selectedNodes.forEach(nodeId => updateNodePosition(nodeId, dx, dy, true));
+            selectedNodes.forEach(nodeRef => updateNodePosition(nodeRef, dx, dy, true));
           }
         }
         onForceDragEnd(state.dragging);
       } else {
-        const draggedNode = nodes.find(n => n.id === state.dragging);
+        const draggedNode = nodes.find(n => n.node_ref === state.dragging);
         if (draggedNode) {
           const rect = svgRef.current!.getBoundingClientRect();
           const x = (e.clientX - rect.left - state.pan.x) / state.zoom;
           const y = (e.clientY - rect.top - state.pan.y) / state.zoom;
           const dx = x - state.offset.x - draggedNode.x;
           const dy = y - state.offset.y - draggedNode.y;
-          selectedNodes.forEach(nodeId => updateNodePosition(nodeId, dx, dy, true));
+          selectedNodes.forEach(nodeRef => updateNodePosition(nodeRef, dx, dy, true));
         }
       }
       saveToHistory();
@@ -364,7 +331,6 @@ export const Canvas: React.FC<CanvasProps> = ({
     }
   };
 
-  // Get initial of node name for display
   const getInitial = (name: string) => {
     return name ? name.charAt(0).toUpperCase() : '?';
   };
@@ -455,7 +421,7 @@ export const Canvas: React.FC<CanvasProps> = ({
                 const domainB = pB.email.split('@')[1]?.toLowerCase();
                 if (domainA && domainB && domainA === domainB && !['gmail.com', 'hotmail.com', 'outlook.com', 'yahoo.com'].includes(domainA)) {
                   const alreadyConnected = specificConnections.some(c => 
-                    (c.personA.id === pA.id && c.personB.id === pB.id) || (c.personA.id === pB.id && c.personB.id === pA.id));
+                    (c.personA.node_ref === pA.node_ref && c.personB.node_ref === pB.node_ref) || (c.personA.node_ref === pB.node_ref && c.personB.node_ref === pA.node_ref));
                   if (!alreadyConnected) {
                     specificConnections.push({ personA: pA, personB: pB, flowA, flowB, emailDomain: domainA, type: 'email', strength: 1 });
                   }
@@ -465,8 +431,8 @@ export const Canvas: React.FC<CanvasProps> = ({
           }
           
           return specificConnections.map((conn, idx) => {
-            const posA = masterLayoutMap.get(conn.personA.id);
-            const posB = masterLayoutMap.get(conn.personB.id);
+            const posA = masterLayoutMap.get(conn.personA.node_ref);
+            const posB = masterLayoutMap.get(conn.personB.node_ref);
             if (!posA || !posB) return null;
             const style = conn.type === 'company' 
               ? { stroke: 'hsl(var(--connection-cross))', strokeWidth: conn.strength === 3 ? '2.5' : '2', dasharray: '6,4', opacity: '0.5' }
@@ -484,7 +450,7 @@ export const Canvas: React.FC<CanvasProps> = ({
           const clusterNodes = nodes.filter(n => getNodeFlowId(n) === flow.id);
           if (clusterNodes.length === 0) return null;
           const centerNode = clusterNodes.find(n => n.id === flow.center_id && n.type === flow.center_type) || clusterNodes.find(n => n.type === 'project') || clusterNodes[0];
-          const pos = masterLayoutMap.get(centerNode.id);
+          const pos = masterLayoutMap.get(centerNode.node_ref);
           if (!pos) return null;
           const ringRadius = getFlowRingRadius(clusterNodes.length);
           return (
@@ -495,29 +461,30 @@ export const Canvas: React.FC<CanvasProps> = ({
 
         {/* Connections */}
         {(() => {
-          const activeNodeId = selectedNodes.length === 1 ? selectedNodes[0] : null;
-          const hasFocus = activeNodeId !== null;
+          const activeNodeRef = selectedNodes.length === 1 ? selectedNodes[0] : null;
+          const hasFocus = activeNodeRef !== null;
 
           return connections.map((conn, idx) => {
-          const from = nodes.find(n => n.id === conn.from);
-          const to = nodes.find(n => n.id === conn.to);
+          const from = nodes.find(n => n.node_ref === conn.from_ref);
+          const to = nodes.find(n => n.node_ref === conn.to_ref);
           if (!from || !to) return null;
           
-          const globalIdx = allConnections.findIndex(c => (c.from === conn.from && c.to === conn.to) || (c.from === conn.to && c.to === conn.from));
+          const globalIdx = allConnections.findIndex(c => 
+            (c.from_ref === conn.from_ref && c.to_ref === conn.to_ref) || 
+            (c.from_ref === conn.to_ref && c.to_ref === conn.from_ref));
           const isSelected = selectedConnection === globalIdx;
-          const fromDepth = nodeDepths.get(from.id) ?? 0;
-          const toDepth = nodeDepths.get(to.id) ?? 0;
+          const fromDepth = nodeDepths.get(from.node_ref) ?? 0;
+          const toDepth = nodeDepths.get(to.node_ref) ?? 0;
           const connectionLevel = Math.min(fromDepth, toDepth);
-          const isInPath = highlightedPath.length > 0 && highlightedPath.some((id, i) => 
+          const isInPath = highlightedPath.length > 0 && highlightedPath.some((ref, i) => 
             i < highlightedPath.length - 1 && 
-            ((highlightedPath[i] === from.id && highlightedPath[i + 1] === to.id) || (highlightedPath[i] === to.id && highlightedPath[i + 1] === from.id)));
+            ((highlightedPath[i] === from.node_ref && highlightedPath[i + 1] === to.node_ref) || (highlightedPath[i] === to.node_ref && highlightedPath[i + 1] === from.node_ref)));
           
           const fromFlowId = getNodeFlowId(from);
           const toFlowId = getNodeFlowId(to);
           const isCrossFlow = viewMode === 'master' && fromFlowId && toFlowId && fromFlowId !== toFlowId;
 
-          // Dim connections not touching selected node
-          const isConnDimmed = hasFocus && conn.from !== activeNodeId && conn.to !== activeNodeId;
+          const isConnDimmed = hasFocus && conn.from_ref !== activeNodeRef && conn.to_ref !== activeNodeRef;
           
           let strokeColor: string, strokeWidth: number, strokeDasharray: string | undefined, opacity = 1, useGlow = false;
           
@@ -548,7 +515,7 @@ export const Canvas: React.FC<CanvasProps> = ({
           const pathData = `M ${fromX},${fromY} Q ${midX},${controlY2} ${toX},${toY}`;
           
           return (
-            <g key={idx} style={{ transition: 'opacity 0.3s ease' }}>
+            <g key={`conn-${conn.id || idx}-${conn.from_ref}-${conn.to_ref}`} style={{ transition: 'opacity 0.3s ease' }}>
               <path d={pathData} stroke="transparent" strokeWidth="15" fill="none" className="cursor-pointer"
                 onClick={(e) => { e.stopPropagation(); setSelectedConnection(selectedConnection === globalIdx ? null : globalIdx); setSelectedNodes([]); }}
                 onMouseEnter={(e) => {
@@ -564,7 +531,6 @@ export const Canvas: React.FC<CanvasProps> = ({
                 markerEnd={conn.directional ? 'url(#arrowhead)' : ''}
                 filter={useGlow ? "url(#connectionGlow)" : undefined}
                 className="pointer-events-none" />
-              {/* Connection label */}
               {showLabels && conn.connection_type && (
                 <text x={midX} y={controlY2 + 4} textAnchor="middle"
                   fill="hsl(var(--muted-foreground))" fontSize="13" fontFamily="monospace" opacity={isConnDimmed ? 0.06 : 0.6}>
@@ -582,86 +548,78 @@ export const Canvas: React.FC<CanvasProps> = ({
             stroke="hsl(var(--connection-strong))" strokeWidth="2" strokeDasharray="5,5" />
         )}
         
-        {/* Compute highlight set: selected node + its direct connections */}
+        {/* Nodes */}
         {(() => {
-          const activeNodeId = selectedNodes.length === 1 ? selectedNodes[0] : null;
-          const connectedNodeIds = new Set<number>();
-          if (activeNodeId) {
-            connectedNodeIds.add(activeNodeId);
+          const activeNodeRef = selectedNodes.length === 1 ? selectedNodes[0] : null;
+          const connectedNodeRefs = new Set<string>();
+          if (activeNodeRef) {
+            connectedNodeRefs.add(activeNodeRef);
             connections.forEach(c => {
-              if (c.from === activeNodeId) connectedNodeIds.add(c.to);
-              if (c.to === activeNodeId) connectedNodeIds.add(c.from);
+              if (c.from_ref === activeNodeRef) connectedNodeRefs.add(c.to_ref);
+              if (c.to_ref === activeNodeRef) connectedNodeRefs.add(c.from_ref);
             });
           }
-          const hasFocus = activeNodeId !== null;
+          const hasFocus = activeNodeRef !== null;
 
           return nodes.map(node => {
           const nodeType = (node.type as keyof typeof nodeColors) || 'person';
           const colors = nodeColors[nodeType] || nodeColors.person;
-          const isSelected = selectedNodes.includes(node.id);
-          const isInPath = highlightedPath.includes(node.id);
-          const connectionCount = connections.filter(c => c.from === node.id || c.to === node.id).length;
+          const isSelected = selectedNodes.includes(node.node_ref);
+          const isInPath = highlightedPath.includes(node.node_ref);
+          const connectionCount = connections.filter(c => c.from_ref === node.node_ref || c.to_ref === node.node_ref).length;
           
           const { x: displayX, y: displayY } = getDisplayPos(node);
           
-          // Size based on connections (organic)
           const baseSize = 20 + Math.min(connectionCount * 4, 25);
-          const isCenterNode = (node as any).level === 'center' || (viewMode === 'single' && nodes[0]?.id === node.id);
+          const isCenterNode = (viewMode === 'single' && nodes[0]?.node_ref === node.node_ref);
           const nodeSize = isCenterNode ? Math.max(baseSize, 45) : baseSize;
-          const isHovered = hoveredNode === node.id;
+          const isHovered = hoveredNode === node.node_ref;
           
-          // Dim nodes not connected to selected node
-          const isDimmed = hasFocus && !connectedNodeIds.has(node.id);
+          const isDimmed = hasFocus && !connectedNodeRefs.has(node.node_ref);
           
           return (
-            <g key={node.id} transform={`translate(${displayX}, ${displayY})`}
-              onMouseDown={(e) => handleNodeMouseDown(e, node.id)}
-              onClick={(e) => { e.stopPropagation(); handleNodeClick(e, node.id); }}
-              onDoubleClick={(e) => handleNodeDoubleClick(e, node.id)}
-              onMouseEnter={() => setHoveredNode(node.id)}
+            <g key={node.node_ref} transform={`translate(${displayX}, ${displayY})`}
+              onMouseDown={(e) => handleNodeMouseDown(e, node)}
+              onClick={(e) => { e.stopPropagation(); handleNodeClick(e, node); }}
+              onDoubleClick={(e) => handleNodeDoubleClick(e, node)}
+              onMouseEnter={() => setHoveredNode(node.node_ref)}
               onMouseLeave={() => setHoveredNode(null)}
               className="cursor-pointer"
               opacity={isDimmed ? 0.15 : 1}
-              style={{ transition: state.dragging === node.id ? 'none' : 'transform 0.1s ease-out, opacity 0.3s ease' }}
+              style={{ transition: state.dragging === node.node_ref ? 'none' : 'transform 0.1s ease-out, opacity 0.3s ease' }}
             >
-              {/* Hover glow */}
               {isHovered && (
                 <circle r={nodeSize + 12} fill={colors.primary} opacity="0.12" filter="url(#glow-node)" />
               )}
               
-              {/* Selection ring */}
               {isSelected && (
                 <circle r={nodeSize + 6} fill="none" stroke="white" strokeWidth="2" opacity="0.8" strokeDasharray="4,3" />
               )}
               
-              {/* Path highlight */}
               {isInPath && (
                 <circle r={nodeSize + 8} fill="none" stroke="hsl(var(--connection-path))" strokeWidth="3" opacity="0.6" />
               )}
 
-              {/* New node highlight */}
               {(node as any).isNewHighlight && (
                 <circle r={nodeSize + 10} fill="none" stroke="#facc15" strokeWidth="3" opacity="0.8" className="animate-pulse" />
               )}
               
-              {/* Node body */}
               {node.profile_picture_url ? (
                 <>
                   <defs>
-                    <clipPath id={`clip-${node.id}`}>
+                    <clipPath id={`clip-${node.type}-${node.id}`}>
                       <circle r={nodeSize} />
                     </clipPath>
                   </defs>
                   <image href={node.profile_picture_url} x={-nodeSize} y={-nodeSize}
                     width={nodeSize * 2} height={nodeSize * 2}
-                    clipPath={`url(#clip-${node.id})`} preserveAspectRatio="xMidYMid slice" />
+                    clipPath={`url(#clip-${node.type}-${node.id})`} preserveAspectRatio="xMidYMid slice" />
                   <circle r={nodeSize} fill="none" stroke={colors.primary} strokeWidth={isCenterNode ? 3 : 2} />
                 </>
               ) : (
                 <>
                   <circle r={nodeSize} fill="hsl(var(--background))" stroke={colors.primary}
                     strokeWidth={isCenterNode ? 3 : 2} opacity="0.95" />
-                  {/* Initial letter */}
                   <text textAnchor="middle" dominantBaseline="central"
                     fill={colors.primary} fontSize={nodeSize * 0.6} fontWeight="600" fontFamily="monospace">
                     {getInitial(node.name)}
@@ -669,22 +627,19 @@ export const Canvas: React.FC<CanvasProps> = ({
                 </>
               )}
               
-              {/* Connection dot (Single View only) */}
               {viewMode === 'single' && (
                 <circle cx={nodeSize + 8} cy="0" r="6"
                   fill="rgba(59, 130, 246, 0.9)" stroke="white" strokeWidth="1.5"
                   className="cursor-crosshair" style={{ pointerEvents: 'all' }}
-                  onMouseDown={(e) => handleConnectionDotMouseDown(e, node.id)} />
+                  onMouseDown={(e) => handleConnectionDotMouseDown(e, node)} />
               )}
               
-              {/* Name label */}
               <text y={nodeSize + 20} textAnchor="middle" fill="hsl(var(--foreground))"
                 fontSize={isHovered ? 16 : 15} fontWeight={isHovered ? 600 : 400}
                 style={{ transition: 'font-size 0.15s ease' }}>
                 {node.name.length > 18 ? node.name.substring(0, 18) + '…' : node.name}
               </text>
               
-              {/* Category / notes subtitle */}
               {node.category && (
                 <text y={nodeSize + 38} textAnchor="middle" fill={colors.primary}
                   fontSize="13" opacity={isHovered ? 0.9 : 0.5} fontFamily="monospace">
@@ -704,7 +659,7 @@ export const Canvas: React.FC<CanvasProps> = ({
           const centerNode = clusterNodes.find(n => n.id === flow.center_id && n.type === flow.center_type)
             || clusterNodes.find(n => n.id === flow.center_id)
             || clusterNodes.find(n => n.type === 'project') || clusterNodes[0];
-          const pos = masterLayoutMap.get(centerNode.id);
+          const pos = masterLayoutMap.get(centerNode.node_ref);
           if (!pos) return null;
           const ringRadius = getFlowRingRadius(clusterNodes.length);
           
@@ -728,8 +683,8 @@ export const Canvas: React.FC<CanvasProps> = ({
     {/* Connection tooltip */}
     {hoveredConnection && (() => {
       const conn = connections[hoveredConnection.index];
-      const from = nodes.find(n => n.id === conn?.from);
-      const to = nodes.find(n => n.id === conn?.to);
+      const from = nodes.find(n => n.node_ref === conn?.from_ref);
+      const to = nodes.find(n => n.node_ref === conn?.to_ref);
       if (!conn || !from || !to) return null;
       return (
         <ConnectionTooltip connection={conn} fromNode={from} toNode={to}
