@@ -474,46 +474,17 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
 
   const calculateBounds = (nodesList: any[]) => {
     if (nodesList.length === 0) return { minX: 0, maxX: 1000, minY: 0, maxY: 800 };
-    const MASTER_RING_RADIUS = 240;
     if (viewMode === 'master' && flows) {
-      const count = Math.max(flows.length, 1);
-      
-      // For bubble mode (many flows), estimate organic spread from flow count
-      if (count > 12) {
-        // d3-force spreads nodes organically; estimate spread proportional to sqrt(count)
-        const estimatedSpread = Math.max(600, Math.sqrt(count) * 200);
-        const margin = 250;
-        return {
-          minX: -estimatedSpread - margin,
-          maxX: estimatedSpread + margin,
-          minY: -estimatedSpread - margin,
-          maxY: estimatedSpread + margin
-        };
-      }
-      
-      const positions: { x: number; y: number }[] = [];
-      const getFlowOffset = (flowId: number) => {
-        const idx = Math.max(0, flows.findIndex(f => f.id === flowId));
-        
-        const angle = (idx / count) * Math.PI * 2;
-        let radius = 0;
-        if (count > 1) { radius = (2 * (MASTER_RING_RADIUS + 40) + 136) / (2 * Math.sin(Math.PI / count)); }
-        return { dx: Math.cos(angle) * radius, dy: Math.sin(angle) * radius };
+      // Dense galaxy layout: estimate spread from total node count
+      const totalNodes = nodesList.length;
+      const estimatedSpread = Math.max(200, Math.sqrt(totalNodes) * 15);
+      const margin = 80;
+      return {
+        minX: -estimatedSpread - margin,
+        maxX: estimatedSpread + margin,
+        minY: -estimatedSpread - margin,
+        maxY: estimatedSpread + margin
       };
-      flows.forEach((flow: any) => {
-        const clusterNodes = nodesList.filter(n => n.flow_id === flow.id);
-        if (clusterNodes.length === 0) return;
-        const offset = getFlowOffset(flow.id);
-        positions.push({ x: offset.dx, y: offset.dy });
-        const otherNodes = clusterNodes.slice(1);
-        otherNodes.forEach((_, i) => {
-          const angle = (i / Math.max(otherNodes.length, 1)) * Math.PI * 2;
-          positions.push({ x: offset.dx + MASTER_RING_RADIUS * Math.cos(angle), y: offset.dy + MASTER_RING_RADIUS * Math.sin(angle) });
-        });
-      });
-      if (positions.length === 0) return { minX: 0, maxX: 1000, minY: 0, maxY: 800 };
-      const margin = 400;
-      return { minX: Math.min(...positions.map(p => p.x)) - margin, maxX: Math.max(...positions.map(p => p.x)) + margin, minY: Math.min(...positions.map(p => p.y)) - margin, maxY: Math.max(...positions.map(p => p.y)) + margin };
     }
     const xs = nodesList.map(n => n.x); const ys = nodesList.map(n => n.y);
     const margin = 150;

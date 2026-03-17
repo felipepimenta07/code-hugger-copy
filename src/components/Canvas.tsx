@@ -390,8 +390,8 @@ export const Canvas: React.FC<CanvasProps> = ({
           );
         })()}
         
-        {/* Cross-flow connections (Master View) - hidden in bubble mode */}
-        {viewMode === 'master' && state.zoom >= 0.15 && (() => {
+        {/* Cross-flow connections (Master View) */}
+        {viewMode === 'master' && (() => {
           const specificConnections: Array<{
             personA: any; personB: any; flowA: number; flowB: number;
             company?: string; emailDomain?: string; type: 'company' | 'email'; strength: number;
