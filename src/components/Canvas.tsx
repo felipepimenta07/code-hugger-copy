@@ -536,75 +536,7 @@ export const Canvas: React.FC<CanvasProps> = ({
             stroke="hsl(var(--connection-strong))" strokeWidth="2" strokeDasharray="5,5" />
         )}
         
-        {/* Cross-flow connections in bubble mode */}
-        {viewMode === 'master' && state.zoom < 0.15 && (() => {
-          const crossFlowLinks: Array<{fromId: number, toId: number}> = [];
-          const seen = new Set<string>();
-          connections.forEach(conn => {
-            const fromNode = nodes.find(n => n.node_ref === conn.from_ref);
-            const toNode = nodes.find(n => n.node_ref === conn.to_ref);
-            if (!fromNode || !toNode) return;
-            const fFlow = getNodeFlowId(fromNode);
-            const tFlow = getNodeFlowId(toNode);
-            if (fFlow && tFlow && fFlow !== tFlow) {
-              const key = [Math.min(fFlow, tFlow), Math.max(fFlow, tFlow)].join('-');
-              if (!seen.has(key)) { seen.add(key); crossFlowLinks.push({ fromId: fFlow, toId: tFlow }); }
-            }
-          });
-          return crossFlowLinks.map((link, i) => {
-            const from = bubbleLayoutMap.get(link.fromId);
-            const to = bubbleLayoutMap.get(link.toId);
-            if (!from || !to) return null;
-            return <line key={`xflow-${i}`} x1={from.x} y1={from.y} x2={to.x} y2={to.y}
-              stroke="hsl(var(--muted-foreground))" strokeWidth="2" opacity="0.15" strokeDasharray="8,6" />;
-          });
-        })()}
-
-        {/* Bubble mode (Master View, zoom < 0.15) */}
-        {viewMode === 'master' && state.zoom < 0.15 && flows.map((flow, flowIdx) => {
-          const clusterNodes = nodes.filter(n => getNodeFlowId(n) === flow.id);
-          if (clusterNodes.length === 0) return null;
-          const bubble = bubbleLayoutMap.get(flow.id);
-          if (!bubble) return null;
-          const { x: bx, y: by, radius: bubbleRadius } = bubble;
-          const flowColor = FLOW_COLORS[flowIdx % FLOW_COLORS.length];
-          const isHovered = hoveredNode === `bubble-${flow.id}`;
-          const centerNode = clusterNodes.find(n => n.id === flow.center_id && n.type === flow.center_type) || clusterNodes[0];
-          const isSelected = centerNode && selectedNodes.includes(centerNode.node_ref);
-          const fontSize = Math.max(18, bubbleRadius * 0.4);
-          const subFontSize = Math.max(14, bubbleRadius * 0.26);
-          return (
-            <g key={`bubble-${flow.id}`} transform={`translate(${bx}, ${by})`}
-              className="cursor-pointer"
-              onMouseEnter={() => setHoveredNode(`bubble-${flow.id}`)}
-              onMouseLeave={() => setHoveredNode(null)}
-              onClick={(e) => { e.stopPropagation(); if (centerNode) { setSelectedNodes([centerNode.node_ref]); updateState({ selectedNode: centerNode.node_ref }); } }}
-              onDoubleClick={(e) => { e.stopPropagation(); if (onGoToFlow) onGoToFlow(flow.id); }}
-            >
-              {/* Outer glow — always visible */}
-              <circle r={bubbleRadius * 1.6} fill={flowColor} opacity="0.06" />
-              <circle r={bubbleRadius * 1.2} fill={flowColor} opacity="0.12" />
-              {/* Hover glow */}
-              {isHovered && <circle r={bubbleRadius * 1.5} fill={flowColor} opacity="0.25" filter="url(#glow-node)" />}
-              {/* Selection ring */}
-              {isSelected && <circle r={bubbleRadius + 8} fill="none" stroke="white" strokeWidth="3" opacity="0.9" strokeDasharray="8,5" />}
-              {/* Main bubble */}
-              <circle r={bubbleRadius} fill={flowColor} opacity={isHovered ? 0.85 : 0.55}
-                stroke={flowColor} strokeWidth="4" strokeOpacity={isHovered ? 1 : 0.7} />
-              {/* Flow name */}
-              <text y={-subFontSize * 0.4} textAnchor="middle" dominantBaseline="central" fill="white"
-                fontSize={fontSize} fontWeight="800" fontFamily="monospace" letterSpacing="0.05em"
-                style={{ textShadow: '0 2px 8px rgba(0,0,0,0.7)' }}>
-                {flow.name.length > 16 ? flow.name.substring(0, 16) + '…' : flow.name.toUpperCase()}
-              </text>
-              {/* Node count */}
-              <text y={fontSize * 0.7} textAnchor="middle" dominantBaseline="central" fill="white"
-                fontSize={subFontSize} opacity="0.75" fontFamily="monospace">
-                {clusterNodes.length} {clusterNodes.length === 1 ? 'nó' : 'nós'}
-              </text>
-            </g>
-          );
-        })}
+        {/* Removed bubble mode — dense layout always shows individual nodes */}
 
         {/* Nodes - hidden in master bubble mode */}
         {!(viewMode === 'master' && state.zoom < 0.15) && (() => {
