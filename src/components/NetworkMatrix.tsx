@@ -857,7 +857,7 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
           />
 
           {/* Compact zoom - bottom right */}
-          <div className="absolute bottom-4 right-4 flex items-center gap-1.5 z-30">
+          <div className="absolute bottom-16 right-4 flex items-center gap-1.5 z-30">
             <button className="w-9 h-9 flex items-center justify-center rounded-lg bg-secondary/60 text-muted-foreground hover:text-foreground transition-colors"
               onClick={() => { const w = window.innerWidth; const h = window.innerHeight - 100; const nz = Math.max(state.zoom / 1.2, 0.3); const cx = (w / 2 - state.pan.x) / state.zoom; const cy = (h / 2 - state.pan.y) / state.zoom; updateState({ zoom: nz, pan: { x: w / 2 - cx * nz, y: h / 2 - cy * nz } }); }}>
               <ZoomOut size={16} />
