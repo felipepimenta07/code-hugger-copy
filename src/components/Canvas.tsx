@@ -126,26 +126,38 @@ export const Canvas: React.FC<CanvasProps> = ({
   const getFlowRingRadius = (nodeCount: number) => Math.max(240, nodeCount * 30);
   const getNodeFlowId = (n: any) => n?.flow_id ?? (n?.type === 'project' ? n.id : null);
   
-  // Bubble layout for semantic zoom (dedicated tight spacing)
+  // Bubble layout for semantic zoom — organic d3-force positioning
   const bubbleLayoutMap = React.useMemo(() => {
     if (viewMode !== 'master' || !flows?.length) return new Map<number, {x:number, y:number, radius:number}>();
     const map = new Map<number, {x:number, y:number, radius:number}>();
-    const count = flows.length;
-    const cols = Math.ceil(Math.sqrt(count));
-    const spacing = 280;
-    const totalW = (cols - 1) * spacing;
-    const rows = Math.ceil(count / cols);
-    const totalH = (rows - 1) * spacing;
-    flows.forEach((flow, idx) => {
+
+    // Build bubble nodes with radii
+    const bubbleNodes = flows.map((flow, idx) => {
       const clusterNodes = nodes.filter(n => getNodeFlowId(n) === flow.id);
-      const bubbleRadius = Math.max(40, Math.sqrt(Math.max(clusterNodes.length, 1)) * 22);
-      const row = Math.floor(idx / cols);
-      const col = idx % cols;
-      map.set(flow.id, {
-        x: col * spacing - totalW / 2,
-        y: row * spacing - totalH / 2,
-        radius: bubbleRadius
-      });
+      const bubbleRadius = Math.max(50, Math.sqrt(Math.max(clusterNodes.length, 1)) * 25);
+      return { flowId: flow.id, radius: bubbleRadius, x: 0, y: 0, vx: 0, vy: 0 };
+    });
+
+    // Seed initial positions in a rough spiral to help convergence
+    bubbleNodes.forEach((bn, i) => {
+      const angle = i * 2.399; // golden angle
+      const r = 80 * Math.sqrt(i + 1);
+      bn.x = Math.cos(angle) * r;
+      bn.y = Math.sin(angle) * r;
+    });
+
+    // Run a short d3-force simulation synchronously
+    const sim = forceSimulation(bubbleNodes as any)
+      .force('charge', forceManyBody().strength(-300))
+      .force('center', forceCenter(0, 0).strength(0.05))
+      .force('collision', forceCollide<any>().radius((d: any) => d.radius + 40).strength(0.9))
+      .stop();
+
+    // Run 120 ticks synchronously
+    for (let i = 0; i < 120; i++) sim.tick();
+
+    bubbleNodes.forEach(bn => {
+      map.set(bn.flowId, { x: bn.x, y: bn.y, radius: bn.radius });
     });
     return map;
   }, [viewMode, flows, nodes]);
