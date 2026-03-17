@@ -853,6 +853,7 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
             onForceDrag={onForceDrag}
             onForceDragEnd={onForceDragEnd}
             useForceLayout={viewMode === 'single'}
+            hoveredFlowId={hoveredFlowId}
           />
 
           {/* Compact zoom - bottom right */}
