@@ -1,6 +1,8 @@
 import React from 'react';
 import { Search, Sparkles, LayoutGrid, Target, Tag, LogOut, MessageCircle, Briefcase, Upload } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { LinkedInFilters } from './LinkedInFilters';
+import { LinkedInFilterState } from '@/types/linkedin';
 
 interface NetworkToolbarProps {
   viewMode: string;
