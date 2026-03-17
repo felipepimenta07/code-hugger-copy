@@ -6,7 +6,7 @@ import { NetworkToolbar } from './NetworkToolbar';
 import { NetworkModals } from './NetworkModals';
 import { NetworkSidebar } from './NetworkSidebar';
 import { NodeDetailPanel } from './NodeDetailPanel';
-import { PathIndicator } from './PathIndicator';
+
 import { FlowManagerPanel } from './FlowManagerPanel';
 import { WhatsAppNotifications } from './WhatsAppNotifications';
 import { useNetworkState } from '@/hooks/useNetworkState';
