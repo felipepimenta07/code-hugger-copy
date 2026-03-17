@@ -95,6 +95,14 @@ export const NetworkToolbar: React.FC<NetworkToolbarProps> = ({
             </button>
           </>
         )}
+
+        {allNodes && linkedInFilters && onLinkedInFiltersChange && (
+          <LinkedInFilters
+            allNodes={allNodes}
+            filters={linkedInFilters}
+            onFiltersChange={onLinkedInFiltersChange}
+          />
+        )}
       </div>
 
       {/* Right section */}
