@@ -36,7 +36,7 @@ interface CanvasProps {
   useForceLayout?: boolean;
 }
 
-const MASTER_RING_RADIUS = 240;
+// Bug 1 fix: no longer a constant — computed per-flow based on node count
 
 const nodeColors = {
   person: { primary: 'hsl(var(--node-person))', glow: 'hsl(var(--node-person-glow))', secondary: 'hsl(var(--node-person-secondary))' },

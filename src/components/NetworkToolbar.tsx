@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, Sparkles, Layers, Target, Tag, Plus, LogOut, MessageCircle } from 'lucide-react';
+import { Search, Sparkles, LayoutGrid, Target, Tag, LogOut, MessageCircle, Briefcase } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 
 interface NetworkToolbarProps {
@@ -13,12 +13,9 @@ interface NetworkToolbarProps {
   showAIInsights: boolean;
   setShowAIInsights: (show: boolean | ((prev: boolean) => boolean)) => void;
   onFitToScreen: () => void;
-  onAutoOrganize: () => void;
   onMasterView: () => void;
   onSingleView: () => void;
-  onNewFlow: () => void;
   onOpenFlows: () => void;
-  onCreateNode?: () => void;
   onOpenWhatsApp?: () => void;
   onLogout?: () => void;
   onSearch: () => void;
@@ -27,20 +24,24 @@ interface NetworkToolbarProps {
 export const NetworkToolbar: React.FC<NetworkToolbarProps> = ({
   viewMode, nodeCount, connectionCount, searchQuery, setSearchQuery,
   showLabels, setShowLabels, showAIInsights, setShowAIInsights,
-  onFitToScreen, onAutoOrganize, onMasterView, onSingleView,
-  onNewFlow, onOpenFlows, onCreateNode, onOpenWhatsApp, onLogout, onSearch,
+  onFitToScreen, onMasterView, onSingleView,
+  onOpenFlows, onOpenWhatsApp, onLogout, onSearch,
 }) => {
   const btnClass = "px-2.5 py-1.5 text-sm font-mono text-muted-foreground hover:text-foreground hover:bg-secondary/40 rounded transition-colors flex items-center gap-1.5";
 
   return (
     <div className="absolute top-0 left-0 right-0 z-40 flex items-center justify-between px-4 py-2 bg-[hsl(220,20%,6%)]/95 backdrop-blur-md border-b border-border/20">
-      {/* Left section */}
+      {/* Left section — view modes */}
       <div className="flex items-center gap-1.5">
         <button onClick={onMasterView}
           className={`px-3 py-1.5 text-sm font-mono uppercase tracking-wider rounded transition-all ${
             viewMode === 'master' ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-secondary/40'
           }`}>
-          <span className="flex items-center gap-1.5"><Layers size={14} /> Master</span>
+          <span className="flex items-center gap-1.5"><LayoutGrid size={14} /> Master</span>
+        </button>
+        <button onClick={onOpenFlows}
+          className={`px-3 py-1.5 text-sm font-mono uppercase tracking-wider rounded transition-all text-muted-foreground hover:text-foreground hover:bg-secondary/40`}>
+          <span className="flex items-center gap-1.5"><Briefcase size={14} /> Flows</span>
         </button>
         <button onClick={onSingleView}
           className={`px-3 py-1.5 text-sm font-mono uppercase tracking-wider rounded transition-all ${
@@ -52,7 +53,6 @@ export const NetworkToolbar: React.FC<NetworkToolbarProps> = ({
         <div className="h-5 w-px bg-border/30 mx-1" />
 
         <button onClick={onFitToScreen} className={btnClass} title="Ajustar à tela">Ajustar</button>
-        <button onClick={onAutoOrganize} className={btnClass} title="Reorganizar">Reset</button>
 
         <div className="h-5 w-px bg-border/30 mx-1" />
 
@@ -69,23 +69,13 @@ export const NetworkToolbar: React.FC<NetworkToolbarProps> = ({
           <Sparkles size={14} /> IA
         </button>
 
-        <div className="h-5 w-px bg-border/30 mx-1" />
-
-        {viewMode === 'single' && onCreateNode && (
-          <button onClick={onCreateNode} className={btnClass}>
-            <Plus size={14} /> Criar Nó
-          </button>
-        )}
-        <button onClick={onNewFlow} className={btnClass}>
-          <Plus size={14} /> Novo Flow
-        </button>
-        <button onClick={onOpenFlows} className={btnClass}>
-          <Layers size={14} /> Flows
-        </button>
         {onOpenWhatsApp && (
-          <button onClick={onOpenWhatsApp} className={btnClass}>
-            <MessageCircle size={14} className="text-green-500" /> WhatsApp
-          </button>
+          <>
+            <div className="h-5 w-px bg-border/30 mx-1" />
+            <button onClick={onOpenWhatsApp} className={btnClass}>
+              <MessageCircle size={14} className="text-green-500" /> WhatsApp
+            </button>
+          </>
         )}
       </div>
 
