@@ -167,12 +167,12 @@ ${networkContext}`
     return allNodes.find(n => n.node_ref === nodeId)?.name || `Nó ${nodeId}`;
   };
 
-  const getNodesByIds = (ids: number[]) => {
+  const getNodesByIds = (ids: any[]) => {
     if (!ids || ids.length === 0) return [];
-    return ids.map(id => allNodes.find(n => n.id === id)).filter(Boolean);
+    return ids.map(id => allNodes.find(n => n.id === id || n.node_ref === String(id))).filter(Boolean);
   };
 
-  const openModal = (connection: any, ids: number[], type: 'hidden' | 'bridge' | 'opportunity' | 'alert' | 'action') => {
+  const openModal = (connection: any, ids: any[], type: 'hidden' | 'bridge' | 'opportunity' | 'alert' | 'action') => {
     if (onOpenConnectionModal) {
       onOpenConnectionModal(connection, getNodesByIds(ids), type);
     }
