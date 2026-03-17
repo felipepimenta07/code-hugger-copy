@@ -94,8 +94,15 @@ export const LinkedInImportModal = ({ open, onOpenChange, onImport, projects }: 
     if (!mergedData) return;
     setIsAnalyzing(true);
     try {
+      // Send only essential fields to reduce payload size
+      const lightContacts = mergedData.contacts.map(c => ({
+        firstName: c.firstName,
+        lastName: c.lastName,
+        company: c.company,
+        position: c.position,
+      }));
       const { data, error } = await supabase.functions.invoke('analyze-linkedin', {
-        body: { contacts: mergedData.contacts, companies: mergedData.uniqueCompanies }
+        body: { contacts: lightContacts, companies: mergedData.uniqueCompanies }
       });
       if (error) throw error;
       setEnrichedData(data as LinkedInEnrichedData);

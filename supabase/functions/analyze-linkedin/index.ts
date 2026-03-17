@@ -6,10 +6,13 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
+  console.log("analyze-linkedin: received request", req.method);
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
     const { contacts, companies } = await req.json();
+    console.log("analyze-linkedin: contacts=", contacts?.length, "companies=", companies?.length);
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
@@ -18,7 +21,7 @@ serve(async (req) => {
     for (const c of contacts) {
       const company = c.company?.trim() || "Sem empresa";
       if (!companyPeople[company]) companyPeople[company] = [];
-      companyPeople[company].push(`${c.firstName} ${c.lastName} (${c.position || 'N/A'})`);
+      companyPeople[company].push(`${c.firstName || c.name || ''} ${c.lastName || ''} (${c.position || 'N/A'})`);
     }
 
     const companySummary = Object.entries(companyPeople)
@@ -35,6 +38,7 @@ Use a tool suggest_enrichment para retornar:
 2. Para cada empresa, infira o país/região provável baseado no nome da empresa e posições
 3. Detecte possíveis conexões fracas: pessoas em empresas de setores similares que poderiam se beneficiar de uma apresentação`;
 
+    console.log("analyze-linkedin: calling AI gateway...");
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -90,7 +94,11 @@ Use a tool suggest_enrichment para retornar:
       }),
     });
 
+    console.log("analyze-linkedin: AI gateway status=", response.status);
+
     if (!response.ok) {
+      const t = await response.text();
+      console.error("AI gateway error:", response.status, t);
       if (response.status === 429) {
         return new Response(JSON.stringify({ error: "Rate limit exceeded. Tente novamente em alguns segundos." }), {
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -101,19 +109,19 @@ Use a tool suggest_enrichment para retornar:
           status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      const t = await response.text();
-      console.error("AI gateway error:", response.status, t);
-      throw new Error("AI analysis failed");
+      throw new Error("AI analysis failed: " + t);
     }
 
     const aiResult = await response.json();
     const toolCall = aiResult.choices?.[0]?.message?.tool_calls?.[0];
 
     if (!toolCall?.function?.arguments) {
+      console.error("analyze-linkedin: no tool call in response", JSON.stringify(aiResult).slice(0, 500));
       throw new Error("No structured response from AI");
     }
 
     const enrichment = JSON.parse(toolCall.function.arguments);
+    console.log("analyze-linkedin: enrichment parsed successfully");
 
     // Enrich contacts with sector/country from their company
     const enrichedContacts = contacts.map((c: any) => ({
