@@ -818,8 +818,7 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
 
   // ===== RENDER =====
   return (
-    <div className="min-h-screen h-screen flex flex-col overflow-hidden"
-      style={{ background: viewMode === 'single' ? 'hsl(225, 22%, 9%)' : 'hsl(220, 20%, 7%)' }}>
+    <div className="min-h-screen h-screen flex flex-col overflow-hidden">
       {/* Sidebar - Groups only */}
       <NetworkSidebar viewMode={viewMode} allNodes={allNodes} nodes={nodes} />
 
