@@ -394,11 +394,11 @@ ${networkContext}`
                               </div>
                               <div
                                 className="flex items-center gap-1 text-xs cursor-pointer hover:text-green-500 flex-wrap"
-                                onClick={() => onHighlightPath(opp.path)}
+                                onClick={() => onHighlightPath((opp.path || []).map(String))}
                               >
-                                {opp.path?.map((id: number, i: number) => (
-                                  <React.Fragment key={id}>
-                                    <span className="font-medium">{getNodeName(id)}</span>
+                                {opp.path?.map((id: any, i: number) => (
+                                  <React.Fragment key={String(id)}>
+                                    <span className="font-medium">{getNodeName(String(id))}</span>
                                     {i < opp.path.length - 1 && <span>→</span>}
                                   </React.Fragment>
                                 ))}
