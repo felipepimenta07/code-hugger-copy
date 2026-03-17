@@ -72,8 +72,14 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply text-foreground;
     background: hsl(220, 20%, 7%);
+    background-image:
+      radial-gradient(ellipse 80% 60% at 70% 90%, hsla(330, 70%, 35%, 0.25), transparent 60%),
+      radial-gradient(ellipse 60% 50% at 85% 75%, hsla(260, 60%, 30%, 0.2), transparent 55%),
+      radial-gradient(ellipse 70% 60% at 30% 70%, hsla(230, 60%, 30%, 0.2), transparent 55%),
+      radial-gradient(ellipse 50% 40% at 50% 50%, hsla(280, 50%, 25%, 0.15), transparent 50%);
+    background-attachment: fixed;
   }
 }
 
