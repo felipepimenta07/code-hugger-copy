@@ -1,1 +1,4 @@
 project_id = "vxumzznfckpbbvwokegd"
+
+[functions.analyze-linkedin]
+verify_jwt = false
