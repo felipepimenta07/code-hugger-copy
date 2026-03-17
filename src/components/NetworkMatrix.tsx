@@ -14,7 +14,7 @@ import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { useAuth } from '@/hooks/useAuth';
 import { useForceSimulation } from '@/hooks/useForceSimulation';
 import { supabase } from '@/integrations/supabase/client';
-import { ParsedLinkedInData, LinkedInImportOptions } from '@/types/linkedin';
+import { ParsedLinkedInData, LinkedInImportOptions, LinkedInEnrichedData, LinkedInFilterState } from '@/types/linkedin';
 import { makeRef, parseRef, getTableName } from '@/utils/nodeRef';
 
 const CATEGORIES = {
