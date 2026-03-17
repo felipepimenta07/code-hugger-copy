@@ -696,13 +696,13 @@ export const Canvas: React.FC<CanvasProps> = ({
           
           return (
             <g key={`label-${flow.id}`} pointerEvents="none">
-              <text x={pos.x} y={pos.y - MASTER_RING_RADIUS - 40} textAnchor="middle"
-                fill="hsl(var(--muted-foreground))" fontSize="12" fontWeight="600"
+                <text x={pos.x} y={pos.y - MASTER_RING_RADIUS - 40} textAnchor="middle"
+                fill="hsl(var(--muted-foreground))" fontSize="14" fontWeight="600"
                 letterSpacing="2" fontFamily="monospace">
                 {flow.name.toUpperCase()}
               </text>
-              <text x={pos.x} y={pos.y - MASTER_RING_RADIUS - 24} textAnchor="middle"
-                fill="hsl(var(--muted-foreground))" fontSize="10" opacity="0.4" fontFamily="monospace">
+              <text x={pos.x} y={pos.y - MASTER_RING_RADIUS - 22} textAnchor="middle"
+                fill="hsl(var(--muted-foreground))" fontSize="12" opacity="0.4" fontFamily="monospace">
                 {clusterNodes.length} {clusterNodes.length === 1 ? 'nó' : 'nós'}
               </text>
             </g>
