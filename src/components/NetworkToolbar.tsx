@@ -26,7 +26,7 @@ export const NetworkToolbar: React.FC<NetworkToolbarProps> = ({
   viewMode, nodeCount, connectionCount, searchQuery, setSearchQuery,
   showLabels, setShowLabels, showAIInsights, setShowAIInsights,
   onFitToScreen, onMasterView, onSingleView,
-  onOpenFlows, onOpenWhatsApp, onLogout, onSearch,
+  onOpenFlows, onOpenWhatsApp, onOpenLinkedIn, onLogout, onSearch,
 }) => {
   const btnClass = "px-2.5 py-1.5 text-sm font-mono text-muted-foreground hover:text-foreground hover:bg-secondary/40 rounded transition-colors flex items-center gap-1.5";
 
