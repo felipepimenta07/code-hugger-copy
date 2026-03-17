@@ -824,25 +824,70 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
           />
 
           {/* Compact zoom - bottom right */}
-          <div className="absolute bottom-3 right-3 flex items-center gap-1 z-30">
-            <button className="w-6 h-6 flex items-center justify-center rounded bg-secondary/60 text-muted-foreground hover:text-foreground transition-colors"
+          <div className="absolute bottom-4 right-4 flex items-center gap-1.5 z-30">
+            <button className="w-9 h-9 flex items-center justify-center rounded-lg bg-secondary/60 text-muted-foreground hover:text-foreground transition-colors"
               onClick={() => { const w = window.innerWidth; const h = window.innerHeight - 100; const nz = Math.max(state.zoom / 1.2, 0.3); const cx = (w / 2 - state.pan.x) / state.zoom; const cy = (h / 2 - state.pan.y) / state.zoom; updateState({ zoom: nz, pan: { x: w / 2 - cx * nz, y: h / 2 - cy * nz } }); }}>
-              <ZoomOut size={12} />
+              <ZoomOut size={16} />
             </button>
-            <button className="h-6 px-1.5 flex items-center justify-center rounded bg-secondary/60 text-muted-foreground hover:text-foreground transition-colors text-xs font-mono"
+            <button className="h-9 px-2 flex items-center justify-center rounded-lg bg-secondary/60 text-muted-foreground hover:text-foreground transition-colors text-sm font-mono"
               onClick={() => updateState({ zoom: 1 })}>
               {Math.round(state.zoom * 100)}%
             </button>
-            <button className="w-6 h-6 flex items-center justify-center rounded bg-secondary/60 text-muted-foreground hover:text-foreground transition-colors"
+            <button className="w-9 h-9 flex items-center justify-center rounded-lg bg-secondary/60 text-muted-foreground hover:text-foreground transition-colors"
               onClick={() => { const w = window.innerWidth; const h = window.innerHeight - 100; const nz = Math.min(state.zoom * 1.2, 3); const cx = (w / 2 - state.pan.x) / state.zoom; const cy = (h / 2 - state.pan.y) / state.zoom; updateState({ zoom: nz, pan: { x: w / 2 - cx * nz, y: h / 2 - cy * nz } }); }}>
-              <ZoomIn size={12} />
+              <ZoomIn size={16} />
             </button>
-            <div className="h-4 w-px bg-border/20 mx-0.5" />
-            <button className="w-6 h-6 flex items-center justify-center rounded bg-secondary/60 text-muted-foreground hover:text-foreground transition-colors"
+            <div className="h-5 w-px bg-border/20 mx-0.5" />
+            <button className="w-9 h-9 flex items-center justify-center rounded-lg bg-secondary/60 text-muted-foreground hover:text-foreground transition-colors"
               onClick={handleFitToScreen}>
-              <Target size={12} />
+              <Target size={16} />
             </button>
           </div>
+
+          {/* FABs — bottom center */}
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 z-30">
+            {viewMode === 'single' && (
+              <button
+                className="px-4 py-2.5 rounded-full bg-primary/20 text-primary hover:bg-primary/30 transition-colors text-sm font-mono flex items-center gap-2 border border-primary/30"
+                onClick={() => {
+                  setIsCreatingFlowRoot(false);
+                  const w = window.innerWidth; const h = window.innerHeight;
+                  const cx = (w / 2 - state.pan.x) / state.zoom;
+                  const cy = (h / 2 - state.pan.y) / state.zoom;
+                  setNodeCreationPosition({ x: cx, y: cy });
+                  setShowNodeCreationModal(true);
+                }}
+              >
+                + Criar Nó
+              </button>
+            )}
+            <button
+              className="px-4 py-2.5 rounded-full bg-secondary/60 text-foreground hover:bg-secondary/80 transition-colors text-sm font-mono flex items-center gap-2 border border-border/30"
+              onClick={handleNewFlow}
+            >
+              + Novo Flow
+            </button>
+          </div>
+
+          {/* Flow Manager Panel (dropdown) */}
+          <FlowManagerPanel
+            open={showFlowsManager}
+            onOpenChange={setShowFlowsManager}
+            flows={flowsForManager}
+            onSelectFlow={(flowId) => {
+              const sf = flows.find(f => f.id === flowId);
+              if (sf) { setActiveProjectId(sf.center_id); setViewMode('single'); }
+            }}
+            onDeleteFlow={async (flowId) => {
+              if (!user) return;
+              const { error } = await supabase.from('flows').delete().eq('id', flowId).eq('user_id', user.id);
+              if (error) { toast.error('Erro ao deletar flow'); return; }
+              setFlows(prev => prev.filter(f => f.id !== flowId));
+              toast.success('Flow deletado');
+              const df = flows.find(f => f.id === flowId);
+              if (df && activeProjectId === df.center_id) { setViewMode('master'); setActiveProjectId(null); }
+            }}
+          />
         </div>
 
         {/* Node Detail Panel */}
@@ -873,7 +918,6 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
           <PathIndicator selectedNode={selectedNode} centerNode={centerNode} allNodes={allNodes} connections={allConnections} />
         )}
 
-        {user && <ResetButton onResetComplete={() => { isResettingRef.current = false; reloadData({ forceReset: true }); }} onResetStart={() => { isResettingRef.current = true; }} userId={user.id} />}
         <WhatsAppNotifications />
       </div>
 
