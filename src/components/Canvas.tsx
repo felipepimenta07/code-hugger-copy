@@ -488,7 +488,8 @@ export const Canvas: React.FC<CanvasProps> = ({
           const toFlowId = getNodeFlowId(to);
           const isCrossFlow = viewMode === 'master' && fromFlowId && toFlowId && fromFlowId !== toFlowId;
 
-          const isConnDimmed = hasFocus && conn.from_ref !== activeNodeRef && conn.to_ref !== activeNodeRef;
+          const isConnDimmed = (hasFocus && conn.from_ref !== activeNodeRef && conn.to_ref !== activeNodeRef) ||
+                              (hasFlowHov && !hovFlowRefs.has(conn.from_ref) && !hovFlowRefs.has(conn.to_ref));
           
           let strokeColor: string, strokeWidth: number, strokeDasharray: string | undefined, opacity = 1, useGlow = false;
           
