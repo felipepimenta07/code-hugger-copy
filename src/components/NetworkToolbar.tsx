@@ -1,7 +1,6 @@
 import React from 'react';
-import { Search, Sparkles, Layers, Target, Tag, Plus, LogOut, MessageCircle, Menu } from 'lucide-react';
+import { Search, Sparkles, Layers, Target, Tag, Plus, LogOut, MessageCircle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 
 interface NetworkToolbarProps {
   viewMode: string;
@@ -31,6 +30,8 @@ export const NetworkToolbar: React.FC<NetworkToolbarProps> = ({
   onFitToScreen, onAutoOrganize, onMasterView, onSingleView,
   onNewFlow, onOpenFlows, onCreateNode, onOpenWhatsApp, onLogout, onSearch,
 }) => {
+  const btnClass = "px-2.5 py-1.5 text-sm font-mono text-muted-foreground hover:text-foreground hover:bg-secondary/40 rounded transition-colors flex items-center gap-1.5";
+
   return (
     <div className="absolute top-0 left-0 right-0 z-40 flex items-center justify-between px-4 py-2 bg-[hsl(220,20%,6%)]/95 backdrop-blur-md border-b border-border/20">
       {/* Left section */}
@@ -50,12 +51,8 @@ export const NetworkToolbar: React.FC<NetworkToolbarProps> = ({
 
         <div className="h-5 w-px bg-border/30 mx-1" />
 
-        <button onClick={onFitToScreen}
-          className="px-2.5 py-1.5 text-sm font-mono text-muted-foreground hover:text-foreground hover:bg-secondary/40 rounded transition-colors"
-          title="Ajustar à tela">Ajustar</button>
-        <button onClick={onAutoOrganize}
-          className="px-2.5 py-1.5 text-sm font-mono text-muted-foreground hover:text-foreground hover:bg-secondary/40 rounded transition-colors"
-          title="Reorganizar">Reset</button>
+        <button onClick={onFitToScreen} className={btnClass} title="Ajustar à tela">Ajustar</button>
+        <button onClick={onAutoOrganize} className={btnClass} title="Reorganizar">Reset</button>
 
         <div className="h-5 w-px bg-border/30 mx-1" />
 
@@ -71,6 +68,25 @@ export const NetworkToolbar: React.FC<NetworkToolbarProps> = ({
           }`}>
           <Sparkles size={14} /> IA
         </button>
+
+        <div className="h-5 w-px bg-border/30 mx-1" />
+
+        {viewMode === 'single' && onCreateNode && (
+          <button onClick={onCreateNode} className={btnClass}>
+            <Plus size={14} /> Criar Nó
+          </button>
+        )}
+        <button onClick={onNewFlow} className={btnClass}>
+          <Plus size={14} /> Novo Flow
+        </button>
+        <button onClick={onOpenFlows} className={btnClass}>
+          <Layers size={14} /> Flows
+        </button>
+        {onOpenWhatsApp && (
+          <button onClick={onOpenWhatsApp} className={btnClass}>
+            <MessageCircle size={14} className="text-green-500" /> WhatsApp
+          </button>
+        )}
       </div>
 
       {/* Right section */}
@@ -89,45 +105,14 @@ export const NetworkToolbar: React.FC<NetworkToolbarProps> = ({
           {nodeCount} NÓS · {connectionCount} CONEXÕES
         </span>
 
-        <div className="h-5 w-px bg-border/30" />
-
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button className="p-1.5 text-muted-foreground hover:text-foreground rounded hover:bg-secondary/40 transition-colors">
-              <Menu size={18} />
+        {onLogout && (
+          <>
+            <div className="h-5 w-px bg-border/30" />
+            <button onClick={onLogout} className="px-2.5 py-1.5 text-sm font-mono text-destructive hover:text-destructive hover:bg-destructive/10 rounded transition-colors flex items-center gap-1.5">
+              <LogOut size={14} /> Sair
             </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-52">
-            {viewMode === 'single' && onCreateNode && (
-              <>
-                <DropdownMenuItem onClick={onCreateNode}>
-                  <Plus size={16} className="mr-2" /> Criar Nó
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-              </>
-            )}
-            <DropdownMenuItem onClick={onNewFlow}>
-              <Plus size={16} className="mr-2" /> Novo Flow
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={onOpenFlows}>
-              <Layers size={16} className="mr-2" /> Gerenciar Flows
-            </DropdownMenuItem>
-            {onOpenWhatsApp && (
-              <DropdownMenuItem onClick={onOpenWhatsApp}>
-                <MessageCircle size={16} className="mr-2 text-green-500" /> WhatsApp
-              </DropdownMenuItem>
-            )}
-            {onLogout && (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={onLogout} className="text-destructive">
-                  <LogOut size={16} className="mr-2" /> Sair
-                </DropdownMenuItem>
-              </>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
+          </>
+        )}
       </div>
     </div>
   );
