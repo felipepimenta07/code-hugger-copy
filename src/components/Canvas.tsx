@@ -564,6 +564,15 @@ export const Canvas: React.FC<CanvasProps> = ({
             });
           }
           const hasFocus = activeNodeRef !== null;
+          
+          // Flow hover preview: find nodes belonging to hovered flow
+          const hoveredFlowNodeRefs = new Set<string>();
+          if (hoveredFlowId) {
+            nodes.forEach(n => {
+              if (n.flow_id === hoveredFlowId) hoveredFlowNodeRefs.add(n.node_ref);
+            });
+          }
+          const hasFlowHover = hoveredFlowId !== null && hoveredFlowNodeRefs.size > 0;
 
           return nodes.map(node => {
           const nodeType = (node.type as keyof typeof nodeColors) || 'person';
