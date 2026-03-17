@@ -48,6 +48,7 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
   const [customCategories, setCustomCategories] = useState({ person: [], brand: [], project: [] });
   const [highlightedPath, setHighlightedPath] = useState<string[]>([]);
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
+  const [hoveredFlowId, setHoveredFlowId] = useState<number | null>(null);
   const [flows, setFlows] = useState<any[]>([]);
 
   // Modal/panel state
