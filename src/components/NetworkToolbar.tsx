@@ -32,7 +32,7 @@ export const NetworkToolbar: React.FC<NetworkToolbarProps> = ({
   return (
     <div className="absolute top-0 left-0 right-0 z-40 flex items-center justify-between px-4 py-2 bg-[hsl(220,20%,6%)]/95 backdrop-blur-md border-b border-border/20">
       {/* Left section — view modes (leave space for Flows overlay) */}
-      <div className="flex items-center gap-1.5 ml-[120px]">
+      <div className="flex items-center gap-1.5 ml-0">
         <button onClick={onMasterView}
           className={`px-3 py-1.5 text-sm font-mono uppercase tracking-wider rounded transition-all ${
             viewMode === 'master' ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-secondary/40'
