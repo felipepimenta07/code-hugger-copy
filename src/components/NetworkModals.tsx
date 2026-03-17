@@ -22,7 +22,7 @@ interface NetworkModalsProps {
   pathEnd: any;
   setPathStart: (n: any) => void;
   setPathEnd: (n: any) => void;
-  setHighlightedPath: (path: number[]) => void;
+  setHighlightedPath: (path: string[]) => void;
   nodes: any[];
   connections: any[];
 
@@ -66,17 +66,17 @@ interface NetworkModalsProps {
   flows: any[];
   people: any[];
   brands: any[];
-  onHighlightPath: (ids: number[]) => void;
-  onFocusNode: (id: number) => void;
+  onHighlightPath: (ids: string[]) => void;
+  onFocusNode: (id: string) => void;
   onOpenConnectionModal: (conn: any, nodes: any[], type: string) => void;
 
   aiConnectionModal: any;
   setAiConnectionModal: (m: any) => void;
-  onAiConnectionFocusNode: (id: number) => void;
+  onAiConnectionFocusNode: (id: string) => void;
 
   showOpportunities: boolean;
   setShowOpportunities: (show: boolean) => void;
-  onSelectOpportunityNode: (id: number) => void;
+  onSelectOpportunityNode: (id: string) => void;
 
   showSidebar: boolean;
   editingNode: any;

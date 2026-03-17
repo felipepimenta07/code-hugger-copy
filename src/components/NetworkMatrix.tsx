@@ -428,7 +428,7 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
       const tableName = getTableName(node.type);
       const updateFn = node.type === 'project' ? setProjects : node.type === 'person' ? setPeople : setBrands;
       updateFn(prev => prev.map(p => p.id === node.id ? { ...p, ...(viewMode === 'master' ? { master_x: node.x, master_y: node.y } : { x: node.x, y: node.y }) } : p));
-      await supabase.from(tableName).update({ [xColumn]: node.x, [yColumn]: node.y }).eq('id', node.id).eq('user_id', user.id);
+      await (supabase.from as any)(tableName).update({ [xColumn]: node.x, [yColumn]: node.y }).eq('id', node.id).eq('user_id', user.id);
     }
   };
 
@@ -626,15 +626,15 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
     else if (nodeType === 'brand') { baseData.website = nodeData.website || null; }
 
     const tableName = getTableName(nodeType);
-    const { data: insertedNode, error } = await supabase.from(tableName).insert([baseData]).select().single();
+    const { data: insertedNode, error } = await (supabase.from as any)(tableName).insert([baseData]).select().single();
     if (error || !insertedNode) { toast.error(`Erro ao criar ${nodeType}`); return null; }
 
     if (isNewFlow && currentFlowId) {
-      await supabase.from('flows').update({ center_id: insertedNode.id }).eq('id', currentFlowId);
+      await supabase.from('flows').update({ center_id: (insertedNode as any).id }).eq('id', currentFlowId);
       const { data: updatedFlow } = await supabase.from('flows').select('*').eq('id', currentFlowId).single();
       if (updatedFlow) setFlows(prev => [...prev, updatedFlow]);
     }
-    return { ...insertedNode, type: nodeType, node_ref: makeRef(nodeType, insertedNode.id) };
+    return { ...insertedNode, type: nodeType, node_ref: makeRef(nodeType, (insertedNode as any).id) };
   };
 
   const handleCreateNode = async (nodeData: any, originalNodeId: number | null) => {
@@ -655,7 +655,7 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
     saveToHistory();
     const nodeType = nodeData.nodeType || 'person';
     const tableName = getTableName(nodeType);
-    const { data: existingNodes } = await supabase.from(tableName).select('*').eq('name', nodeData.name.trim()).eq('user_id', user.id).limit(1);
+    const { data: existingNodes } = await (supabase.from as any)(tableName).select('*').eq('name', nodeData.name.trim()).eq('user_id', user.id).limit(1);
     if (existingNodes?.length > 0) { setDuplicateCheckModal({ show: true, existingNode: existingNodes[0], newNodeData: nodeData, nodeType }); return; }
     await handleCreateNode(nodeData, null);
   };

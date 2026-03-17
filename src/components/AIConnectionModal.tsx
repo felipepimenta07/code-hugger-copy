@@ -10,7 +10,7 @@ interface AIConnectionModalProps {
   involvedNodes: any[];
   connectionType: 'hidden' | 'bridge' | 'opportunity' | 'alert' | 'action';
   onClose: () => void;
-  onFocusNode: (nodeId: number) => void;
+  onFocusNode: (nodeId: string) => void;
 }
 
 const NODE_COLORS = {
@@ -370,9 +370,9 @@ export const AIConnectionModal: React.FC<AIConnectionModalProps> = ({
                 <div className="flex flex-wrap gap-3">
                   {involvedNodes.map((node) => (
                     <NodeCard
-                      key={node.id}
+                      key={node.node_ref || node.id}
                       node={node}
-                      onFocusNode={onFocusNode}
+                      onFocusNode={(id: any) => onFocusNode(String(id))}
                       onClose={onClose}
                     />
                   ))}

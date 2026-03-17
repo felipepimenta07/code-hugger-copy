@@ -17,8 +17,8 @@ interface AIInsightsPanelProps {
   people?: any[];
   brands?: any[];
   projects?: any[];
-  onHighlightPath: (nodeIds: number[]) => void;
-  onFocusNode: (nodeId: number) => void;
+  onHighlightPath: (nodeIds: string[]) => void;
+  onFocusNode: (nodeId: string) => void;
   onClose: () => void;
   onOpenConnectionModal?: (connection: any, involvedNodes: any[], type: 'hidden' | 'bridge' | 'opportunity' | 'alert' | 'action') => void;
 }
@@ -163,16 +163,16 @@ ${networkContext}`
     }
   };
 
-  const getNodeName = (nodeId: number) => {
-    return allNodes.find(n => n.id === nodeId)?.name || `Nó ${nodeId}`;
+  const getNodeName = (nodeId: string) => {
+    return allNodes.find(n => n.node_ref === nodeId)?.name || `Nó ${nodeId}`;
   };
 
-  const getNodesByIds = (ids: number[]) => {
+  const getNodesByIds = (ids: any[]) => {
     if (!ids || ids.length === 0) return [];
-    return ids.map(id => allNodes.find(n => n.id === id)).filter(Boolean);
+    return ids.map(id => allNodes.find(n => n.id === id || n.node_ref === String(id))).filter(Boolean);
   };
 
-  const openModal = (connection: any, ids: number[], type: 'hidden' | 'bridge' | 'opportunity' | 'alert' | 'action') => {
+  const openModal = (connection: any, ids: any[], type: 'hidden' | 'bridge' | 'opportunity' | 'alert' | 'action') => {
     if (onOpenConnectionModal) {
       onOpenConnectionModal(connection, getNodesByIds(ids), type);
     }
@@ -288,14 +288,14 @@ ${networkContext}`
                               </div>
                               <p className="text-xs text-muted-foreground">{conn.description}</p>
                               <div className="flex flex-wrap gap-1">
-                                {conn.node_ids?.map((id: number) => (
+                                {conn.node_ids?.map((id: any) => (
                                   <Badge
-                                    key={id}
+                                    key={String(id)}
                                     variant="outline"
                                     className="text-xs cursor-pointer hover:bg-accent"
-                                    onClick={() => onFocusNode(id)}
+                                    onClick={() => onFocusNode(String(id))}
                                   >
-                                    {getNodeName(id)}
+                                    {getNodeName(String(id))}
                                   </Badge>
                                 ))}
                               </div>
@@ -394,11 +394,11 @@ ${networkContext}`
                               </div>
                               <div
                                 className="flex items-center gap-1 text-xs cursor-pointer hover:text-green-500 flex-wrap"
-                                onClick={() => onHighlightPath(opp.path)}
+                                onClick={() => onHighlightPath((opp.path || []).map(String))}
                               >
-                                {opp.path?.map((id: number, i: number) => (
-                                  <React.Fragment key={id}>
-                                    <span className="font-medium">{getNodeName(id)}</span>
+                                {opp.path?.map((id: any, i: number) => (
+                                  <React.Fragment key={String(id)}>
+                                    <span className="font-medium">{getNodeName(String(id))}</span>
                                     {i < opp.path.length - 1 && <span>→</span>}
                                   </React.Fragment>
                                 ))}
@@ -448,14 +448,14 @@ ${networkContext}`
                               </div>
                               <p className="text-xs text-muted-foreground">{alert.description}</p>
                               <div className="flex flex-wrap gap-1">
-                                {alert.node_ids?.map((id: number) => (
+                                {alert.node_ids?.map((id: any) => (
                                   <Badge
-                                    key={id}
+                                    key={String(id)}
                                     variant="outline"
                                     className="text-xs cursor-pointer hover:bg-accent"
-                                    onClick={() => onFocusNode(id)}
+                                    onClick={() => onFocusNode(String(id))}
                                   >
-                                    {getNodeName(id)}
+                                    {getNodeName(String(id))}
                                   </Badge>
                                 ))}
                               </div>
@@ -509,14 +509,14 @@ ${networkContext}`
                                   <p className="text-xs text-muted-foreground">{action.reason}</p>
                                   {action.related_node_ids?.length > 0 && (
                                     <div className="flex flex-wrap gap-1 mt-2">
-                                      {action.related_node_ids.map((id: number) => (
+                                      {action.related_node_ids.map((id: any) => (
                                         <Badge
-                                          key={id}
+                                          key={String(id)}
                                           variant="outline"
                                           className="text-xs cursor-pointer hover:bg-accent"
-                                          onClick={() => onFocusNode(id)}
+                                          onClick={() => onFocusNode(String(id))}
                                         >
-                                          {getNodeName(id)}
+                                          {getNodeName(String(id))}
                                         </Badge>
                                       ))}
                                     </div>

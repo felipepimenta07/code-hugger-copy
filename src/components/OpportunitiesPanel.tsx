@@ -28,7 +28,7 @@ interface OpportunitiesPanelProps {
   brands: any[];
   projects: any[];
   connections: any[];
-  onSelectNode?: (nodeId: number) => void;
+  onSelectNode?: (nodeId: string) => void;
 }
 
 export const OpportunitiesPanel: React.FC<OpportunitiesPanelProps> = ({
@@ -216,7 +216,7 @@ export const OpportunitiesPanel: React.FC<OpportunitiesPanelProps> = ({
                 {showGraph && results.opportunities.length > 0 && (
                   <OpportunityGraph
                     opportunities={results.opportunities}
-                    onNodeClick={onSelectNode}
+                    onNodeClick={(id: any) => onSelectNode?.(String(id))}
                   />
                 )}
 
@@ -227,7 +227,7 @@ export const OpportunitiesPanel: React.FC<OpportunitiesPanelProps> = ({
                       <Card 
                         key={`${opp.id}-${idx}`}
                         className="p-4 hover:bg-muted/50 transition-colors cursor-pointer"
-                        onClick={() => onSelectNode?.(opp.id)}
+                        onClick={() => onSelectNode?.(String(opp.id))}
                       >
                         <div className="flex items-start gap-3">
                           {/* Medal/Score */}
