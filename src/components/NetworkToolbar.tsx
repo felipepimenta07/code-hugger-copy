@@ -43,7 +43,7 @@ export const NetworkToolbar: React.FC<NetworkToolbarProps> = ({
           className={`px-3 py-1.5 text-sm font-mono uppercase tracking-wider rounded transition-all ${
             viewMode === 'master' ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-secondary/40'
           }`}>
-          <span className="flex items-center gap-1.5"><LayoutGrid size={14} /> Planner</span>
+          <span className="flex items-center gap-1.5"><LayoutGrid size={14} /> Master</span>
         </button>
         <button onClick={onSingleView}
           className={`px-3 py-1.5 text-sm font-mono uppercase tracking-wider rounded transition-all ${

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Users, Target, Building2, Briefcase, Trash2, X } from 'lucide-react';
 
-const FLOW_COLORS: string[] = [
+export const FLOW_COLORS: string[] = [
   'hsl(280, 80%, 65%)', 'hsl(210, 100%, 56%)', 'hsl(158, 64%, 52%)',
   'hsl(43, 96%, 56%)', 'hsl(340, 80%, 55%)', 'hsl(27, 96%, 61%)',
   'hsl(190, 80%, 50%)', 'hsl(120, 50%, 50%)', 'hsl(330, 75%, 60%)',
