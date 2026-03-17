@@ -655,7 +655,7 @@ export const Canvas: React.FC<CanvasProps> = ({
               </text>
               
               {node.category && (
-                <text y={nodeSize + 38} textAnchor="middle" fill={colors.primary}
+                <text y={nodeSize + 38} textAnchor="middle" fill={nodeColor}
                   fontSize="13" opacity={isHovered ? 0.9 : 0.5} fontFamily="monospace">
                   {node.category}
                 </text>
