@@ -509,14 +509,14 @@ ${networkContext}`
                                   <p className="text-xs text-muted-foreground">{action.reason}</p>
                                   {action.related_node_ids?.length > 0 && (
                                     <div className="flex flex-wrap gap-1 mt-2">
-                                      {action.related_node_ids.map((id: number) => (
+                                      {action.related_node_ids.map((id: any) => (
                                         <Badge
-                                          key={id}
+                                          key={String(id)}
                                           variant="outline"
                                           className="text-xs cursor-pointer hover:bg-accent"
-                                          onClick={() => onFocusNode(id)}
+                                          onClick={() => onFocusNode(String(id))}
                                         >
-                                          {getNodeName(id)}
+                                          {getNodeName(String(id))}
                                         </Badge>
                                       ))}
                                     </div>
