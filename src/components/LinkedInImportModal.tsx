@@ -9,6 +9,8 @@ import { parseLinkedInCSV } from '@/utils/linkedinParser';
 import { ParsedLinkedInData, LinkedInImportOptions } from '@/types/linkedin';
 import { toast } from 'sonner';
 
+type ParsedDataWithHeaders = ParsedLinkedInData & { detectedHeaders: string[] };
+
 interface LinkedInImportModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -17,7 +19,7 @@ interface LinkedInImportModalProps {
 }
 
 export const LinkedInImportModal = ({ open, onOpenChange, onImport, projects }: LinkedInImportModalProps) => {
-  const [parsedData, setParsedData] = useState<ParsedLinkedInData | null>(null);
+  const [parsedData, setParsedData] = useState<ParsedDataWithHeaders | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [options, setOptions] = useState<LinkedInImportOptions>({
     createBrands: true,
@@ -35,6 +37,10 @@ export const LinkedInImportModal = ({ open, onOpenChange, onImport, projects }: 
     try {
       const content = await file.text();
       const parsed = parseLinkedInCSV(content);
+      if (parsed.totalContacts === 0) {
+        toast.error('Nenhum contato encontrado no CSV. Verifique se o arquivo é uma exportação válida do LinkedIn.');
+        return;
+      }
       setParsedData(parsed);
       toast.success(`${parsed.totalContacts} contatos encontrados!`);
     } catch (error) {
@@ -205,6 +211,12 @@ export const LinkedInImportModal = ({ open, onOpenChange, onImport, projects }: 
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
+
+              {/* Detected Headers */}
+              <div className="bg-muted/50 rounded-lg p-3">
+                <p className="text-xs font-medium mb-1 text-muted-foreground">Headers detectados:</p>
+                <p className="text-xs text-muted-foreground truncate">{parsedData.detectedHeaders.join(', ')}</p>
               </div>
 
               {/* Sample Preview */}
