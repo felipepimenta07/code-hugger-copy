@@ -66,8 +66,8 @@ interface NetworkModalsProps {
   flows: any[];
   people: any[];
   brands: any[];
-  onHighlightPath: (ids: number[]) => void;
-  onFocusNode: (id: number) => void;
+  onHighlightPath: (ids: string[]) => void;
+  onFocusNode: (id: string) => void;
   onOpenConnectionModal: (conn: any, nodes: any[], type: string) => void;
 
   aiConnectionModal: any;
