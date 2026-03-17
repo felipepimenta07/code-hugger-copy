@@ -764,11 +764,10 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
     <div className="min-h-screen h-screen flex flex-col overflow-hidden"
       style={{ background: viewMode === 'single' ? 'hsl(225, 22%, 9%)' : 'hsl(220, 20%, 7%)' }}>
       {/* Sidebar - Groups only */}
-      <NetworkSidebar viewMode={viewMode} allNodes={allNodes} nodes={nodes}
-        collapsed={sidebarCollapsed} onToggleCollapse={() => setSidebarCollapsed(c => !c)} />
+      <NetworkSidebar viewMode={viewMode} allNodes={allNodes} nodes={nodes} />
 
       {/* Main area */}
-      <div className="flex-1 flex flex-col relative transition-all duration-200" style={{ marginLeft: sidebarCollapsed ? 44 : 200 }}>
+      <div className="flex-1 flex flex-col relative">
         {/* Toolbar */}
         <NetworkToolbar
           viewMode={viewMode}
@@ -781,19 +780,9 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
           showAIInsights={showAIInsights}
           setShowAIInsights={setShowAIInsights}
           onFitToScreen={handleFitToScreen}
-          onAutoOrganize={autoOrganize}
           onMasterView={handleMasterView}
           onSingleView={handleSingleView}
-          onNewFlow={handleNewFlow}
-          onCreateNode={() => {
-            setIsCreatingFlowRoot(false);
-            const w = window.innerWidth; const h = window.innerHeight;
-            const cx = (w / 2 - state.pan.x) / state.zoom;
-            const cy = (h / 2 - state.pan.y) / state.zoom;
-            setNodeCreationPosition({ x: cx, y: cy });
-            setShowNodeCreationModal(true);
-          }}
-          onOpenFlows={() => setShowFlowsManager(true)}
+          onOpenFlows={() => setShowFlowsManager(prev => !prev)}
           onOpenWhatsApp={onOpenWhatsApp}
           onLogout={onLogout}
           onSearch={() => setShowOpportunities(true)}

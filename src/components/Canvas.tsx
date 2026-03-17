@@ -701,19 +701,21 @@ export const Canvas: React.FC<CanvasProps> = ({
         {viewMode === 'master' && flows?.map(flow => {
           const clusterNodes = nodes.filter(n => n.flow_id === flow.id);
           if (clusterNodes.length === 0) return null;
-          const centerNode = clusterNodes.find(n => n.id === flow.center_id && n.type === flow.center_type) 
+          const centerNode = clusterNodes.find(n => n.id === flow.center_id && n.type === flow.center_type)
+            || clusterNodes.find(n => n.id === flow.center_id)
             || clusterNodes.find(n => n.type === 'project') || clusterNodes[0];
           const pos = masterLayoutMap.get(centerNode.id);
           if (!pos) return null;
+          const ringRadius = getFlowRingRadius(clusterNodes.length);
           
           return (
             <g key={`label-${flow.id}`} pointerEvents="none">
-                <text x={pos.x} y={pos.y - MASTER_RING_RADIUS - 40} textAnchor="middle"
+                <text x={pos.x} y={pos.y - ringRadius - 40} textAnchor="middle"
                 fill="hsl(var(--muted-foreground))" fontSize="16" fontWeight="600"
                 letterSpacing="2" fontFamily="monospace">
                 {flow.name.toUpperCase()}
               </text>
-              <text x={pos.x} y={pos.y - MASTER_RING_RADIUS - 22} textAnchor="middle"
+              <text x={pos.x} y={pos.y - ringRadius - 22} textAnchor="middle"
                 fill="hsl(var(--muted-foreground))" fontSize="14" opacity="0.4" fontFamily="monospace">
                 {clusterNodes.length} {clusterNodes.length === 1 ? 'nó' : 'nós'}
               </text>
