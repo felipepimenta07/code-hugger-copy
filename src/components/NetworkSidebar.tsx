@@ -1,5 +1,5 @@
-import { useMemo, useState, useRef, useCallback } from 'react';
-import { GripVertical, X } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { X } from 'lucide-react';
 
 const SEED_COLORS: string[] = [
   'hsl(210, 100%, 56%)', 'hsl(158, 64%, 52%)', 'hsl(43, 96%, 56%)',
@@ -11,7 +11,6 @@ const SEED_COLORS: string[] = [
   'hsl(120, 50%, 50%)', 'hsl(45, 90%, 55%)', 'hsl(0, 70%, 55%)',
 ];
 
-// Deterministic hash so the same category always gets the same color
 function hashStr(s: string): number {
   let h = 0;
   for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
@@ -39,10 +38,7 @@ export function NetworkSidebar({
   onFilterCategory,
   activeCategory,
 }: NetworkSidebarProps) {
-  const [position, setPosition] = useState({ x: 16, y: 80 });
-  const [isDragging, setIsDragging] = useState(false);
   const [isVisible, setIsVisible] = useState(true);
-  const dragOffset = useRef({ x: 0, y: 0 });
 
   const categoryGroups = useMemo(() => {
     const groups: Record<string, { count: number; color: string }> = {};
@@ -57,26 +53,11 @@ export function NetworkSidebar({
 
   const totalNodes = viewMode === 'master' ? allNodes.length : nodes.length;
 
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    setIsDragging(true);
-    dragOffset.current = { x: e.clientX - position.x, y: e.clientY - position.y };
-    const handleMove = (ev: MouseEvent) => {
-      setPosition({ x: ev.clientX - dragOffset.current.x, y: ev.clientY - dragOffset.current.y });
-    };
-    const handleUp = () => {
-      setIsDragging(false);
-      window.removeEventListener('mousemove', handleMove);
-      window.removeEventListener('mouseup', handleUp);
-    };
-    window.addEventListener('mousemove', handleMove);
-    window.addEventListener('mouseup', handleUp);
-  }, [position]);
-
   if (!isVisible) {
     return (
       <button
         className="fixed z-50 w-10 h-10 rounded-full bg-secondary/80 backdrop-blur-md border border-border/30 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
-        style={{ left: 16, top: 80 }}
+        style={{ left: 16, bottom: 16 }}
         onClick={() => setIsVisible(true)}
         title="Mostrar grupos"
       >
@@ -89,24 +70,16 @@ export function NetworkSidebar({
     <div
       className="fixed z-50 flex flex-col bg-[hsl(220,20%,8%)]/90 backdrop-blur-md border border-border/30 rounded-xl shadow-2xl overflow-hidden"
       style={{
-        left: position.x,
-        top: position.y,
+        left: 16,
+        bottom: 16,
         width: 200,
-        cursor: isDragging ? 'grabbing' : 'auto',
-        userSelect: isDragging ? 'none' : 'auto',
       }}
     >
-      {/* Drag handle header */}
-      <div
-        className="flex items-center justify-between px-3 py-2.5 border-b border-border/20 cursor-grab active:cursor-grabbing"
-        onMouseDown={handleMouseDown}
-      >
-        <div className="flex items-center gap-2">
-          <GripVertical size={14} className="text-muted-foreground/50" />
-          <span className="text-xs font-mono text-muted-foreground uppercase tracking-[0.15em]">
-            Grupos ({totalNodes})
-          </span>
-        </div>
+      {/* Header */}
+      <div className="flex items-center justify-between px-3 py-2.5 border-b border-border/20">
+        <span className="text-xs font-mono text-muted-foreground uppercase tracking-[0.15em]">
+          Grupos ({totalNodes})
+        </span>
         <button
           onClick={() => setIsVisible(false)}
           className="text-muted-foreground/50 hover:text-foreground transition-colors"
@@ -139,7 +112,6 @@ export function NetworkSidebar({
               }}
               onClick={() => onFilterCategory?.(isActive ? null : name)}
             >
-              {/* Color bar indicator */}
               <span
                 className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] rounded-r transition-all duration-150"
                 style={{
