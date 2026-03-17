@@ -34,6 +34,8 @@ interface CanvasProps {
   onForceDrag?: (nodeRef: string, x: number, y: number) => void;
   onForceDragEnd?: (nodeRef: string) => void;
   useForceLayout?: boolean;
+  hoveredFlowId?: number | null;
+  getNodeDegreeColor?: (nodeRef: string) => string;
 }
 
 const nodeColors = {
