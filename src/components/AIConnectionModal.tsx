@@ -10,7 +10,7 @@ interface AIConnectionModalProps {
   involvedNodes: any[];
   connectionType: 'hidden' | 'bridge' | 'opportunity' | 'alert' | 'action';
   onClose: () => void;
-  onFocusNode: (nodeId: number) => void;
+  onFocusNode: (nodeId: string) => void;
 }
 
 const NODE_COLORS = {

@@ -28,7 +28,7 @@ interface OpportunitiesPanelProps {
   brands: any[];
   projects: any[];
   connections: any[];
-  onSelectNode?: (nodeId: number) => void;
+  onSelectNode?: (nodeId: string) => void;
 }
 
 export const OpportunitiesPanel: React.FC<OpportunitiesPanelProps> = ({

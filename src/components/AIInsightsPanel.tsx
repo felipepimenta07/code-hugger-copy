@@ -163,8 +163,8 @@ ${networkContext}`
     }
   };
 
-  const getNodeName = (nodeId: number) => {
-    return allNodes.find(n => n.id === nodeId)?.name || `Nó ${nodeId}`;
+  const getNodeName = (nodeId: string) => {
+    return allNodes.find(n => n.node_ref === nodeId)?.name || `Nó ${nodeId}`;
   };
 
   const getNodesByIds = (ids: number[]) => {
