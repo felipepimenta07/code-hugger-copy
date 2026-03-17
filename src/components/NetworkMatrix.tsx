@@ -977,10 +977,6 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
           />
         )}
 
-        {/* Path indicator */}
-        {viewMode === 'single' && (
-          <PathIndicator selectedNode={selectedNode} centerNode={centerNode} allNodes={allNodes} connections={allConnections} />
-        )}
 
         <WhatsAppNotifications />
       </div>
