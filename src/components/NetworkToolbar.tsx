@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, Sparkles, LayoutGrid, Target, Tag, LogOut, MessageCircle, Briefcase } from 'lucide-react';
+import { Search, Sparkles, LayoutGrid, Target, Tag, LogOut, MessageCircle, Briefcase, Upload } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 
 interface NetworkToolbarProps {
@@ -17,6 +17,7 @@ interface NetworkToolbarProps {
   onSingleView: () => void;
   onOpenFlows: () => void;
   onOpenWhatsApp?: () => void;
+  onOpenLinkedIn?: () => void;
   onLogout?: () => void;
   onSearch: () => void;
 }
@@ -25,7 +26,7 @@ export const NetworkToolbar: React.FC<NetworkToolbarProps> = ({
   viewMode, nodeCount, connectionCount, searchQuery, setSearchQuery,
   showLabels, setShowLabels, showAIInsights, setShowAIInsights,
   onFitToScreen, onMasterView, onSingleView,
-  onOpenFlows, onOpenWhatsApp, onLogout, onSearch,
+  onOpenFlows, onOpenWhatsApp, onOpenLinkedIn, onLogout, onSearch,
 }) => {
   const btnClass = "px-2.5 py-1.5 text-sm font-mono text-muted-foreground hover:text-foreground hover:bg-secondary/40 rounded transition-colors flex items-center gap-1.5";
 
@@ -76,6 +77,15 @@ export const NetworkToolbar: React.FC<NetworkToolbarProps> = ({
             <div className="h-5 w-px bg-border/30 mx-1" />
             <button onClick={onOpenWhatsApp} className={btnClass}>
               <MessageCircle size={14} className="text-green-500" /> WhatsApp
+            </button>
+          </>
+        )}
+
+        {onOpenLinkedIn && (
+          <>
+            <div className="h-5 w-px bg-border/30 mx-1" />
+            <button onClick={onOpenLinkedIn} className={btnClass}>
+              <Upload size={14} className="text-[#0A66C2]" /> LinkedIn
             </button>
           </>
         )}
