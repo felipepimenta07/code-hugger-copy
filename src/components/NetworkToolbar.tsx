@@ -60,7 +60,7 @@ export const NetworkToolbar: React.FC<NetworkToolbarProps> = ({
           className={`px-2.5 py-1.5 text-sm font-mono rounded transition-all flex items-center gap-1.5 ${
             showLabels ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-secondary/40'
           }`}>
-          <Tag size={14} /> Rótulos
+           <Tag size={14} /> Conexões
         </button>
         <button onClick={() => setShowAIInsights(prev => !prev)}
           className={`px-2.5 py-1.5 text-sm font-mono rounded transition-all flex items-center gap-1.5 ${
