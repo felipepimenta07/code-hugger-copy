@@ -48,7 +48,7 @@ export type Database = {
         Row: {
           category: string | null
           created_at: string
-          flow_id: number
+          flow_id: number | null
           id: number
           master_x: number | null
           master_y: number | null
@@ -62,7 +62,7 @@ export type Database = {
         Insert: {
           category?: string | null
           created_at?: string
-          flow_id: number
+          flow_id?: number | null
           id?: never
           master_x?: number | null
           master_y?: number | null
@@ -76,7 +76,7 @@ export type Database = {
         Update: {
           category?: string | null
           created_at?: string
-          flow_id?: number
+          flow_id?: number | null
           id?: never
           master_x?: number | null
           master_y?: number | null
