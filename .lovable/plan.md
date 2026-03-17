@@ -1,49 +1,61 @@
 
 
-## Plano: Teste End-to-End com Dados Reais de Agências Brasileiras
+## Plano: Correção de Bugs + Reestruturação de UI
 
-### Cenário de Teste
+### Bugs a corrigir
 
-Vou interagir com o app via browser para simular um uso real completo:
+**1. Master View — nós sobrepostos**
+O `masterLayoutMap` usa `MASTER_RING_RADIUS = 240` fixo. Com muitos nós num flow, eles se empilham. Solução: tornar o raio dinâmico baseado na quantidade de nós (`Math.max(240, N * 30)`), e aumentar o `getFlowOffset` para flows não se sobreporem.
 
-### Passo 1: Resetar tudo
-- Clicar no botão "Resetar Tudo" (canto inferior direito) e confirmar
+**2. Master View — labels de flow não acompanham o nó central**
+Os labels usam `pos` do `masterLayoutMap` corretamente, mas o problema é que `masterLayoutMap` pode não encontrar o `centerNode` quando o `center_type` do flow não bate. Vou adicionar fallback mais robusto e garantir que o label siga a posição correta.
 
-### Passo 2: Criar Flows (agências como centros)
-Criar 3 flows representando grandes agências brasileiras:
-- **Flow 1**: "Africa Creative" (WPP)
-- **Flow 2**: "AlmapBBDO" 
-- **Flow 3**: "Wunderman Thompson BR"
+**3. Single View — animação exagerada**
+O `useForceSimulation` usa `alpha(0.8)` e `alphaDecay(0.02)` — isso cria ~150 ticks de animação que dura vários segundos. Solução:
+- Aumentar `alphaDecay` para `0.05` (converge 3x mais rápido)
+- Aumentar `velocityDecay` para `0.45` (menos inércia)
+- Reduzir `alpha` inicial para `0.5`
 
-### Passo 3: Popular cada flow com dados realistas
+**4. Single View — criar conexão causa simulação enlouquecer**
+Quando `setConnections` é chamado, o `connections.length` muda no dependency array do `useEffect` do force simulation, recriando a simulação do zero com `alpha(0.8)`. Solução:
+- Ao invés de recriar, fazer um `reheat` suave (alpha 0.2) quando apenas conexões mudam
+- Separar o dep array: usar ref para connections e só recriar sim quando `nodes` mudam
 
-**Flow "Africa Creative":**
-- **Projetos**: "Campanha Itaú 2026", "Lançamento Brahma Duplo Malte", "Vivo Fibra Rebranding"
-- **Pessoas** (fictícias): Ricardo Mendes (Dir. Criação), Camila Torres (Atendimento Itaú), Fernando Lima (Mídia), Juliana Rocha (Planejamento)
-- **Marcas**: Itaú, Ambev, Vivo
+**5. Single View — nós soltos não mexem/ligam**
+Nós sem conexões são fixados (`shouldFix = true` quando `!hasConnections`). Isso impede drag. Solução: remover o pin de nós sem conexão — apenas o centro deve ser fixo. Nós sem conexão devem poder ser arrastados normalmente.
 
-**Flow "AlmapBBDO":**
-- **Projetos**: "Havaianas Verão 2026", "Volkswagen ID.Buzz Launch", "O Boticário Natal"
-- **Pessoas**: Marcelo Souza (VP Criação), Ana Beatriz Costa (Atendimento VW), Paulo Henrique (Digital), Renata Alves (Produção)
-- **Marcas**: Havaianas, Volkswagen, O Boticário
+### Mudanças de UI
 
-**Flow "Wunderman Thompson BR":**
-- **Projetos**: "HSBC Digital Banking", "Nestlé KitKat Creators", "TIM 5G Experience"
-- **Pessoas**: Diego Oliveira (Dir. Estratégia), Larissa Campos (CRM), Bruno Nascimento (Tech Lead), Patrícia Duarte (New Business)
-- **Marcas**: HSBC, Nestlé, TIM
+**6. Remover botão "Reset" da toolbar**
+Remover o botão `onAutoOrganize` ("Reset") da `NetworkToolbar`.
 
-### Passo 4: Criar conexões entre flows
-- Ambev aparece em Africa e Wunderman (cross-flow)
-- Algumas pessoas conectadas a múltiplos projetos
+**7. Remover botão "Resetar Tudo"**
+Remover `<ResetButton>` do `NetworkMatrix.tsx`.
 
-### Passo 5: Testar funcionalidades
-- **Master View**: verificar se todos os flows aparecem interconectados
-- **Single View**: filtrar por flow e verificar isolamento
-- **Busca por IA**: pesquisar "quem trabalha com bebidas?" e "oportunidades no setor bancário"
-- **WhatsApp simulation**: verificar como contatos apareceriam
+**8. Botões "Criar Nó" e "Novo Flow" — floating action buttons**
+Mover para botões flutuantes no centro-inferior da tela (FABs), fora da toolbar.
 
-### Execução
-Tudo via browser automation — criar nós pelo botão "+ Criar Nó" e "+ Novo Flow", conectar via interface.
+**9. "Flows" ao lado de "Master" com ícones diferentes**
+Toolbar: `Master` (ícone Grid/Layers) | `Flows` (ícone Briefcase — abre o FlowManagerPanel) | `Single` (ícone Target). Flows fica entre Master e Single.
 
-**Estimativa**: ~30-40 interações no browser para popular e testar.
+**10. FlowManagerPanel — redesign simplificado + preview ao clicar**
+- Mudar de `Sheet` (lateral) para dropdown/popover que abre abaixo do botão "Flows"
+- Design simplificado: lista compacta com nome + tipo + contagem
+- Ao clicar num flow, muda para Single View imediatamente sem fechar o painel
+- Clicar fora fecha o painel
+
+**11. Sidebar de Grupos — menu flutuante arrastável**
+Transformar o `NetworkSidebar` fixo num painel flutuante que o usuário pode posicionar. Adicionar cores mais vibrantes nos dots (já tem cores no CATEGORY_COLORS).
+
+**12. Zoom controls maiores**
+Aumentar os botões de zoom de `w-6 h-6` / `size={12}` para `w-8 h-8` / `size={16}`.
+
+### Arquivos afetados
+
+1. `src/hooks/useForceSimulation.ts` — bugs 3, 4, 5
+2. `src/components/Canvas.tsx` — bug 1, 2
+3. `src/components/NetworkToolbar.tsx` — mudanças 6, 8, 9
+4. `src/components/NetworkMatrix.tsx` — mudanças 7, 8, 10, 11, 12
+5. `src/components/FlowManagerPanel.tsx` — mudança 10 (redesign)
+6. `src/components/NetworkSidebar.tsx` — mudança 11 (flutuante)
 
