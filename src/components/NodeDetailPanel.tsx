@@ -66,7 +66,7 @@ export const NodeDetailPanel: React.FC<NodeDetailPanelProps> = ({
       <div className="px-5 pt-5 pb-3 flex items-start justify-between">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-[10px] font-mono uppercase tracking-[0.15em] font-semibold"
+            <span className="text-xs font-mono uppercase tracking-[0.15em] font-semibold"
               style={{ color: catColor }}>
               {typeLabels[node.type] || node.type}
               {node.category ? ` / ${node.category}` : ''}
@@ -76,51 +76,51 @@ export const NodeDetailPanel: React.FC<NodeDetailPanelProps> = ({
             {node.name}
           </h2>
           {node.company && (
-            <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
-              <Building2 size={10} /> {node.company}
+            <p className="text-sm text-muted-foreground mt-0.5 flex items-center gap-1">
+              <Building2 size={12} /> {node.company}
             </p>
           )}
         </div>
         <button onClick={onClose}
           className="w-7 h-7 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-secondary/40 transition-colors flex-shrink-0 mt-0.5">
-          <X size={14} />
+          <X size={16} />
         </button>
       </div>
 
       {/* Info fields */}
       <div className="px-5 pb-3 space-y-1.5">
         {node.email && (
-          <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-            <Mail size={10} className="flex-shrink-0" />
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Mail size={12} className="flex-shrink-0" />
             <span className="truncate">{node.email}</span>
           </div>
         )}
         {node.phone && (
-          <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-            <Phone size={10} className="flex-shrink-0" />
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Phone size={12} className="flex-shrink-0" />
             <span>{node.phone}</span>
           </div>
         )}
         {node.website && (
-          <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-            <Globe size={10} className="flex-shrink-0" />
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Globe size={12} className="flex-shrink-0" />
             <span className="truncate">{node.website}</span>
           </div>
         )}
         {node.address && (
-          <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-            <MapPin size={10} className="flex-shrink-0" />
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <MapPin size={12} className="flex-shrink-0" />
             <span className="truncate">{node.address}</span>
           </div>
         )}
         {node.deadline && (
-          <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-            <Calendar size={10} className="flex-shrink-0" />
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Calendar size={12} className="flex-shrink-0" />
             <span>{new Date(node.deadline).toLocaleDateString('pt-BR')}</span>
           </div>
         )}
         {node.notes && (
-          <p className="text-[11px] text-muted-foreground/70 mt-2 leading-relaxed line-clamp-3">
+          <p className="text-sm text-muted-foreground/70 mt-2 leading-relaxed line-clamp-3">
             {node.notes}
           </p>
         )}
@@ -129,7 +129,7 @@ export const NodeDetailPanel: React.FC<NodeDetailPanelProps> = ({
       {/* Edit button */}
       <div className="px-5 pb-3">
         <button onClick={() => onEdit(node)}
-          className="w-full h-7 text-[10px] font-mono uppercase tracking-wider rounded border border-border/30 text-muted-foreground hover:text-foreground hover:bg-secondary/30 transition-colors">
+          className="w-full h-7 text-xs font-mono uppercase tracking-wider rounded border border-border/30 text-muted-foreground hover:text-foreground hover:bg-secondary/30 transition-colors">
           Editar
         </button>
       </div>
@@ -139,7 +139,7 @@ export const NodeDetailPanel: React.FC<NodeDetailPanelProps> = ({
 
       {/* Direct Connections */}
       <div className="px-5 pt-3 pb-2">
-        <span className="text-[9px] font-mono text-muted-foreground/50 uppercase tracking-[0.15em]">
+        <span className="text-xs font-mono text-muted-foreground/50 uppercase tracking-[0.15em]">
           Conexões Diretas ({directConnections.length})
         </span>
       </div>
@@ -154,29 +154,29 @@ export const NodeDetailPanel: React.FC<NodeDetailPanelProps> = ({
                 className="w-full flex items-start gap-2.5 px-2 py-2 rounded text-left hover:bg-secondary/30 transition-colors group"
                 onClick={() => onNavigateToNode(otherNode.id)}
               >
-                <span className="w-2 h-2 rounded-full flex-shrink-0 mt-1.5"
+                <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 mt-1.5"
                   style={{ backgroundColor: otherCatColor }} />
                 <div className="min-w-0 flex-1">
-                  <span className="text-[11px] text-foreground group-hover:text-foreground/90 block truncate">
+                  <span className="text-sm text-foreground group-hover:text-foreground/90 block truncate">
                     {otherNode.name}
                   </span>
                   {connectionType && connectionType !== 'related' && (
-                    <span className="text-[9px] text-muted-foreground/40 font-mono block mt-0.5">
+                    <span className="text-xs text-muted-foreground/40 font-mono block mt-0.5">
                       {connectionType}
                     </span>
                   )}
                   {otherNode.company && (
-                    <span className="text-[9px] text-muted-foreground/30 block">
+                    <span className="text-xs text-muted-foreground/30 block">
                       {otherNode.company}
                     </span>
                   )}
                 </div>
-                <ExternalLink size={10} className="text-muted-foreground/20 group-hover:text-muted-foreground/50 mt-1 flex-shrink-0" />
+                <ExternalLink size={12} className="text-muted-foreground/20 group-hover:text-muted-foreground/50 mt-1 flex-shrink-0" />
               </button>
             );
           })}
           {directConnections.length === 0 && (
-            <div className="px-2 py-6 text-[10px] text-muted-foreground/30 italic text-center">
+            <div className="px-2 py-6 text-xs text-muted-foreground/30 italic text-center">
               Nenhuma conexão direta
             </div>
           )}

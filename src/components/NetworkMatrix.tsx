@@ -761,7 +761,8 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
 
   // ===== RENDER =====
   return (
-    <div className="min-h-screen h-screen flex flex-col overflow-hidden bg-background">
+    <div className="min-h-screen h-screen flex flex-col overflow-hidden"
+      style={{ background: viewMode === 'single' ? 'hsl(225, 22%, 9%)' : 'hsl(220, 20%, 7%)' }}>
       {/* Sidebar - Groups only */}
       <NetworkSidebar viewMode={viewMode} allNodes={allNodes} nodes={nodes}
         collapsed={sidebarCollapsed} onToggleCollapse={() => setSidebarCollapsed(c => !c)} />
@@ -839,7 +840,7 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
               onClick={() => { const w = window.innerWidth; const h = window.innerHeight - 100; const nz = Math.max(state.zoom / 1.2, 0.3); const cx = (w / 2 - state.pan.x) / state.zoom; const cy = (h / 2 - state.pan.y) / state.zoom; updateState({ zoom: nz, pan: { x: w / 2 - cx * nz, y: h / 2 - cy * nz } }); }}>
               <ZoomOut size={12} />
             </button>
-            <button className="h-6 px-1.5 flex items-center justify-center rounded bg-secondary/60 text-muted-foreground hover:text-foreground transition-colors text-[9px] font-mono"
+            <button className="h-6 px-1.5 flex items-center justify-center rounded bg-secondary/60 text-muted-foreground hover:text-foreground transition-colors text-xs font-mono"
               onClick={() => updateState({ zoom: 1 })}>
               {Math.round(state.zoom * 100)}%
             </button>

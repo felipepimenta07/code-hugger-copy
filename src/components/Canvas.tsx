@@ -555,7 +555,7 @@ export const Canvas: React.FC<CanvasProps> = ({
               {/* Connection label */}
               {showLabels && conn.connection_type && (
                 <text x={midX} y={controlY2 + 4} textAnchor="middle"
-                  fill="hsl(var(--muted-foreground))" fontSize="9" fontFamily="monospace" opacity={isConnDimmed ? 0.06 : 0.6}>
+                  fill="hsl(var(--muted-foreground))" fontSize="11" fontFamily="monospace" opacity={isConnDimmed ? 0.06 : 0.6}>
                   {conn.connection_type}
                 </text>
               )}
@@ -667,15 +667,15 @@ export const Canvas: React.FC<CanvasProps> = ({
               
               {/* Name label */}
               <text y={nodeSize + 18} textAnchor="middle" fill="hsl(var(--foreground))"
-                fontSize={isHovered ? 12 : 11} fontWeight={isHovered ? 600 : 400}
+                fontSize={isHovered ? 14 : 13} fontWeight={isHovered ? 600 : 400}
                 style={{ transition: 'font-size 0.15s ease' }}>
                 {node.name.length > 18 ? node.name.substring(0, 18) + '…' : node.name}
               </text>
               
               {/* Category / notes subtitle */}
               {node.category && (
-                <text y={nodeSize + 32} textAnchor="middle" fill={colors.primary}
-                  fontSize="9" opacity={isHovered ? 0.9 : 0.5} fontFamily="monospace">
+                <text y={nodeSize + 34} textAnchor="middle" fill={colors.primary}
+                  fontSize="11" opacity={isHovered ? 0.9 : 0.5} fontFamily="monospace">
                   {node.category}
                 </text>
               )}
@@ -696,13 +696,13 @@ export const Canvas: React.FC<CanvasProps> = ({
           
           return (
             <g key={`label-${flow.id}`} pointerEvents="none">
-              <text x={pos.x} y={pos.y - MASTER_RING_RADIUS - 40} textAnchor="middle"
-                fill="hsl(var(--muted-foreground))" fontSize="12" fontWeight="600"
+                <text x={pos.x} y={pos.y - MASTER_RING_RADIUS - 40} textAnchor="middle"
+                fill="hsl(var(--muted-foreground))" fontSize="14" fontWeight="600"
                 letterSpacing="2" fontFamily="monospace">
                 {flow.name.toUpperCase()}
               </text>
-              <text x={pos.x} y={pos.y - MASTER_RING_RADIUS - 24} textAnchor="middle"
-                fill="hsl(var(--muted-foreground))" fontSize="10" opacity="0.4" fontFamily="monospace">
+              <text x={pos.x} y={pos.y - MASTER_RING_RADIUS - 22} textAnchor="middle"
+                fill="hsl(var(--muted-foreground))" fontSize="12" opacity="0.4" fontFamily="monospace">
                 {clusterNodes.length} {clusterNodes.length === 1 ? 'nó' : 'nós'}
               </text>
             </g>
