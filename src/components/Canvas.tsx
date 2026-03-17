@@ -51,7 +51,7 @@ export const Canvas: React.FC<CanvasProps> = ({
   projects = [], flows = [], allConnections = [],
   onGoToFlow, onWheel, showLabels = false,
   forcePositions, onForceDragStart, onForceDrag, onForceDragEnd,
-  useForceLayout = false,
+  useForceLayout = false, hoveredFlowId,
 }) => {
   const [hoveredConnection, setHoveredConnection] = useState<{
     index: number;
