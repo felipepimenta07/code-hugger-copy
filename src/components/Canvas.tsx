@@ -132,7 +132,7 @@ export const Canvas: React.FC<CanvasProps> = ({
     const sim = forceSimulation(simNodes as any)
       .force('charge', forceManyBody().strength(-15))
       .force('center', forceCenter(0, 0).strength(0.01))
-      .force('collision', forceCollide<any>().radius(18).strength(0.9))
+      .force('collision', forceCollide<any>().radius(15).strength(0.9))
       .force('x', forceX<any>((d: any) => flowCentroids.get(d.flowId)?.x ?? 0).strength(0.3))
       .force('y', forceY<any>((d: any) => flowCentroids.get(d.flowId)?.y ?? 0).strength(0.3))
       .stop();
