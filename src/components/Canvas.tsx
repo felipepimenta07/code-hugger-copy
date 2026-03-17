@@ -96,17 +96,31 @@ export const Canvas: React.FC<CanvasProps> = ({
   const getFlowOffset = (flowId: number, flowRingRadius: number) => {
     if (!flows || flows.length === 0) return { dx: 0, dy: 0 };
     const idx = Math.max(0, flows.findIndex(f => f.id === flowId));
-    const angle = (idx / Math.max(flows.length, 1)) * Math.PI * 2;
     const count = Math.max(flows.length, 1);
-    let radius = 0;
-    if (count > 1) {
-      const filledRadius = flowRingRadius + 40;
-      const LABEL_CLEARANCE = 120;
-      const safeGap = 16 + LABEL_CLEARANCE;
-      const neededChord = 2 * filledRadius + safeGap;
-      radius = neededChord / (2 * Math.sin(Math.PI / count));
+    
+    if (count <= 12) {
+      // Circular layout for small number of flows
+      const angle = (idx / count) * Math.PI * 2;
+      let radius = 0;
+      if (count > 1) {
+        const filledRadius = flowRingRadius + 40;
+        const LABEL_CLEARANCE = 120;
+        const safeGap = 16 + LABEL_CLEARANCE;
+        const neededChord = 2 * filledRadius + safeGap;
+        radius = neededChord / (2 * Math.sin(Math.PI / count));
+      }
+      return { dx: Math.cos(angle) * radius, dy: Math.sin(angle) * radius };
     }
-    return { dx: Math.cos(angle) * radius, dy: Math.sin(angle) * radius };
+    
+    // Grid layout for many flows
+    const cols = Math.ceil(Math.sqrt(count));
+    const spacing = 2 * flowRingRadius + 300;
+    const row = Math.floor(idx / cols);
+    const col = idx % cols;
+    // Center the grid around origin
+    const totalWidth = (cols - 1) * spacing;
+    const totalHeight = (Math.ceil(count / cols) - 1) * spacing;
+    return { dx: col * spacing - totalWidth / 2, dy: row * spacing - totalHeight / 2 };
   };
 
   const getFlowRingRadius = (nodeCount: number) => Math.max(240, nodeCount * 30);
