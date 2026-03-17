@@ -478,19 +478,16 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
     if (viewMode === 'master' && flows) {
       const count = Math.max(flows.length, 1);
       
-      // For bubble mode (many flows), use tighter bubble spacing
+      // For bubble mode (many flows), estimate organic spread from flow count
       if (count > 12) {
-        const cols = Math.ceil(Math.sqrt(count));
-        const spacing = 280; // matches bubbleLayoutMap in Canvas
-        const rows = Math.ceil(count / cols);
-        const totalW = (cols - 1) * spacing;
-        const totalH = (rows - 1) * spacing;
-        const margin = 200;
+        // d3-force spreads nodes organically; estimate spread proportional to sqrt(count)
+        const estimatedSpread = Math.max(600, Math.sqrt(count) * 200);
+        const margin = 250;
         return {
-          minX: -totalW / 2 - margin,
-          maxX: totalW / 2 + margin,
-          minY: -totalH / 2 - margin,
-          maxY: totalH / 2 + margin
+          minX: -estimatedSpread - margin,
+          maxX: estimatedSpread + margin,
+          minY: -estimatedSpread - margin,
+          maxY: estimatedSpread + margin
         };
       }
       

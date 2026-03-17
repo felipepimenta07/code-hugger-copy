@@ -1,4 +1,5 @@
 import React, { useState, useRef, useMemo } from 'react';
+import { forceSimulation, forceManyBody, forceCenter, forceCollide } from 'd3-force';
 import { User, Target, Building2 } from 'lucide-react';
 import { ConnectionTooltip } from './ConnectionTooltip';
 import { parseRef } from '@/utils/nodeRef';
@@ -126,26 +127,38 @@ export const Canvas: React.FC<CanvasProps> = ({
   const getFlowRingRadius = (nodeCount: number) => Math.max(240, nodeCount * 30);
   const getNodeFlowId = (n: any) => n?.flow_id ?? (n?.type === 'project' ? n.id : null);
   
-  // Bubble layout for semantic zoom (dedicated tight spacing)
+  // Bubble layout for semantic zoom — organic d3-force positioning
   const bubbleLayoutMap = React.useMemo(() => {
     if (viewMode !== 'master' || !flows?.length) return new Map<number, {x:number, y:number, radius:number}>();
     const map = new Map<number, {x:number, y:number, radius:number}>();
-    const count = flows.length;
-    const cols = Math.ceil(Math.sqrt(count));
-    const spacing = 280;
-    const totalW = (cols - 1) * spacing;
-    const rows = Math.ceil(count / cols);
-    const totalH = (rows - 1) * spacing;
-    flows.forEach((flow, idx) => {
+
+    // Build bubble nodes with radii
+    const bubbleNodes = flows.map((flow, idx) => {
       const clusterNodes = nodes.filter(n => getNodeFlowId(n) === flow.id);
-      const bubbleRadius = Math.max(40, Math.sqrt(Math.max(clusterNodes.length, 1)) * 22);
-      const row = Math.floor(idx / cols);
-      const col = idx % cols;
-      map.set(flow.id, {
-        x: col * spacing - totalW / 2,
-        y: row * spacing - totalH / 2,
-        radius: bubbleRadius
-      });
+      const bubbleRadius = Math.max(50, Math.sqrt(Math.max(clusterNodes.length, 1)) * 25);
+      return { flowId: flow.id, radius: bubbleRadius, x: 0, y: 0, vx: 0, vy: 0 };
+    });
+
+    // Seed initial positions in a rough spiral to help convergence
+    bubbleNodes.forEach((bn, i) => {
+      const angle = i * 2.399; // golden angle
+      const r = 80 * Math.sqrt(i + 1);
+      bn.x = Math.cos(angle) * r;
+      bn.y = Math.sin(angle) * r;
+    });
+
+    // Run a short d3-force simulation synchronously
+    const sim = forceSimulation(bubbleNodes as any)
+      .force('charge', forceManyBody().strength(-300))
+      .force('center', forceCenter(0, 0).strength(0.05))
+      .force('collision', forceCollide<any>().radius((d: any) => d.radius + 40).strength(0.9))
+      .stop();
+
+    // Run 120 ticks synchronously
+    for (let i = 0; i < 120; i++) sim.tick();
+
+    bubbleNodes.forEach(bn => {
+      map.set(bn.flowId, { x: bn.x, y: bn.y, radius: bn.radius });
     });
     return map;
   }, [viewMode, flows, nodes]);
@@ -595,6 +608,30 @@ export const Canvas: React.FC<CanvasProps> = ({
             stroke="hsl(var(--connection-strong))" strokeWidth="2" strokeDasharray="5,5" />
         )}
         
+        {/* Cross-flow connections in bubble mode */}
+        {viewMode === 'master' && state.zoom < 0.15 && (() => {
+          const crossFlowLinks: Array<{fromId: number, toId: number}> = [];
+          const seen = new Set<string>();
+          connections.forEach(conn => {
+            const fromNode = nodes.find(n => n.node_ref === conn.from_ref);
+            const toNode = nodes.find(n => n.node_ref === conn.to_ref);
+            if (!fromNode || !toNode) return;
+            const fFlow = getNodeFlowId(fromNode);
+            const tFlow = getNodeFlowId(toNode);
+            if (fFlow && tFlow && fFlow !== tFlow) {
+              const key = [Math.min(fFlow, tFlow), Math.max(fFlow, tFlow)].join('-');
+              if (!seen.has(key)) { seen.add(key); crossFlowLinks.push({ fromId: fFlow, toId: tFlow }); }
+            }
+          });
+          return crossFlowLinks.map((link, i) => {
+            const from = bubbleLayoutMap.get(link.fromId);
+            const to = bubbleLayoutMap.get(link.toId);
+            if (!from || !to) return null;
+            return <line key={`xflow-${i}`} x1={from.x} y1={from.y} x2={to.x} y2={to.y}
+              stroke="hsl(var(--muted-foreground))" strokeWidth="2" opacity="0.15" strokeDasharray="8,6" />;
+          });
+        })()}
+
         {/* Bubble mode (Master View, zoom < 0.15) */}
         {viewMode === 'master' && state.zoom < 0.15 && flows.map((flow, flowIdx) => {
           const clusterNodes = nodes.filter(n => getNodeFlowId(n) === flow.id);
@@ -606,6 +643,8 @@ export const Canvas: React.FC<CanvasProps> = ({
           const isHovered = hoveredNode === `bubble-${flow.id}`;
           const centerNode = clusterNodes.find(n => n.id === flow.center_id && n.type === flow.center_type) || clusterNodes[0];
           const isSelected = centerNode && selectedNodes.includes(centerNode.node_ref);
+          const fontSize = Math.max(18, bubbleRadius * 0.4);
+          const subFontSize = Math.max(14, bubbleRadius * 0.26);
           return (
             <g key={`bubble-${flow.id}`} transform={`translate(${bx}, ${by})`}
               className="cursor-pointer"
@@ -614,15 +653,25 @@ export const Canvas: React.FC<CanvasProps> = ({
               onClick={(e) => { e.stopPropagation(); if (centerNode) { setSelectedNodes([centerNode.node_ref]); updateState({ selectedNode: centerNode.node_ref }); } }}
               onDoubleClick={(e) => { e.stopPropagation(); if (onGoToFlow) onGoToFlow(flow.id); }}
             >
-              {/* Glow shadow always visible */}
-              <circle r={bubbleRadius + 6} fill={flowColor} opacity="0.12" />
-              {isHovered && <circle r={bubbleRadius + 12} fill={flowColor} opacity="0.2" filter="url(#glow-node)" />}
-              {isSelected && <circle r={bubbleRadius + 6} fill="none" stroke="white" strokeWidth="3" opacity="0.9" strokeDasharray="6,4" />}
-              <circle r={bubbleRadius} fill={flowColor} opacity={isHovered ? 0.9 : 0.7} stroke={flowColor} strokeWidth="3" />
-              <text textAnchor="middle" dominantBaseline="central" fill="white" fontSize={Math.max(16, bubbleRadius * 0.38)} fontWeight="700" fontFamily="monospace" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>
-                {flow.name.length > 14 ? flow.name.substring(0, 14) + '…' : flow.name}
+              {/* Outer glow — always visible */}
+              <circle r={bubbleRadius * 1.6} fill={flowColor} opacity="0.06" />
+              <circle r={bubbleRadius * 1.2} fill={flowColor} opacity="0.12" />
+              {/* Hover glow */}
+              {isHovered && <circle r={bubbleRadius * 1.5} fill={flowColor} opacity="0.25" filter="url(#glow-node)" />}
+              {/* Selection ring */}
+              {isSelected && <circle r={bubbleRadius + 8} fill="none" stroke="white" strokeWidth="3" opacity="0.9" strokeDasharray="8,5" />}
+              {/* Main bubble */}
+              <circle r={bubbleRadius} fill={flowColor} opacity={isHovered ? 0.85 : 0.55}
+                stroke={flowColor} strokeWidth="4" strokeOpacity={isHovered ? 1 : 0.7} />
+              {/* Flow name */}
+              <text y={-subFontSize * 0.4} textAnchor="middle" dominantBaseline="central" fill="white"
+                fontSize={fontSize} fontWeight="800" fontFamily="monospace" letterSpacing="0.05em"
+                style={{ textShadow: '0 2px 8px rgba(0,0,0,0.7)' }}>
+                {flow.name.length > 16 ? flow.name.substring(0, 16) + '…' : flow.name.toUpperCase()}
               </text>
-              <text y={bubbleRadius * 0.5} textAnchor="middle" dominantBaseline="central" fill="white" fontSize={Math.max(12, bubbleRadius * 0.28)} opacity="0.8" fontFamily="monospace">
+              {/* Node count */}
+              <text y={fontSize * 0.7} textAnchor="middle" dominantBaseline="central" fill="white"
+                fontSize={subFontSize} opacity="0.75" fontFamily="monospace">
                 {clusterNodes.length} {clusterNodes.length === 1 ? 'nó' : 'nós'}
               </text>
             </g>
