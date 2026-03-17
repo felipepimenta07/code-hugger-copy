@@ -147,6 +147,8 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
 
   useEffect(() => { isDraggingRef.current = state.dragging !== null; }, [state.dragging]);
 
+  const initialLoadDoneRef = useRef(false);
+
   // Initial load
   useEffect(() => {
     if (!user) return;
@@ -174,6 +176,7 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
           const firstFlow = flowsRes.data[0];
           setActiveNodeRef(makeRef(firstFlow.center_type, firstFlow.center_id));
         }
+        initialLoadDoneRef.current = true;
       } catch (error) {
         console.error('Erro ao carregar dados:', error);
         toast.error('Erro ao carregar dados');
@@ -183,6 +186,7 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
     };
     loadData();
   }, [user]);
+
 
   // Realtime
   useEffect(() => {
@@ -552,6 +556,22 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
       return () => clearTimeout(timer);
     }
   }, [viewMode, activeNodeRef]);
+  // Auto-center on initial load
+  useEffect(() => {
+    if (!isLoadingData && initialLoadDoneRef.current && allNodes.length > 0) {
+      const timer = setTimeout(() => {
+        if (svgRef.current) {
+          const rect = svgRef.current.getBoundingClientRect();
+          const nodesToCenter = viewMode === 'master' ? allNodes : nodes;
+          const bounds = calculateBounds(nodesToCenter);
+          const zoom = calculateOptimalZoom(bounds, rect.width, rect.height);
+          const pan = calculateCenterPan(bounds, zoom, rect.width, rect.height);
+          updateState({ zoom, pan });
+        }
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [isLoadingData, allNodes.length]);
 
   // ===== DELETE =====
   const deleteConnection = async (connectionIndex: number) => {
@@ -880,26 +900,27 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
             </button>
           </div>
 
-          {/* Flow Manager Panel (dropdown) */}
-          <FlowManagerPanel
-            open={showFlowsManager}
-            onOpenChange={setShowFlowsManager}
-            flows={flowsForManager}
-            onSelectFlow={(flowId) => {
-              const sf = flows.find(f => f.id === flowId);
-              if (sf) { setActiveNodeRef(makeRef(sf.center_type, sf.center_id)); setViewMode('single'); }
-            }}
-            onDeleteFlow={async (flowId) => {
-              if (!user) return;
-              const { error } = await supabase.from('flows').delete().eq('id', flowId).eq('user_id', user.id);
-              if (error) { toast.error('Erro ao deletar flow'); return; }
-              setFlows(prev => prev.filter(f => f.id !== flowId));
-              toast.success('Flow deletado');
-              const df = flows.find(f => f.id === flowId);
-              if (df && activeNodeRef === makeRef(df.center_type, df.center_id)) { setViewMode('master'); setActiveNodeRef(null); }
-            }}
-          />
         </div>
+
+        {/* Flow Manager Panel - top left overlay */}
+        <FlowManagerPanel
+          open={showFlowsManager}
+          onOpenChange={setShowFlowsManager}
+          flows={flowsForManager}
+          onSelectFlow={(flowId) => {
+            const sf = flows.find(f => f.id === flowId);
+            if (sf) { setActiveNodeRef(makeRef(sf.center_type, sf.center_id)); setViewMode('single'); }
+          }}
+          onDeleteFlow={async (flowId) => {
+            if (!user) return;
+            const { error } = await supabase.from('flows').delete().eq('id', flowId).eq('user_id', user.id);
+            if (error) { toast.error('Erro ao deletar flow'); return; }
+            setFlows(prev => prev.filter(f => f.id !== flowId));
+            toast.success('Flow deletado');
+            const df = flows.find(f => f.id === flowId);
+            if (df && activeNodeRef === makeRef(df.center_type, df.center_id)) { setViewMode('master'); setActiveNodeRef(null); }
+          }}
+        />
 
         {/* Node Detail Panel */}
         {detailPanelNode && (

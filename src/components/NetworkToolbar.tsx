@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, Sparkles, LayoutGrid, Target, Tag, LogOut, MessageCircle, Briefcase } from 'lucide-react';
+import { Search, Sparkles, LayoutGrid, Target, Tag, LogOut, MessageCircle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 
 interface NetworkToolbarProps {
@@ -39,10 +39,6 @@ export const NetworkToolbar: React.FC<NetworkToolbarProps> = ({
           }`}>
           <span className="flex items-center gap-1.5"><LayoutGrid size={14} /> Master</span>
         </button>
-        <button onClick={onOpenFlows}
-          className={`px-3 py-1.5 text-sm font-mono uppercase tracking-wider rounded transition-all text-muted-foreground hover:text-foreground hover:bg-secondary/40`}>
-          <span className="flex items-center gap-1.5"><Briefcase size={14} /> Flows</span>
-        </button>
         <button onClick={onSingleView}
           className={`px-3 py-1.5 text-sm font-mono uppercase tracking-wider rounded transition-all ${
             viewMode === 'single' ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-secondary/40'
@@ -60,7 +56,7 @@ export const NetworkToolbar: React.FC<NetworkToolbarProps> = ({
           className={`px-2.5 py-1.5 text-sm font-mono rounded transition-all flex items-center gap-1.5 ${
             showLabels ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-secondary/40'
           }`}>
-          <Tag size={14} /> Rótulos
+           <Tag size={14} /> Conexões
         </button>
         <button onClick={() => setShowAIInsights(prev => !prev)}
           className={`px-2.5 py-1.5 text-sm font-mono rounded transition-all flex items-center gap-1.5 ${
