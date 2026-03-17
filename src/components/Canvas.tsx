@@ -603,7 +603,7 @@ export const Canvas: React.FC<CanvasProps> = ({
               style={{ transition: state.dragging === node.node_ref ? 'none' : 'transform 0.1s ease-out, opacity 0.3s ease' }}
             >
               {isHovered && (
-                <circle r={nodeSize + 12} fill={colors.primary} opacity="0.12" filter="url(#glow-node)" />
+                <circle r={nodeSize + 12} fill={nodeColor} opacity="0.12" filter="url(#glow-node)" />
               )}
               
               {isSelected && (
