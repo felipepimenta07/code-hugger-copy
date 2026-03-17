@@ -447,8 +447,8 @@ export const Canvas: React.FC<CanvasProps> = ({
         
         {/* Removed cluster rings — dense layout has no rings */}
 
-        {/* Connections - hidden in master bubble mode */}
-        {!(viewMode === 'master' && state.zoom < 0.15) && (() => {
+        {/* Connections */}
+        {(() => {
           const activeNodeRef = selectedNodes.length === 1 ? selectedNodes[0] : null;
           const hasFocus = activeNodeRef !== null;
 
