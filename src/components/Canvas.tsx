@@ -42,6 +42,14 @@ const nodeColors = {
   brand: { primary: 'hsl(var(--node-brand))', glow: 'hsl(var(--node-brand-glow))', secondary: 'hsl(var(--node-brand-secondary))' }
 };
 
+const depthColors = [
+  'hsl(var(--depth-0))',
+  'hsl(var(--depth-1))',
+  'hsl(var(--depth-2))',
+  'hsl(var(--depth-3))',
+];
+const depthUnconnected = 'hsl(var(--depth-unconnected))';
+
 export const Canvas: React.FC<CanvasProps> = ({
   svgRef, state, updateState, viewMode, workflows, nodes, connections,
   selectedNodes, setSelectedNodes, selectedConnection, setSelectedConnection,
