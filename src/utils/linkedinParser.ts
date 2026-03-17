@@ -125,6 +125,40 @@ export const parseLinkedInCSV = (csvContent: string): ParsedLinkedInData & { det
   };
 };
 
+/**
+ * Merge multiple parsed CSV results, deduplicating by firstName+lastName+company
+ */
+export const mergeLinkedInData = (datasets: Array<ParsedLinkedInData & { detectedHeaders: string[] }>): ParsedLinkedInData & { detectedHeaders: string[] } => {
+  const seen = new Set<string>();
+  const allContacts: LinkedInContact[] = [];
+  const companiesSet = new Set<string>();
+  const allHeaders: string[] = [];
+
+  for (const ds of datasets) {
+    // Collect unique headers
+    for (const h of ds.detectedHeaders) {
+      if (!allHeaders.includes(h)) allHeaders.push(h);
+    }
+
+    for (const contact of ds.contacts) {
+      const key = `${(contact.firstName || '').toLowerCase()}|${(contact.lastName || '').toLowerCase()}|${(contact.company || '').toLowerCase()}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      allContacts.push(contact);
+      if (contact.company?.trim()) {
+        companiesSet.add(contact.company.trim());
+      }
+    }
+  }
+
+  return {
+    contacts: allContacts,
+    uniqueCompanies: Array.from(companiesSet),
+    totalContacts: allContacts.length,
+    detectedHeaders: allHeaders,
+  };
+};
+
 export const validateEmail = (email: string): boolean => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return emailRegex.test(email);

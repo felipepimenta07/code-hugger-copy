@@ -1,6 +1,8 @@
 import React from 'react';
 import { Search, Sparkles, LayoutGrid, Target, Tag, LogOut, MessageCircle, Briefcase, Upload } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { LinkedInFilters } from './LinkedInFilters';
+import { LinkedInFilterState } from '@/types/linkedin';
 
 interface NetworkToolbarProps {
   viewMode: string;
@@ -20,6 +22,9 @@ interface NetworkToolbarProps {
   onOpenLinkedIn?: () => void;
   onLogout?: () => void;
   onSearch: () => void;
+  allNodes?: any[];
+  linkedInFilters?: LinkedInFilterState;
+  onLinkedInFiltersChange?: (filters: LinkedInFilterState) => void;
 }
 
 export const NetworkToolbar: React.FC<NetworkToolbarProps> = ({
@@ -27,6 +32,7 @@ export const NetworkToolbar: React.FC<NetworkToolbarProps> = ({
   showLabels, setShowLabels, showAIInsights, setShowAIInsights,
   onFitToScreen, onMasterView, onSingleView,
   onOpenFlows, onOpenWhatsApp, onOpenLinkedIn, onLogout, onSearch,
+  allNodes, linkedInFilters, onLinkedInFiltersChange,
 }) => {
   const btnClass = "px-2.5 py-1.5 text-sm font-mono text-muted-foreground hover:text-foreground hover:bg-secondary/40 rounded transition-colors flex items-center gap-1.5";
 
@@ -88,6 +94,14 @@ export const NetworkToolbar: React.FC<NetworkToolbarProps> = ({
               <Upload size={14} className="text-[#0A66C2]" /> LinkedIn
             </button>
           </>
+        )}
+
+        {allNodes && linkedInFilters && onLinkedInFiltersChange && (
+          <LinkedInFilters
+            allNodes={allNodes}
+            filters={linkedInFilters}
+            onFiltersChange={onLinkedInFiltersChange}
+          />
         )}
       </div>
 
