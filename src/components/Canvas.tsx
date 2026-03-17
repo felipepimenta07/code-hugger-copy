@@ -108,14 +108,14 @@ export const Canvas: React.FC<CanvasProps> = ({
   
   const nodeDepths = calculateNodeDepths();
   
-  const getFlowOffset = (flowId: number) => {
+  const getFlowOffset = (flowId: number, flowRingRadius: number) => {
     if (!flows || flows.length === 0) return { dx: 0, dy: 0 };
     const idx = Math.max(0, flows.findIndex(f => f.id === flowId));
     const angle = (idx / Math.max(flows.length, 1)) * Math.PI * 2;
     const count = Math.max(flows.length, 1);
     let radius = 0;
     if (count > 1) {
-      const filledRadius = MASTER_RING_RADIUS + 40;
+      const filledRadius = flowRingRadius + 40;
       const LABEL_CLEARANCE = 120;
       const safeGap = 16 + LABEL_CLEARANCE;
       const neededChord = 2 * filledRadius + safeGap;
@@ -123,6 +123,9 @@ export const Canvas: React.FC<CanvasProps> = ({
     }
     return { dx: Math.cos(angle) * radius, dy: Math.sin(angle) * radius };
   };
+
+  // Calculate dynamic ring radius per flow
+  const getFlowRingRadius = (nodeCount: number) => Math.max(240, nodeCount * 30);
 
   const getNodeFlowId = (n: any) => n?.flow_id ?? (n?.type === 'project' ? n.id : null);
   
