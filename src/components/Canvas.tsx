@@ -632,10 +632,10 @@ export const Canvas: React.FC<CanvasProps> = ({
                 </>
               ) : (
                 <>
-                  <circle r={nodeSize} fill="hsl(var(--background))" stroke={colors.primary}
+                  <circle r={nodeSize} fill="hsl(var(--background))" stroke={nodeColor}
                     strokeWidth={isCenterNode ? 3 : 2} opacity="0.95" />
                   <text textAnchor="middle" dominantBaseline="central"
-                    fill={colors.primary} fontSize={nodeSize * 0.6} fontWeight="600" fontFamily="monospace">
+                    fill={nodeColor} fontSize={nodeSize * 0.6} fontWeight="600" fontFamily="monospace">
                     {getInitial(node.name)}
                   </text>
                 </>
