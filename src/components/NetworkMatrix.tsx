@@ -655,7 +655,7 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
     saveToHistory();
     const nodeType = nodeData.nodeType || 'person';
     const tableName = getTableName(nodeType);
-    const { data: existingNodes } = await supabase.from(tableName).select('*').eq('name', nodeData.name.trim()).eq('user_id', user.id).limit(1);
+    const { data: existingNodes } = await (supabase.from as any)(tableName).select('*').eq('name', nodeData.name.trim()).eq('user_id', user.id).limit(1);
     if (existingNodes?.length > 0) { setDuplicateCheckModal({ show: true, existingNode: existingNodes[0], newNodeData: nodeData, nodeType }); return; }
     await handleCreateNode(nodeData, null);
   };

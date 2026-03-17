@@ -76,7 +76,7 @@ interface NetworkModalsProps {
 
   showOpportunities: boolean;
   setShowOpportunities: (show: boolean) => void;
-  onSelectOpportunityNode: (id: number) => void;
+  onSelectOpportunityNode: (id: string) => void;
 
   showSidebar: boolean;
   editingNode: any;
