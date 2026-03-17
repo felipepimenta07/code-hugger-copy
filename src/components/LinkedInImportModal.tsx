@@ -19,7 +19,7 @@ interface LinkedInImportModalProps {
 }
 
 export const LinkedInImportModal = ({ open, onOpenChange, onImport, projects }: LinkedInImportModalProps) => {
-  const [parsedData, setParsedData] = useState<ParsedLinkedInData | null>(null);
+  const [parsedData, setParsedData] = useState<ParsedDataWithHeaders | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [options, setOptions] = useState<LinkedInImportOptions>({
     createBrands: true,
