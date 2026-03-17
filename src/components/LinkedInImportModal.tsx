@@ -9,6 +9,8 @@ import { parseLinkedInCSV } from '@/utils/linkedinParser';
 import { ParsedLinkedInData, LinkedInImportOptions } from '@/types/linkedin';
 import { toast } from 'sonner';
 
+type ParsedDataWithHeaders = ParsedLinkedInData & { detectedHeaders: string[] };
+
 interface LinkedInImportModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
