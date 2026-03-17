@@ -666,8 +666,8 @@ export const Canvas: React.FC<CanvasProps> = ({
               )}
               
               {/* Name label */}
-              <text y={nodeSize + 18} textAnchor="middle" fill="hsl(var(--foreground))"
-                fontSize={isHovered ? 14 : 13} fontWeight={isHovered ? 600 : 400}
+              <text y={nodeSize + 20} textAnchor="middle" fill="hsl(var(--foreground))"
+                fontSize={isHovered ? 16 : 15} fontWeight={isHovered ? 600 : 400}
                 style={{ transition: 'font-size 0.15s ease' }}>
                 {node.name.length > 18 ? node.name.substring(0, 18) + '…' : node.name}
               </text>
