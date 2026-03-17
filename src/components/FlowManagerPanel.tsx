@@ -75,7 +75,7 @@ export const FlowManagerPanel = ({ open, onOpenChange, flows, onSelectFlow, onDe
 
   return (
     <div
-      className="absolute top-2 left-3 z-50"
+      className="absolute top-1.5 left-4 z-50"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
