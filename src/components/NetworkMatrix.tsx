@@ -840,6 +840,7 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
           onSingleView={handleSingleView}
           onOpenFlows={() => setShowFlowsManager(prev => !prev)}
           onOpenWhatsApp={onOpenWhatsApp}
+          onOpenLinkedIn={() => setShowLinkedInImport(true)}
           onLogout={onLogout}
           onSearch={() => setShowOpportunities(true)}
         />

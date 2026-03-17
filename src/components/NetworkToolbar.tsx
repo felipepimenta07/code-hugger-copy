@@ -80,6 +80,15 @@ export const NetworkToolbar: React.FC<NetworkToolbarProps> = ({
             </button>
           </>
         )}
+
+        {onOpenLinkedIn && (
+          <>
+            <div className="h-5 w-px bg-border/30 mx-1" />
+            <button onClick={onOpenLinkedIn} className={btnClass}>
+              <Upload size={14} className="text-[#0A66C2]" /> LinkedIn
+            </button>
+          </>
+        )}
       </div>
 
       {/* Right section */}
