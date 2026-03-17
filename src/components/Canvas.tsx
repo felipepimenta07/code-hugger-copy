@@ -126,6 +126,30 @@ export const Canvas: React.FC<CanvasProps> = ({
   const getFlowRingRadius = (nodeCount: number) => Math.max(240, nodeCount * 30);
   const getNodeFlowId = (n: any) => n?.flow_id ?? (n?.type === 'project' ? n.id : null);
   
+  // Bubble layout for semantic zoom (dedicated tight spacing)
+  const bubbleLayoutMap = React.useMemo(() => {
+    if (viewMode !== 'master' || !flows?.length) return new Map<number, {x:number, y:number, radius:number}>();
+    const map = new Map<number, {x:number, y:number, radius:number}>();
+    const count = flows.length;
+    const cols = Math.ceil(Math.sqrt(count));
+    const spacing = 280;
+    const totalW = (cols - 1) * spacing;
+    const rows = Math.ceil(count / cols);
+    const totalH = (rows - 1) * spacing;
+    flows.forEach((flow, idx) => {
+      const clusterNodes = nodes.filter(n => getNodeFlowId(n) === flow.id);
+      const bubbleRadius = Math.max(40, Math.sqrt(Math.max(clusterNodes.length, 1)) * 22);
+      const row = Math.floor(idx / cols);
+      const col = idx % cols;
+      map.set(flow.id, {
+        x: col * spacing - totalW / 2,
+        y: row * spacing - totalH / 2,
+        radius: bubbleRadius
+      });
+    });
+    return map;
+  }, [viewMode, flows, nodes]);
+
   // Layout determinístico para Master View — keyed by node_ref
   const masterLayoutMap = React.useMemo(() => {
     if (viewMode !== 'master' || !flows?.length) return new Map<string, {x:number, y:number}>();
