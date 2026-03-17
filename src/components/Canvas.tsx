@@ -34,8 +34,6 @@ interface CanvasProps {
   onForceDrag?: (nodeRef: string, x: number, y: number) => void;
   onForceDragEnd?: (nodeRef: string) => void;
   useForceLayout?: boolean;
-  hoveredFlowId?: number | null;
-  getNodeDegreeColor?: (nodeRef: string) => string;
 }
 
 const nodeColors = {
@@ -53,8 +51,6 @@ export const Canvas: React.FC<CanvasProps> = ({
   onGoToFlow, onWheel, showLabels = false,
   forcePositions, onForceDragStart, onForceDrag, onForceDragEnd,
   useForceLayout = false,
-  hoveredFlowId,
-  getNodeDegreeColor,
 }) => {
   const [hoveredConnection, setHoveredConnection] = useState<{
     index: number;
@@ -467,11 +463,7 @@ export const Canvas: React.FC<CanvasProps> = ({
         {(() => {
           const activeNodeRef = selectedNodes.length === 1 ? selectedNodes[0] : null;
           const hasFocus = activeNodeRef !== null;
-          const hovFlowRefs = new Set<string>();
-          if (hoveredFlowId) {
-            nodes.forEach(n => { if (n.flow_id === hoveredFlowId) hovFlowRefs.add(n.node_ref); });
-          }
-          const hasFlowHov = hoveredFlowId !== null && hovFlowRefs.size > 0;
+
           return connections.map((conn, idx) => {
           const from = nodes.find(n => n.node_ref === conn.from_ref);
           const to = nodes.find(n => n.node_ref === conn.to_ref);
@@ -492,8 +484,7 @@ export const Canvas: React.FC<CanvasProps> = ({
           const toFlowId = getNodeFlowId(to);
           const isCrossFlow = viewMode === 'master' && fromFlowId && toFlowId && fromFlowId !== toFlowId;
 
-          const isConnDimmed = (hasFocus && conn.from_ref !== activeNodeRef && conn.to_ref !== activeNodeRef) ||
-                              (hasFlowHov && !hovFlowRefs.has(conn.from_ref) && !hovFlowRefs.has(conn.to_ref));
+          const isConnDimmed = hasFocus && conn.from_ref !== activeNodeRef && conn.to_ref !== activeNodeRef;
           
           let strokeColor: string, strokeWidth: number, strokeDasharray: string | undefined, opacity = 1, useGlow = false;
           
@@ -569,15 +560,6 @@ export const Canvas: React.FC<CanvasProps> = ({
             });
           }
           const hasFocus = activeNodeRef !== null;
-          
-          // Flow hover preview: find nodes belonging to hovered flow
-          const hoveredFlowNodeRefs = new Set<string>();
-          if (hoveredFlowId) {
-            nodes.forEach(n => {
-              if (n.flow_id === hoveredFlowId) hoveredFlowNodeRefs.add(n.node_ref);
-            });
-          }
-          const hasFlowHover = hoveredFlowId !== null && hoveredFlowNodeRefs.size > 0;
 
           return nodes.map(node => {
           const nodeType = (node.type as keyof typeof nodeColors) || 'person';
@@ -593,12 +575,7 @@ export const Canvas: React.FC<CanvasProps> = ({
           const nodeSize = isCenterNode ? Math.max(baseSize, 45) : baseSize;
           const isHovered = hoveredNode === node.node_ref;
           
-          const isDimmed = (hasFocus && !connectedNodeRefs.has(node.node_ref)) || 
-                           (hasFlowHover && !hoveredFlowNodeRefs.has(node.node_ref));
-          const isFlowHighlighted = hasFlowHover && hoveredFlowNodeRefs.has(node.node_ref);
-          
-          // Use degree color when available and no specific type coloring needed
-          const degreeColor = getNodeDegreeColor ? getNodeDegreeColor(node.node_ref) : null;
+          const isDimmed = hasFocus && !connectedNodeRefs.has(node.node_ref);
           
           return (
             <g key={node.node_ref} transform={`translate(${displayX}, ${displayY})`}
@@ -611,8 +588,8 @@ export const Canvas: React.FC<CanvasProps> = ({
               opacity={isDimmed ? 0.15 : 1}
               style={{ transition: state.dragging === node.node_ref ? 'none' : 'transform 0.1s ease-out, opacity 0.3s ease' }}
             >
-              {(isHovered || isFlowHighlighted) && (
-                <circle r={nodeSize + 12} fill={isFlowHighlighted ? '#fff' : colors.primary} opacity={isFlowHighlighted ? 0.2 : 0.12} filter="url(#glow-node)" />
+              {isHovered && (
+                <circle r={nodeSize + 12} fill={colors.primary} opacity="0.12" filter="url(#glow-node)" />
               )}
               
               {isSelected && (
@@ -637,14 +614,14 @@ export const Canvas: React.FC<CanvasProps> = ({
                   <image href={node.profile_picture_url} x={-nodeSize} y={-nodeSize}
                     width={nodeSize * 2} height={nodeSize * 2}
                     clipPath={`url(#clip-${node.type}-${node.id})`} preserveAspectRatio="xMidYMid slice" />
-                  <circle r={nodeSize} fill="none" stroke={degreeColor || colors.primary} strokeWidth={isCenterNode ? 3 : 2} />
+                  <circle r={nodeSize} fill="none" stroke={colors.primary} strokeWidth={isCenterNode ? 3 : 2} />
                 </>
               ) : (
                 <>
-                  <circle r={nodeSize} fill="hsl(var(--background))" stroke={degreeColor || colors.primary}
+                  <circle r={nodeSize} fill="hsl(var(--background))" stroke={colors.primary}
                     strokeWidth={isCenterNode ? 3 : 2} opacity="0.95" />
                   <text textAnchor="middle" dominantBaseline="central"
-                    fill={degreeColor || colors.primary} fontSize={nodeSize * 0.6} fontWeight="600" fontFamily="monospace">
+                    fill={colors.primary} fontSize={nodeSize * 0.6} fontWeight="600" fontFamily="monospace">
                     {getInitial(node.name)}
                   </text>
                 </>
