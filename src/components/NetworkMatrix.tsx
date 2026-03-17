@@ -187,22 +187,6 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
     loadData();
   }, [user]);
 
-  // Auto-center on initial load
-  useEffect(() => {
-    if (!isLoadingData && initialLoadDoneRef.current && allNodes.length > 0) {
-      const timer = setTimeout(() => {
-        if (svgRef.current) {
-          const rect = svgRef.current.getBoundingClientRect();
-          const nodesToCenter = viewMode === 'master' ? allNodes : nodes;
-          const bounds = calculateBounds(nodesToCenter);
-          const zoom = calculateOptimalZoom(bounds, rect.width, rect.height);
-          const pan = calculateCenterPan(bounds, zoom, rect.width, rect.height);
-          updateState({ zoom, pan });
-        }
-      }, 300);
-      return () => clearTimeout(timer);
-    }
-  }, [isLoadingData, allNodes.length]);
 
   // Realtime
   useEffect(() => {
