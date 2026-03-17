@@ -39,10 +39,6 @@ export const NetworkToolbar: React.FC<NetworkToolbarProps> = ({
           }`}>
           <span className="flex items-center gap-1.5"><LayoutGrid size={14} /> Master</span>
         </button>
-        <button onClick={onOpenFlows}
-          className={`px-3 py-1.5 text-sm font-mono uppercase tracking-wider rounded transition-all text-muted-foreground hover:text-foreground hover:bg-secondary/40`}>
-          <span className="flex items-center gap-1.5"><Briefcase size={14} /> Flows</span>
-        </button>
         <button onClick={onSingleView}
           className={`px-3 py-1.5 text-sm font-mono uppercase tracking-wider rounded transition-all ${
             viewMode === 'single' ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-secondary/40'
