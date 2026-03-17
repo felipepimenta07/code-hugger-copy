@@ -428,7 +428,7 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
       const tableName = getTableName(node.type);
       const updateFn = node.type === 'project' ? setProjects : node.type === 'person' ? setPeople : setBrands;
       updateFn(prev => prev.map(p => p.id === node.id ? { ...p, ...(viewMode === 'master' ? { master_x: node.x, master_y: node.y } : { x: node.x, y: node.y }) } : p));
-      await supabase.from(tableName).update({ [xColumn]: node.x, [yColumn]: node.y }).eq('id', node.id).eq('user_id', user.id);
+      await (supabase.from as any)(tableName).update({ [xColumn]: node.x, [yColumn]: node.y }).eq('id', node.id).eq('user_id', user.id);
     }
   };
 
