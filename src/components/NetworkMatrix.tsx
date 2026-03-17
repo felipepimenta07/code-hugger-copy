@@ -6,7 +6,7 @@ import { NetworkToolbar } from './NetworkToolbar';
 import { NetworkModals } from './NetworkModals';
 import { NetworkSidebar } from './NetworkSidebar';
 import { NodeDetailPanel } from './NodeDetailPanel';
-import { PathIndicator } from './PathIndicator';
+
 import { FlowManagerPanel } from './FlowManagerPanel';
 import { WhatsAppNotifications } from './WhatsAppNotifications';
 import { useNetworkState } from '@/hooks/useNetworkState';
@@ -691,12 +691,45 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
   const handleDuplicateConfirmDifferent = async () => { if (duplicateCheckModal) { await handleCreateNode(duplicateCheckModal.newNodeData, null); setDuplicateCheckModal(null); } };
   const handleDuplicateCancel = () => { setDuplicateCheckModal(null); toast.info('Criação cancelada'); };
 
-  const handleNodeUpdate = (updatedData: any) => {
-    if (!editingNodeInModal) return;
+  const handleNodeUpdate = async (updatedData: any) => {
+    if (!editingNodeInModal || !user) return;
     saveToHistory();
-    if (editingNodeInModal.type === 'project') setProjects(prev => prev.map(n => n.id === editingNodeInModal.id ? { ...n, ...updatedData } : n));
-    else if (editingNodeInModal.type === 'person') setPeople(prev => prev.map(n => n.id === editingNodeInModal.id ? { ...n, ...updatedData } : n));
-    else setBrands(prev => prev.map(n => n.id === editingNodeInModal.id ? { ...n, ...updatedData } : n));
+    const nodeType = editingNodeInModal.type;
+    const nodeId = editingNodeInModal.id;
+    const tableName = getTableName(nodeType);
+
+    // Optimistic local update
+    if (nodeType === 'project') setProjects(prev => prev.map(n => n.id === nodeId ? { ...n, ...updatedData } : n));
+    else if (nodeType === 'person') setPeople(prev => prev.map(n => n.id === nodeId ? { ...n, ...updatedData } : n));
+    else setBrands(prev => prev.map(n => n.id === nodeId ? { ...n, ...updatedData } : n));
+
+    // Prevent realtime from triggering redundant reload
+    const recentKey = `${tableName}:${nodeId}`;
+    recentUpdatesRef.current.add(recentKey);
+    setTimeout(() => recentUpdatesRef.current.delete(recentKey), 2000);
+
+    // Persist to database
+    const { type, node_ref, isNewHighlight, ...dbFields } = updatedData;
+    try {
+      const { error } = await (supabase as any).from(tableName).update(dbFields).eq('id', nodeId).eq('user_id', user.id);
+      if (error) {
+        console.error('Erro ao atualizar nó:', error);
+        toast.error('Erro ao salvar alterações');
+        reloadData();
+        return;
+      }
+    } catch (err) {
+      console.error('Erro inesperado:', err);
+      toast.error('Erro inesperado ao salvar');
+      reloadData();
+      return;
+    }
+
+    // Update detail panel if open
+    if (detailPanelNode && detailPanelNode.id === nodeId && detailPanelNode.type === nodeType) {
+      setDetailPanelNode(prev => prev ? { ...prev, ...updatedData } : prev);
+    }
+
     setShowNodeCreationModal(false); setEditingNodeInModal(null); updateState({ showSidebar: false });
   };
 
@@ -785,8 +818,7 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
 
   // ===== RENDER =====
   return (
-    <div className="min-h-screen h-screen flex flex-col overflow-hidden"
-      style={{ background: viewMode === 'single' ? 'hsl(225, 22%, 9%)' : 'hsl(220, 20%, 7%)' }}>
+    <div className="min-h-screen h-screen flex flex-col overflow-hidden">
       {/* Sidebar - Groups only */}
       <NetworkSidebar viewMode={viewMode} allNodes={allNodes} nodes={nodes} />
 
@@ -945,10 +977,6 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
           />
         )}
 
-        {/* Path indicator */}
-        {viewMode === 'single' && (
-          <PathIndicator selectedNode={selectedNode} centerNode={centerNode} allNodes={allNodes} connections={allConnections} />
-        )}
 
         <WhatsAppNotifications />
       </div>

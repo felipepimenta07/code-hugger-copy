@@ -42,6 +42,14 @@ const nodeColors = {
   brand: { primary: 'hsl(var(--node-brand))', glow: 'hsl(var(--node-brand-glow))', secondary: 'hsl(var(--node-brand-secondary))' }
 };
 
+const depthColors = [
+  'hsl(var(--depth-0))',
+  'hsl(var(--depth-1))',
+  'hsl(var(--depth-2))',
+  'hsl(var(--depth-3))',
+];
+const depthUnconnected = 'hsl(var(--depth-unconnected))';
+
 export const Canvas: React.FC<CanvasProps> = ({
   svgRef, state, updateState, viewMode, workflows, nodes, connections,
   selectedNodes, setSelectedNodes, selectedConnection, setSelectedConnection,
@@ -563,7 +571,13 @@ export const Canvas: React.FC<CanvasProps> = ({
 
           return nodes.map(node => {
           const nodeType = (node.type as keyof typeof nodeColors) || 'person';
+          const depth = nodeDepths.get(node.node_ref);
+          const useDepthColor = viewMode === 'single' && depth !== undefined;
+          const depthColor = useDepthColor
+            ? (depthColors[Math.min(depth, depthColors.length - 1)])
+            : (depth === undefined && viewMode === 'single' ? depthUnconnected : undefined);
           const colors = nodeColors[nodeType] || nodeColors.person;
+          const nodeColor = depthColor || colors.primary;
           const isSelected = selectedNodes.includes(node.node_ref);
           const isInPath = highlightedPath.includes(node.node_ref);
           const connectionCount = connections.filter(c => c.from_ref === node.node_ref || c.to_ref === node.node_ref).length;
@@ -589,7 +603,7 @@ export const Canvas: React.FC<CanvasProps> = ({
               style={{ transition: state.dragging === node.node_ref ? 'none' : 'transform 0.1s ease-out, opacity 0.3s ease' }}
             >
               {isHovered && (
-                <circle r={nodeSize + 12} fill={colors.primary} opacity="0.12" filter="url(#glow-node)" />
+                <circle r={nodeSize + 12} fill={nodeColor} opacity="0.12" filter="url(#glow-node)" />
               )}
               
               {isSelected && (
@@ -614,14 +628,14 @@ export const Canvas: React.FC<CanvasProps> = ({
                   <image href={node.profile_picture_url} x={-nodeSize} y={-nodeSize}
                     width={nodeSize * 2} height={nodeSize * 2}
                     clipPath={`url(#clip-${node.type}-${node.id})`} preserveAspectRatio="xMidYMid slice" />
-                  <circle r={nodeSize} fill="none" stroke={colors.primary} strokeWidth={isCenterNode ? 3 : 2} />
+                  <circle r={nodeSize} fill="none" stroke={nodeColor} strokeWidth={isCenterNode ? 3 : 2} />
                 </>
               ) : (
                 <>
-                  <circle r={nodeSize} fill="hsl(var(--background))" stroke={colors.primary}
+                  <circle r={nodeSize} fill="hsl(var(--background))" stroke={nodeColor}
                     strokeWidth={isCenterNode ? 3 : 2} opacity="0.95" />
                   <text textAnchor="middle" dominantBaseline="central"
-                    fill={colors.primary} fontSize={nodeSize * 0.6} fontWeight="600" fontFamily="monospace">
+                    fill={nodeColor} fontSize={nodeSize * 0.6} fontWeight="600" fontFamily="monospace">
                     {getInitial(node.name)}
                   </text>
                 </>
@@ -641,7 +655,7 @@ export const Canvas: React.FC<CanvasProps> = ({
               </text>
               
               {node.category && (
-                <text y={nodeSize + 38} textAnchor="middle" fill={colors.primary}
+                <text y={nodeSize + 38} textAnchor="middle" fill={nodeColor}
                   fontSize="13" opacity={isHovered ? 0.9 : 0.5} fontFamily="monospace">
                   {node.category}
                 </text>

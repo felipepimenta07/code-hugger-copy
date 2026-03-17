@@ -2,10 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
-
 @layer base {
   :root {
     --background: 220 20% 7%;
@@ -56,6 +52,13 @@ All colors MUST be HSL.
     --connection-cross: 27 96% 61%;
     --connection-path: 43 96% 56%;
 
+    /* Depth colors for Single View */
+    --depth-0: 280 80% 65%;
+    --depth-1: 330 75% 60%;
+    --depth-2: 210 90% 55%;
+    --depth-3: 190 70% 50%;
+    --depth-unconnected: 220 10% 40%;
+
     /* Category colors */
     --cat-pessoal: 210 100% 56%;
     --cat-profissional: 158 64% 52%;
@@ -73,13 +76,16 @@ All colors MUST be HSL.
 
   body {
     @apply text-foreground;
-    background: hsl(220, 20%, 7%);
+    background: hsl(220, 20%, 4%);
     background-image:
-      radial-gradient(ellipse 80% 60% at 70% 90%, hsla(330, 70%, 35%, 0.25), transparent 60%),
-      radial-gradient(ellipse 60% 50% at 85% 75%, hsla(260, 60%, 30%, 0.2), transparent 55%),
-      radial-gradient(ellipse 70% 60% at 30% 70%, hsla(230, 60%, 30%, 0.2), transparent 55%),
-      radial-gradient(ellipse 50% 40% at 50% 50%, hsla(280, 50%, 25%, 0.15), transparent 50%);
+      radial-gradient(ellipse 90% 70% at 75% 95%, hsla(330, 80%, 40%, 0.35), transparent 55%),
+      radial-gradient(ellipse 70% 60% at 90% 80%, hsla(260, 70%, 35%, 0.3), transparent 50%),
+      radial-gradient(ellipse 80% 70% at 20% 80%, hsla(230, 70%, 35%, 0.25), transparent 55%),
+      radial-gradient(ellipse 60% 50% at 50% 60%, hsla(280, 60%, 30%, 0.2), transparent 50%),
+      radial-gradient(ellipse 40% 30% at 85% 90%, hsla(340, 80%, 45%, 0.25), transparent 45%),
+      radial-gradient(ellipse 50% 40% at 10% 50%, hsla(250, 50%, 25%, 0.15), transparent 50%);
     background-attachment: fixed;
+    min-height: 100vh;
   }
 }
 
@@ -105,7 +111,6 @@ All colors MUST be HSL.
     border-left: 3px solid rgba(99, 102, 241, 0.8);
   }
   
-  /* Animated Background Shapes */
   .shape-1, .shape-2 {
     position: absolute;
     border-radius: 50%;
@@ -138,7 +143,6 @@ All colors MUST be HSL.
     66% { transform: translate(-30px, 30px) rotate(240deg); }
   }
 
-  /* Glass Button Styles */
   .glass-button-wrap {
     position: relative;
     display: inline-block;
@@ -206,4 +210,3 @@ All colors MUST be HSL.
     filter: blur(16px);
   }
 }
-

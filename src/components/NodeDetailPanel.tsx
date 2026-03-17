@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, ExternalLink, Mail, Phone, Building2, Globe, Calendar, MapPin, Edit2 } from 'lucide-react';
+import { X, ExternalLink, Mail, Phone, Building2, Globe, Calendar, MapPin, Edit2, User, Briefcase, Tag, FileText, PhoneCall, AtSign, Cake } from 'lucide-react';
 
 const SEED_COLORS: string[] = [
   'hsl(210, 100%, 56%)', 'hsl(158, 64%, 52%)', 'hsl(43, 96%, 56%)',
@@ -55,6 +55,23 @@ export const NodeDetailPanel: React.FC<NodeDetailPanelProps> = ({
 
   const catColor = getCatColor(node.category || '');
 
+  // Build detail fields dynamically
+  const detailFields: Array<{ icon: React.ReactNode; label: string; value: string }> = [];
+  
+  if (node.company) detailFields.push({ icon: <Building2 size={13} />, label: 'Empresa', value: node.company });
+  if (node.email) detailFields.push({ icon: <Mail size={13} />, label: 'Email', value: node.email });
+  if (node.email_secondary) detailFields.push({ icon: <AtSign size={13} />, label: 'Email 2', value: node.email_secondary });
+  if (node.phone) detailFields.push({ icon: <Phone size={13} />, label: 'Telefone', value: node.phone });
+  if (node.phone_secondary) detailFields.push({ icon: <Phone size={13} />, label: 'Telefone 2', value: node.phone_secondary });
+  if (node.phone_work) detailFields.push({ icon: <PhoneCall size={13} />, label: 'Tel. Trabalho', value: node.phone_work });
+  if (node.website) detailFields.push({ icon: <Globe size={13} />, label: 'Website', value: node.website });
+  if (node.address) detailFields.push({ icon: <MapPin size={13} />, label: 'Endereço', value: node.address });
+  if (node.department) detailFields.push({ icon: <Briefcase size={13} />, label: 'Departamento', value: node.department });
+  if (node.status) detailFields.push({ icon: <Tag size={13} />, label: 'Status', value: node.status });
+  if (node.deadline) detailFields.push({ icon: <Calendar size={13} />, label: 'Prazo', value: new Date(node.deadline).toLocaleDateString('pt-BR') });
+  if (node.birthday) detailFields.push({ icon: <Cake size={13} />, label: 'Aniversário', value: new Date(node.birthday).toLocaleDateString('pt-BR') });
+  if (node.category) detailFields.push({ icon: <Tag size={13} />, label: 'Categoria', value: node.category });
+
   return (
     <div className="fixed right-0 top-0 h-screen w-[340px] z-50 flex flex-col bg-[hsl(220,20%,6%)]/95 backdrop-blur-xl border-l border-border/20 animate-in slide-in-from-right-full duration-200">
       {/* Header */}
@@ -63,16 +80,10 @@ export const NodeDetailPanel: React.FC<NodeDetailPanelProps> = ({
           <span className="text-[11px] font-mono uppercase tracking-[0.2em] font-semibold"
             style={{ color: catColor }}>
             {typeLabels[node.type] || node.type}
-            {node.category ? ` · ${node.category}` : ''}
           </span>
           <h2 className="text-lg font-bold text-foreground leading-tight truncate mt-0.5">
             {node.name}
           </h2>
-          {node.company && (
-            <p className="text-sm text-muted-foreground mt-0.5 flex items-center gap-1.5">
-              <Building2 size={12} /> {node.company}
-            </p>
-          )}
         </div>
         <div className="flex items-center gap-1 flex-shrink-0">
           <button onClick={() => onEdit(node)}
@@ -86,14 +97,14 @@ export const NodeDetailPanel: React.FC<NodeDetailPanelProps> = ({
         </div>
       </div>
 
-      {/* Direct Connections — at the top */}
+      {/* Direct Connections */}
       <div className="px-4 pt-3 pb-1.5">
         <span className="text-[11px] font-mono text-muted-foreground/40 uppercase tracking-[0.2em]">
           Conexões ({directConnections.length})
         </span>
       </div>
 
-      <div className="overflow-y-auto px-2 pb-2 max-h-[45vh] border-b border-border/15">
+      <div className="overflow-y-auto px-2 pb-2 max-h-[40vh] border-b border-border/15">
         <div className="space-y-px">
           {directConnections.map(({ node: otherNode, connectionType, connId }) => {
             const otherCatColor = getCatColor(otherNode.category || '');
@@ -136,42 +147,26 @@ export const NodeDetailPanel: React.FC<NodeDetailPanelProps> = ({
       </div>
       <div className="flex-1 overflow-y-auto px-4 pb-4">
         <div className="space-y-2.5 mt-1">
-          {node.email && (
-            <div className="flex items-center gap-2.5 text-sm text-muted-foreground">
-              <Mail size={13} className="flex-shrink-0 text-muted-foreground/40" />
-              <span className="truncate">{node.email}</span>
+          {detailFields.map((field, idx) => (
+            <div key={idx} className="flex items-center gap-2.5 text-sm text-muted-foreground">
+              <span className="flex-shrink-0 text-muted-foreground/40">{field.icon}</span>
+              <span className="truncate">{field.value}</span>
             </div>
-          )}
-          {node.phone && (
-            <div className="flex items-center gap-2.5 text-sm text-muted-foreground">
-              <Phone size={13} className="flex-shrink-0 text-muted-foreground/40" />
-              <span>{node.phone}</span>
-            </div>
-          )}
-          {node.website && (
-            <div className="flex items-center gap-2.5 text-sm text-muted-foreground">
-              <Globe size={13} className="flex-shrink-0 text-muted-foreground/40" />
-              <span className="truncate">{node.website}</span>
-            </div>
-          )}
-          {node.address && (
-            <div className="flex items-center gap-2.5 text-sm text-muted-foreground">
-              <MapPin size={13} className="flex-shrink-0 text-muted-foreground/40" />
-              <span className="truncate">{node.address}</span>
-            </div>
-          )}
-          {node.deadline && (
-            <div className="flex items-center gap-2.5 text-sm text-muted-foreground">
-              <Calendar size={13} className="flex-shrink-0 text-muted-foreground/40" />
-              <span>{new Date(node.deadline).toLocaleDateString('pt-BR')}</span>
-            </div>
-          )}
+          ))}
+          
           {node.notes && (
-            <p className="text-sm text-muted-foreground/50 mt-2 leading-relaxed">
-              {node.notes}
-            </p>
+            <div className="mt-3 pt-3 border-t border-border/10">
+              <div className="flex items-center gap-2 mb-1.5">
+                <FileText size={13} className="text-muted-foreground/40" />
+                <span className="text-[11px] font-mono text-muted-foreground/40 uppercase tracking-wider">Notas</span>
+              </div>
+              <p className="text-sm text-muted-foreground/60 leading-relaxed">
+                {node.notes}
+              </p>
+            </div>
           )}
-          {!node.email && !node.phone && !node.website && !node.address && !node.deadline && !node.notes && (
+          
+          {detailFields.length === 0 && !node.notes && (
             <div className="text-xs text-muted-foreground/25 italic text-center py-3">
               Sem detalhes adicionais
             </div>
