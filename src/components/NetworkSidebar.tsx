@@ -1,32 +1,25 @@
 import { useMemo, useState, useRef, useCallback } from 'react';
 import { GripVertical, X } from 'lucide-react';
 
-const CATEGORY_COLORS: Record<string, string> = {
-  'Pessoal': 'hsl(210, 100%, 56%)',
-  'Profissional': 'hsl(158, 64%, 52%)',
-  'Cliente': 'hsl(43, 96%, 56%)',
-  'Fornecedor': 'hsl(27, 96%, 61%)',
-  'Parceiro': 'hsl(258, 90%, 66%)',
-  'Bebida': 'hsl(340, 80%, 55%)',
-  'Entretenimento': 'hsl(280, 70%, 60%)',
-  'Hotelaria': 'hsl(190, 80%, 50%)',
-  'Varejo': 'hsl(30, 90%, 55%)',
-  'Serviços': 'hsl(170, 60%, 50%)',
-  'Tecnologia': 'hsl(210, 90%, 55%)',
-  'Alimentação': 'hsl(15, 85%, 55%)',
-  'Agência': 'hsl(260, 80%, 60%)',
-  'Banco': 'hsl(200, 70%, 50%)',
-  'Telecomunicação': 'hsl(180, 70%, 45%)',
-  'Moda': 'hsl(320, 70%, 55%)',
-  'Cosméticos': 'hsl(340, 60%, 60%)',
-  'Automotivo': 'hsl(220, 60%, 50%)',
-  'P': 'hsl(120, 50%, 50%)',
-  'M': 'hsl(45, 90%, 55%)',
-  'G': 'hsl(0, 70%, 55%)',
-};
+const SEED_COLORS: string[] = [
+  'hsl(210, 100%, 56%)', 'hsl(158, 64%, 52%)', 'hsl(43, 96%, 56%)',
+  'hsl(27, 96%, 61%)', 'hsl(258, 90%, 66%)', 'hsl(340, 80%, 55%)',
+  'hsl(280, 70%, 60%)', 'hsl(190, 80%, 50%)', 'hsl(30, 90%, 55%)',
+  'hsl(170, 60%, 50%)', 'hsl(210, 90%, 55%)', 'hsl(15, 85%, 55%)',
+  'hsl(260, 80%, 60%)', 'hsl(200, 70%, 50%)', 'hsl(180, 70%, 45%)',
+  'hsl(320, 70%, 55%)', 'hsl(340, 60%, 60%)', 'hsl(220, 60%, 50%)',
+  'hsl(120, 50%, 50%)', 'hsl(45, 90%, 55%)', 'hsl(0, 70%, 55%)',
+];
+
+// Deterministic hash so the same category always gets the same color
+function hashStr(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
 
 function getColor(category: string): string {
-  return CATEGORY_COLORS[category] || 'hsl(220, 10%, 55%)';
+  return SEED_COLORS[hashStr(category) % SEED_COLORS.length];
 }
 
 interface NetworkSidebarProps {
@@ -126,24 +119,51 @@ export function NetworkSidebar({
       <div className="max-h-[50vh] overflow-y-auto py-1.5">
         {categoryGroups.map(([name, data]) => {
           const isActive = activeCategory === name;
+          const pct = totalNodes > 0 ? Math.round((data.count / totalNodes) * 100) : 0;
           return (
             <button
               key={name}
-              className={`w-full flex items-center justify-between px-3 py-1.5 text-sm rounded-md mx-0 transition-all group ${
+              className={`w-full flex items-center gap-2 px-3 py-2 rounded-md mx-0 transition-all duration-150 group relative overflow-hidden ${
                 isActive
-                  ? 'bg-secondary/60 text-foreground'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-secondary/30'
+                  ? 'text-foreground'
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
+              style={{
+                backgroundColor: isActive ? `${data.color}20` : undefined,
+              }}
+              onMouseEnter={(e) => {
+                if (!isActive) e.currentTarget.style.backgroundColor = `${data.color}12`;
+              }}
+              onMouseLeave={(e) => {
+                if (!isActive) e.currentTarget.style.backgroundColor = 'transparent';
+              }}
               onClick={() => onFilterCategory?.(isActive ? null : name)}
             >
-              <span className="flex items-center gap-2 min-w-0">
-                <span
-                  className="w-3 h-3 rounded-full flex-shrink-0 shadow-sm"
-                  style={{ backgroundColor: data.color, boxShadow: `0 0 6px ${data.color}40` }}
-                />
-                <span className="truncate text-sm">{name}</span>
+              {/* Color bar indicator */}
+              <span
+                className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] rounded-r transition-all duration-150"
+                style={{
+                  backgroundColor: data.color,
+                  height: isActive ? '70%' : '0%',
+                  opacity: isActive ? 1 : 0,
+                }}
+              />
+              <span
+                className="w-3.5 h-3.5 rounded-full flex-shrink-0 transition-transform duration-150 group-hover:scale-125"
+                style={{
+                  backgroundColor: data.color,
+                  boxShadow: `0 0 8px ${data.color}50`,
+                }}
+              />
+              <span className="truncate text-sm flex-1 text-left">{name}</span>
+              <span className="flex items-center gap-1.5 flex-shrink-0">
+                <span className="text-xs font-mono font-semibold" style={{ color: data.color }}>
+                  {data.count}
+                </span>
+                <span className="text-[10px] text-muted-foreground/30 font-mono w-7 text-right">
+                  {pct}%
+                </span>
               </span>
-              <span className="text-xs text-muted-foreground/50 font-mono ml-1 flex-shrink-0">{data.count}</span>
             </button>
           );
         })}
