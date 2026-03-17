@@ -467,7 +467,11 @@ export const Canvas: React.FC<CanvasProps> = ({
         {(() => {
           const activeNodeRef = selectedNodes.length === 1 ? selectedNodes[0] : null;
           const hasFocus = activeNodeRef !== null;
-
+          const hovFlowRefs = new Set<string>();
+          if (hoveredFlowId) {
+            nodes.forEach(n => { if (n.flow_id === hoveredFlowId) hovFlowRefs.add(n.node_ref); });
+          }
+          const hasFlowHov = hoveredFlowId !== null && hovFlowRefs.size > 0;
           return connections.map((conn, idx) => {
           const from = nodes.find(n => n.node_ref === conn.from_ref);
           const to = nodes.find(n => n.node_ref === conn.to_ref);
