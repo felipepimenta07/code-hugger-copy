@@ -606,8 +606,8 @@ export const Canvas: React.FC<CanvasProps> = ({
               opacity={isDimmed ? 0.15 : 1}
               style={{ transition: state.dragging === node.node_ref ? 'none' : 'transform 0.1s ease-out, opacity 0.3s ease' }}
             >
-              {isHovered && (
-                <circle r={nodeSize + 12} fill={colors.primary} opacity="0.12" filter="url(#glow-node)" />
+              {(isHovered || isFlowHighlighted) && (
+                <circle r={nodeSize + 12} fill={isFlowHighlighted ? '#fff' : colors.primary} opacity={isFlowHighlighted ? 0.2 : 0.12} filter="url(#glow-node)" />
               )}
               
               {isSelected && (
@@ -632,14 +632,14 @@ export const Canvas: React.FC<CanvasProps> = ({
                   <image href={node.profile_picture_url} x={-nodeSize} y={-nodeSize}
                     width={nodeSize * 2} height={nodeSize * 2}
                     clipPath={`url(#clip-${node.type}-${node.id})`} preserveAspectRatio="xMidYMid slice" />
-                  <circle r={nodeSize} fill="none" stroke={colors.primary} strokeWidth={isCenterNode ? 3 : 2} />
+                  <circle r={nodeSize} fill="none" stroke={degreeColor || colors.primary} strokeWidth={isCenterNode ? 3 : 2} />
                 </>
               ) : (
                 <>
-                  <circle r={nodeSize} fill="hsl(var(--background))" stroke={colors.primary}
+                  <circle r={nodeSize} fill="hsl(var(--background))" stroke={degreeColor || colors.primary}
                     strokeWidth={isCenterNode ? 3 : 2} opacity="0.95" />
                   <text textAnchor="middle" dominantBaseline="central"
-                    fill={colors.primary} fontSize={nodeSize * 0.6} fontWeight="600" fontFamily="monospace">
+                    fill={degreeColor || colors.primary} fontSize={nodeSize * 0.6} fontWeight="600" fontFamily="monospace">
                     {getInitial(node.name)}
                   </text>
                 </>
