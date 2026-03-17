@@ -486,8 +486,9 @@ export const Canvas: React.FC<CanvasProps> = ({
           const centerNode = clusterNodes.find(n => n.id === flow.center_id && n.type === flow.center_type) || clusterNodes.find(n => n.type === 'project') || clusterNodes[0];
           const pos = masterLayoutMap.get(centerNode.id);
           if (!pos) return null;
+          const ringRadius = getFlowRingRadius(clusterNodes.length);
           return (
-            <circle key={flow.id} cx={pos.x} cy={pos.y} r={MASTER_RING_RADIUS} fill="none"
+            <circle key={flow.id} cx={pos.x} cy={pos.y} r={ringRadius} fill="none"
               stroke="hsl(var(--muted))" strokeWidth="0.5" strokeDasharray="4,8" opacity="0.2" />
           );
         })}
