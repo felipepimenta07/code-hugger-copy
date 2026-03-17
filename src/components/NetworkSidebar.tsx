@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { ChevronUp } from 'lucide-react';
+import { useMemo, useState, useRef, useCallback } from 'react';
+import { GripVertical, X } from 'lucide-react';
 
 const SEED_COLORS: string[] = [
   'hsl(210, 100%, 56%)', 'hsl(158, 64%, 52%)', 'hsl(43, 96%, 56%)',
@@ -11,6 +11,7 @@ const SEED_COLORS: string[] = [
   'hsl(120, 50%, 50%)', 'hsl(45, 90%, 55%)', 'hsl(0, 70%, 55%)',
 ];
 
+// Deterministic hash so the same category always gets the same color
 function hashStr(s: string): number {
   let h = 0;
   for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
@@ -38,7 +39,10 @@ export function NetworkSidebar({
   onFilterCategory,
   activeCategory,
 }: NetworkSidebarProps) {
+  const [position, setPosition] = useState({ x: 16, y: 80 });
+  const [isDragging, setIsDragging] = useState(false);
   const [isVisible, setIsVisible] = useState(true);
+  const dragOffset = useRef({ x: 0, y: 0 });
 
   const categoryGroups = useMemo(() => {
     const groups: Record<string, { count: number; color: string }> = {};
@@ -53,75 +57,120 @@ export function NetworkSidebar({
 
   const totalNodes = viewMode === 'master' ? allNodes.length : nodes.length;
 
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    setIsDragging(true);
+    dragOffset.current = { x: e.clientX - position.x, y: e.clientY - position.y };
+    const handleMove = (ev: MouseEvent) => {
+      setPosition({ x: ev.clientX - dragOffset.current.x, y: ev.clientY - dragOffset.current.y });
+    };
+    const handleUp = () => {
+      setIsDragging(false);
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('mouseup', handleUp);
+    };
+    window.addEventListener('mousemove', handleMove);
+    window.addEventListener('mouseup', handleUp);
+  }, [position]);
+
   if (!isVisible) {
     return (
       <button
-        className="fixed bottom-3 left-1/2 -translate-x-1/2 z-50 px-4 py-1.5 rounded-full bg-secondary/80 backdrop-blur-md border border-border/30 flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+        className="fixed z-50 w-10 h-10 rounded-full bg-secondary/80 backdrop-blur-md border border-border/30 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+        style={{ left: 16, top: 80 }}
         onClick={() => setIsVisible(true)}
         title="Mostrar grupos"
       >
-        <ChevronUp size={14} />
-        <span className="text-xs font-mono font-bold">{totalNodes} nós</span>
+        <span className="text-xs font-mono font-bold">{totalNodes}</span>
       </button>
     );
   }
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 bg-[hsl(220,20%,8%)]/90 backdrop-blur-md border-t border-border/30">
-      <div className="flex items-center h-14 px-4 gap-2 overflow-x-auto">
-        {/* Header chip */}
-        <button
-          onClick={() => setIsVisible(false)}
-          className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-secondary/30 text-muted-foreground hover:text-foreground transition-colors"
-          title="Esconder grupos"
-        >
-          <span className="text-[11px] font-mono uppercase tracking-[0.15em]">
+    <div
+      className="fixed z-50 flex flex-col bg-[hsl(220,20%,8%)]/90 backdrop-blur-md border border-border/30 rounded-xl shadow-2xl overflow-hidden"
+      style={{
+        left: position.x,
+        top: position.y,
+        width: 200,
+        cursor: isDragging ? 'grabbing' : 'auto',
+        userSelect: isDragging ? 'none' : 'auto',
+      }}
+    >
+      {/* Drag handle header */}
+      <div
+        className="flex items-center justify-between px-3 py-2.5 border-b border-border/20 cursor-grab active:cursor-grabbing"
+        onMouseDown={handleMouseDown}
+      >
+        <div className="flex items-center gap-2">
+          <GripVertical size={14} className="text-muted-foreground/50" />
+          <span className="text-xs font-mono text-muted-foreground uppercase tracking-[0.15em]">
             Grupos ({totalNodes})
           </span>
+        </div>
+        <button
+          onClick={() => setIsVisible(false)}
+          className="text-muted-foreground/50 hover:text-foreground transition-colors"
+        >
+          <X size={14} />
         </button>
+      </div>
 
-        <div className="h-5 w-px bg-border/20 flex-shrink-0" />
-
-        {/* Category chips */}
+      {/* Category list */}
+      <div className="max-h-[50vh] overflow-y-auto py-1.5">
         {categoryGroups.map(([name, data]) => {
           const isActive = activeCategory === name;
+          const pct = totalNodes > 0 ? Math.round((data.count / totalNodes) * 100) : 0;
           return (
             <button
               key={name}
-              className={`flex-shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-full transition-all duration-150 ${
+              className={`w-full flex items-center gap-2 px-3 py-2 rounded-md mx-0 transition-all duration-150 group relative overflow-hidden ${
                 isActive
                   ? 'text-foreground'
                   : 'text-muted-foreground hover:text-foreground'
               }`}
               style={{
-                backgroundColor: isActive ? `${data.color}25` : 'transparent',
-                border: isActive ? `1px solid ${data.color}40` : '1px solid transparent',
+                backgroundColor: isActive ? `${data.color}20` : undefined,
               }}
               onMouseEnter={(e) => {
-                if (!isActive) e.currentTarget.style.backgroundColor = `${data.color}15`;
+                if (!isActive) e.currentTarget.style.backgroundColor = `${data.color}12`;
               }}
               onMouseLeave={(e) => {
                 if (!isActive) e.currentTarget.style.backgroundColor = 'transparent';
               }}
               onClick={() => onFilterCategory?.(isActive ? null : name)}
             >
+              {/* Color bar indicator */}
               <span
-                className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] rounded-r transition-all duration-150"
                 style={{
                   backgroundColor: data.color,
-                  boxShadow: `0 0 6px ${data.color}50`,
+                  height: isActive ? '70%' : '0%',
+                  opacity: isActive ? 1 : 0,
                 }}
               />
-              <span className="text-sm whitespace-nowrap">{name}</span>
-              <span className="text-xs font-mono font-semibold" style={{ color: data.color }}>
-                {data.count}
+              <span
+                className="w-3.5 h-3.5 rounded-full flex-shrink-0 transition-transform duration-150 group-hover:scale-125"
+                style={{
+                  backgroundColor: data.color,
+                  boxShadow: `0 0 8px ${data.color}50`,
+                }}
+              />
+              <span className="truncate text-sm flex-1 text-left">{name}</span>
+              <span className="flex items-center gap-1.5 flex-shrink-0">
+                <span className="text-xs font-mono font-semibold" style={{ color: data.color }}>
+                  {data.count}
+                </span>
+                <span className="text-[10px] text-muted-foreground/30 font-mono w-7 text-right">
+                  {pct}%
+                </span>
               </span>
             </button>
           );
         })}
-
         {categoryGroups.length === 0 && (
-          <span className="text-xs text-muted-foreground/30 italic">Nenhum grupo</span>
+          <div className="px-3 py-4 text-xs text-muted-foreground/30 italic text-center">
+            Nenhum grupo
+          </div>
         )}
       </div>
     </div>

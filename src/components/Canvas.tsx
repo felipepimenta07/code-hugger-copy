@@ -34,7 +34,6 @@ interface CanvasProps {
   onForceDrag?: (nodeRef: string, x: number, y: number) => void;
   onForceDragEnd?: (nodeRef: string) => void;
   useForceLayout?: boolean;
-  hoveredFlowId?: number | null;
 }
 
 const nodeColors = {
@@ -51,7 +50,7 @@ export const Canvas: React.FC<CanvasProps> = ({
   projects = [], flows = [], allConnections = [],
   onGoToFlow, onWheel, showLabels = false,
   forcePositions, onForceDragStart, onForceDrag, onForceDragEnd,
-  useForceLayout = false, hoveredFlowId,
+  useForceLayout = false,
 }) => {
   const [hoveredConnection, setHoveredConnection] = useState<{
     index: number;
@@ -576,7 +575,7 @@ export const Canvas: React.FC<CanvasProps> = ({
           const nodeSize = isCenterNode ? Math.max(baseSize, 45) : baseSize;
           const isHovered = hoveredNode === node.node_ref;
           
-          const isDimmed = (hasFocus && !connectedNodeRefs.has(node.node_ref)) || (hoveredFlowId != null && node.flow_id !== hoveredFlowId);
+          const isDimmed = hasFocus && !connectedNodeRefs.has(node.node_ref);
           
           return (
             <g key={node.node_ref} transform={`translate(${displayX}, ${displayY})`}
