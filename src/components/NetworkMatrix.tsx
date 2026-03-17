@@ -491,7 +491,7 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
     return { minX: Math.min(...xs) - margin, maxX: Math.max(...xs) + margin, minY: Math.min(...ys) - margin, maxY: Math.max(...ys) + margin };
   };
 
-  const calculateOptimalZoom = (bounds: any, width: number, height: number) => Math.max(Math.min((width * 0.85) / (bounds.maxX - bounds.minX), (height * 0.85) / (bounds.maxY - bounds.minY), 1.2), 0.06);
+  const calculateOptimalZoom = (bounds: any, width: number, height: number) => Math.max(Math.min((width * 0.85) / (bounds.maxX - bounds.minX), (height * 0.85) / (bounds.maxY - bounds.minY), 1.2), 0.15);
 
   const calculateCenterPan = (bounds: any, zoom: number, width: number, height: number) => ({
     x: width / 2 - ((bounds.minX + bounds.maxX) / 2) * zoom,
