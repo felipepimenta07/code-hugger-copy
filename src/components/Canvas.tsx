@@ -702,7 +702,7 @@ export const Canvas: React.FC<CanvasProps> = ({
                 {flow.name.toUpperCase()}
               </text>
               <text x={pos.x} y={pos.y - MASTER_RING_RADIUS - 22} textAnchor="middle"
-                fill="hsl(var(--muted-foreground))" fontSize="12" opacity="0.4" fontFamily="monospace">
+                fill="hsl(var(--muted-foreground))" fontSize="14" opacity="0.4" fontFamily="monospace">
                 {clusterNodes.length} {clusterNodes.length === 1 ? 'nó' : 'nós'}
               </text>
             </g>

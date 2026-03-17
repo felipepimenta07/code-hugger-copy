@@ -179,7 +179,7 @@ export const FlowManagerPanel = ({ open, onOpenChange, flows, onSelectFlow, onDe
                   </p>
 
                   {flow.stats && (
-                    <div className="flex gap-4 text-xs text-muted-foreground mb-3">
+                    <div className="flex gap-4 text-sm text-muted-foreground mb-3">
                       <span className="flex items-center gap-1">
                         <Users className="h-3 w-3" />
                         {flow.stats.people}
