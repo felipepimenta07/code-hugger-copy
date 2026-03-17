@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, Sparkles, LayoutGrid, Target, Tag, LogOut, MessageCircle } from 'lucide-react';
+import { Search, Sparkles, LayoutGrid, Target, Tag, LogOut, MessageCircle, Briefcase } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 
 interface NetworkToolbarProps {
