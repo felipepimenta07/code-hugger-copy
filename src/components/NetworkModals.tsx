@@ -2,7 +2,7 @@ import React from 'react';
 import { PathFinderModal } from './PathFinderModal';
 import { QuickActionsMenu } from './QuickActionsMenu';
 import { NodeCreationModal } from './NodeCreationModal';
-import { FlowManagerPanel } from './FlowManagerPanel';
+// FlowManagerPanel removed - now using FlowsSidebar
 import { LinkedInImportModal } from './LinkedInImportModal';
 import { DuplicateCheckDialog } from './DuplicateCheckDialog';
 import { AIInsightsPanel } from './AIInsightsPanel';

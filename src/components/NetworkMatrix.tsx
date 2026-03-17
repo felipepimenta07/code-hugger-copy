@@ -5,9 +5,7 @@ import { Canvas } from './Canvas';
 import { NetworkToolbar } from './NetworkToolbar';
 import { NetworkModals } from './NetworkModals';
 import { NetworkSidebar } from './NetworkSidebar';
-import { NodeDetailPanel } from './NodeDetailPanel';
-import { PathIndicator } from './PathIndicator';
-import { FlowManagerPanel } from './FlowManagerPanel';
+import { FlowsSidebar, getFlowColor } from './FlowsSidebar';
 import { WhatsAppNotifications } from './WhatsAppNotifications';
 import { useNetworkState } from '@/hooks/useNetworkState';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
@@ -59,7 +57,7 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
   const [nodeCreationType, setNodeCreationType] = useState<'person' | 'project' | 'brand'>('person');
   const [nodeCreationPosition, setNodeCreationPosition] = useState({ x: 0, y: 0 });
   const [editingNodeInModal, setEditingNodeInModal] = useState<any>(null);
-  const [showFlowsManager, setShowFlowsManager] = useState(false);
+  const [showFlowsSidebar, setShowFlowsSidebar] = useState(false);
   const [showAIInsights, setShowAIInsights] = useState(false);
   const [showFlowStarterModal, setShowFlowStarterModal] = useState(false);
   const [showLinkedInImport, setShowLinkedInImport] = useState(false);
@@ -69,8 +67,8 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
   const [aiConnectionModal, setAiConnectionModal] = useState<any>(null);
   const [duplicateCheckModal, setDuplicateCheckModal] = useState<any>(null);
   const [masterViewState, setMasterViewState] = useState<any>(null);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [detailPanelNode, setDetailPanelNode] = useState<any>(null);
+  const [hoveredFlowId, setHoveredFlowId] = useState<number | null>(null);
 
   const prevViewModeRef = useRef<string>(viewMode);
   const { state, updateState } = useNetworkState();
@@ -256,6 +254,15 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
         return allNodes.find(n => n.node_ref === c.from_ref && n.flow_id === currentFlowId) 
             && allNodes.find(n => n.node_ref === c.to_ref && n.flow_id === currentFlowId);
       });
+
+  // Connection degree color helper
+  const getNodeDegreeColor = React.useCallback((nodeRef: string) => {
+    const degree = allConnections.filter(c => c.from_ref === nodeRef || c.to_ref === nodeRef).length;
+    if (degree <= 2) return 'hsl(200, 80%, 60%)';   // light blue
+    if (degree <= 5) return 'hsl(158, 64%, 52%)';    // green
+    if (degree <= 10) return 'hsl(43, 96%, 56%)';    // yellow
+    return 'hsl(0, 70%, 55%)';                        // red
+  }, [allConnections]);
 
   // Force simulation for organic layout
   const {
@@ -556,6 +563,7 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
       return () => clearTimeout(timer);
     }
   }, [viewMode, activeNodeRef]);
+
   // Auto-center on initial load
   useEffect(() => {
     if (!isLoadingData && initialLoadDoneRef.current && allNodes.length > 0) {
@@ -694,10 +702,29 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
   const handleNodeUpdate = (updatedData: any) => {
     if (!editingNodeInModal) return;
     saveToHistory();
-    if (editingNodeInModal.type === 'project') setProjects(prev => prev.map(n => n.id === editingNodeInModal.id ? { ...n, ...updatedData } : n));
-    else if (editingNodeInModal.type === 'person') setPeople(prev => prev.map(n => n.id === editingNodeInModal.id ? { ...n, ...updatedData } : n));
-    else setBrands(prev => prev.map(n => n.id === editingNodeInModal.id ? { ...n, ...updatedData } : n));
-    setShowNodeCreationModal(false); setEditingNodeInModal(null); updateState({ showSidebar: false });
+    const { type, id } = { type: editingNodeInModal.type, id: editingNodeInModal.id };
+    const tableName = getTableName(type);
+    
+    // Update in local state (in-place, no duplication)
+    if (type === 'project') setProjects(prev => prev.map(n => n.id === id ? { ...n, ...updatedData } : n));
+    else if (type === 'person') setPeople(prev => prev.map(n => n.id === id ? { ...n, ...updatedData } : n));
+    else setBrands(prev => prev.map(n => n.id === id ? { ...n, ...updatedData } : n));
+    
+    // Persist to database
+    if (user) {
+      const dbData = { ...updatedData };
+      delete dbData.type;
+      delete dbData.node_ref;
+      delete dbData.isNewHighlight;
+      (supabase as any).from(tableName).update(dbData).eq('id', id).eq('user_id', user.id).then(({ error }) => {
+        if (error) { console.error('Erro ao atualizar nó:', error); toast.error('Erro ao salvar alterações'); }
+      });
+    }
+    
+    setShowNodeCreationModal(false);
+    setEditingNodeInModal(null);
+    updateState({ showSidebar: false });
+    toast.success('Nó atualizado!');
   };
 
   const handleAddWorkflow = (name: string, color: string) => { setWorkflows([...workflows, { id: Date.now(), name, color, description: '' }]); toast.success(`Workflow "${name}" criado!`); };
@@ -787,7 +814,7 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
   return (
     <div className="min-h-screen h-screen flex flex-col overflow-hidden"
       style={{ background: viewMode === 'single' ? 'hsl(225, 22%, 9%)' : 'hsl(220, 20%, 7%)' }}>
-      {/* Sidebar - Groups only */}
+      {/* Bottom horizontal groups bar */}
       <NetworkSidebar viewMode={viewMode} allNodes={allNodes} nodes={nodes} />
 
       {/* Main area */}
@@ -806,7 +833,7 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
           onFitToScreen={handleFitToScreen}
           onMasterView={handleMasterView}
           onSingleView={handleSingleView}
-          onOpenFlows={() => setShowFlowsManager(prev => !prev)}
+          onOpenFlows={() => setShowFlowsSidebar(prev => !prev)}
           onOpenWhatsApp={onOpenWhatsApp}
           onLogout={onLogout}
           onSearch={() => setShowOpportunities(true)}
@@ -852,6 +879,8 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
             onForceDrag={onForceDrag}
             onForceDragEnd={onForceDragEnd}
             useForceLayout={viewMode === 'single'}
+            hoveredFlowId={hoveredFlowId}
+            getNodeDegreeColor={getNodeDegreeColor}
           />
 
           {/* Compact zoom - bottom right */}
@@ -876,7 +905,7 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
           </div>
 
           {/* FABs — bottom center */}
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 z-30">
+          <div className="absolute bottom-16 left-1/2 -translate-x-1/2 flex items-center gap-2 z-30">
             {viewMode === 'single' && (
               <button
                 className="px-4 py-2.5 rounded-full bg-primary/20 text-primary hover:bg-primary/30 transition-colors text-sm font-mono flex items-center gap-2 border border-primary/30"
@@ -902,10 +931,10 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
 
         </div>
 
-        {/* Flow Manager Panel - top left overlay */}
-        <FlowManagerPanel
-          open={showFlowsManager}
-          onOpenChange={setShowFlowsManager}
+        {/* Flows Sidebar - right side */}
+        <FlowsSidebar
+          open={showFlowsSidebar}
+          onClose={() => setShowFlowsSidebar(false)}
           flows={flowsForManager}
           onSelectFlow={(flowId) => {
             const sf = flows.find(f => f.id === flowId);
@@ -920,35 +949,25 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
             const df = flows.find(f => f.id === flowId);
             if (df && activeNodeRef === makeRef(df.center_type, df.center_id)) { setViewMode('master'); setActiveNodeRef(null); }
           }}
+          hoveredFlowId={hoveredFlowId}
+          onHoverFlow={setHoveredFlowId}
+          selectedNodeDetail={detailPanelNode}
+          allConnections={allConnections}
+          allNodes={allNodes}
+          onCloseDetail={() => setDetailPanelNode(null)}
+          onEditNode={(node) => {
+            setEditingNodeInModal(node);
+            setNodeCreationType(node.type);
+            setShowNodeCreationModal(true);
+          }}
+          onNavigateToNode={(nodeRef) => {
+            const targetNode = allNodes.find(n => n.node_ref === nodeRef);
+            if (targetNode) {
+              setDetailPanelNode(targetNode);
+              setSelectedNodes([nodeRef]);
+            }
+          }}
         />
-
-        {/* Node Detail Panel */}
-        {detailPanelNode && (
-          <NodeDetailPanel
-            node={detailPanelNode}
-            connections={allConnections}
-            allNodes={allNodes}
-            onClose={() => setDetailPanelNode(null)}
-            onNavigateToNode={(nodeRef) => {
-              const targetNode = allNodes.find(n => n.node_ref === nodeRef);
-              if (targetNode) {
-                setDetailPanelNode(targetNode);
-                setSelectedNodes([nodeRef]);
-              }
-            }}
-            onEdit={(node) => {
-              setDetailPanelNode(null);
-              setEditingNodeInModal(node);
-              setNodeCreationType(node.type);
-              setShowNodeCreationModal(true);
-            }}
-          />
-        )}
-
-        {/* Path indicator */}
-        {viewMode === 'single' && (
-          <PathIndicator selectedNode={selectedNode} centerNode={centerNode} allNodes={allNodes} connections={allConnections} />
-        )}
 
         <WhatsAppNotifications />
       </div>
@@ -989,12 +1008,12 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
         getAllCategories={getAllCategories}
         onCreateNode={handleNodeCreation}
         onUpdateNode={handleNodeUpdate}
-        showFlowsManager={showFlowsManager}
-        setShowFlowsManager={setShowFlowsManager}
+        showFlowsManager={false}
+        setShowFlowsManager={() => {}}
         flowsForManager={flowsForManager}
         onSelectFlow={(flowId) => {
           const sf = flows.find(f => f.id === flowId);
-          if (sf) { setActiveNodeRef(makeRef(sf.center_type, sf.center_id)); setViewMode('single'); setShowFlowsManager(false); setTimeout(() => autoOrganizeSingle(makeRef(sf.center_type, sf.center_id)), 50); }
+          if (sf) { setActiveNodeRef(makeRef(sf.center_type, sf.center_id)); setViewMode('single'); setShowFlowsSidebar(false); setTimeout(() => autoOrganizeSingle(makeRef(sf.center_type, sf.center_id)), 50); }
         }}
         onDeleteFlow={async (flowId) => {
           if (!user) return;
