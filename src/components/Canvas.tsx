@@ -588,7 +588,12 @@ export const Canvas: React.FC<CanvasProps> = ({
           const nodeSize = isCenterNode ? Math.max(baseSize, 45) : baseSize;
           const isHovered = hoveredNode === node.node_ref;
           
-          const isDimmed = hasFocus && !connectedNodeRefs.has(node.node_ref);
+          const isDimmed = (hasFocus && !connectedNodeRefs.has(node.node_ref)) || 
+                           (hasFlowHover && !hoveredFlowNodeRefs.has(node.node_ref));
+          const isFlowHighlighted = hasFlowHover && hoveredFlowNodeRefs.has(node.node_ref);
+          
+          // Use degree color when available and no specific type coloring needed
+          const degreeColor = getNodeDegreeColor ? getNodeDegreeColor(node.node_ref) : null;
           
           return (
             <g key={node.node_ref} transform={`translate(${displayX}, ${displayY})`}
