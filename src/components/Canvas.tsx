@@ -1,7 +1,8 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { User, Target, Building2 } from 'lucide-react';
 import { ConnectionTooltip } from './ConnectionTooltip';
 import { parseRef } from '@/utils/nodeRef';
+import { FLOW_COLORS } from './FlowManagerPanel';
 
 interface CanvasProps {
   svgRef: React.RefObject<SVGSVGElement>;
@@ -577,7 +578,23 @@ export const Canvas: React.FC<CanvasProps> = ({
             ? (depthColors[Math.min(depth, depthColors.length - 1)])
             : (depth === undefined && viewMode === 'single' ? depthUnconnected : undefined);
           const colors = nodeColors[nodeType] || nodeColors.person;
-          const nodeColor = depthColor || colors.primary;
+          // Derive flow-based color with shifted tones
+          const flowColor = (() => {
+            if (node.flow_id && flows.length > 0) {
+              const flowIndex = flows.findIndex((f: any) => f.id === node.flow_id);
+              if (flowIndex >= 0) {
+                const baseColor = FLOW_COLORS[flowIndex % FLOW_COLORS.length];
+                // Shift to lower saturation and higher lightness for canvas tones
+                return baseColor.replace(/hsl\((\d+),\s*(\d+)%,\s*(\d+)%\)/, (_, h, s, l) => {
+                  const newS = Math.max(Number(s) - 20, 25);
+                  const newL = Math.min(Number(l) + 10, 75);
+                  return `hsl(${h}, ${newS}%, ${newL}%)`;
+                });
+              }
+            }
+            return null;
+          })();
+          const nodeColor = depthColor || flowColor || colors.primary;
           const isSelected = selectedNodes.includes(node.node_ref);
           const isInPath = highlightedPath.includes(node.node_ref);
           const connectionCount = connections.filter(c => c.from_ref === node.node_ref || c.to_ref === node.node_ref).length;
