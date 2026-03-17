@@ -36,7 +36,7 @@ interface CanvasProps {
   useForceLayout?: boolean;
 }
 
-const MASTER_RING_RADIUS = 240;
+// Bug 1 fix: no longer a constant — computed per-flow based on node count
 
 const nodeColors = {
   person: { primary: 'hsl(var(--node-person))', glow: 'hsl(var(--node-person-glow))', secondary: 'hsl(var(--node-person-secondary))' },
@@ -108,14 +108,14 @@ export const Canvas: React.FC<CanvasProps> = ({
   
   const nodeDepths = calculateNodeDepths();
   
-  const getFlowOffset = (flowId: number) => {
+  const getFlowOffset = (flowId: number, flowRingRadius: number) => {
     if (!flows || flows.length === 0) return { dx: 0, dy: 0 };
     const idx = Math.max(0, flows.findIndex(f => f.id === flowId));
     const angle = (idx / Math.max(flows.length, 1)) * Math.PI * 2;
     const count = Math.max(flows.length, 1);
     let radius = 0;
     if (count > 1) {
-      const filledRadius = MASTER_RING_RADIUS + 40;
+      const filledRadius = flowRingRadius + 40;
       const LABEL_CLEARANCE = 120;
       const safeGap = 16 + LABEL_CLEARANCE;
       const neededChord = 2 * filledRadius + safeGap;
@@ -123,6 +123,9 @@ export const Canvas: React.FC<CanvasProps> = ({
     }
     return { dx: Math.cos(angle) * radius, dy: Math.sin(angle) * radius };
   };
+
+  // Calculate dynamic ring radius per flow
+  const getFlowRingRadius = (nodeCount: number) => Math.max(240, nodeCount * 30);
 
   const getNodeFlowId = (n: any) => n?.flow_id ?? (n?.type === 'project' ? n.id : null);
   
@@ -132,14 +135,22 @@ export const Canvas: React.FC<CanvasProps> = ({
     const map = new Map<number, {x:number, y:number}>();
     const typeOrder = (t?: string) => (t === 'project' ? 0 : t === 'brand' ? 1 : 2);
     
+    // Pre-compute max ring radius for offset calculation
+    const maxRingRadius = flows.reduce((max, flow) => {
+      const count = nodes.filter(n => getNodeFlowId(n) === flow.id).length;
+      return Math.max(max, getFlowRingRadius(count));
+    }, 240);
+    
     flows.forEach(flow => {
       const clusterNodes = nodes.filter(n => getNodeFlowId(n) === flow.id);
       if (!clusterNodes.length) return;
       const centerNode = 
         clusterNodes.find(n => n.id === flow.center_id && n.type === flow.center_type) ||
+        clusterNodes.find(n => n.id === flow.center_id) ||
         clusterNodes.find(n => n.type === 'project') ||
         clusterNodes[0];
-      const { dx, dy } = getFlowOffset(flow.id);
+      const ringRadius = getFlowRingRadius(clusterNodes.length);
+      const { dx, dy } = getFlowOffset(flow.id, maxRingRadius);
       map.set(centerNode.id, { x: dx, y: dy });
       
       const others = clusterNodes.filter(n => n.id !== centerNode.id);
@@ -156,7 +167,7 @@ export const Canvas: React.FC<CanvasProps> = ({
       const step = (2 * Math.PI) / N;
       sorted.forEach((n, i) => {
         const angle = start + i * step;
-        map.set(n.id, { x: dx + MASTER_RING_RADIUS * Math.cos(angle), y: dy + MASTER_RING_RADIUS * Math.sin(angle) });
+        map.set(n.id, { x: dx + ringRadius * Math.cos(angle), y: dy + ringRadius * Math.sin(angle) });
       });
     });
     return map;
@@ -475,8 +486,9 @@ export const Canvas: React.FC<CanvasProps> = ({
           const centerNode = clusterNodes.find(n => n.id === flow.center_id && n.type === flow.center_type) || clusterNodes.find(n => n.type === 'project') || clusterNodes[0];
           const pos = masterLayoutMap.get(centerNode.id);
           if (!pos) return null;
+          const ringRadius = getFlowRingRadius(clusterNodes.length);
           return (
-            <circle key={flow.id} cx={pos.x} cy={pos.y} r={MASTER_RING_RADIUS} fill="none"
+            <circle key={flow.id} cx={pos.x} cy={pos.y} r={ringRadius} fill="none"
               stroke="hsl(var(--muted))" strokeWidth="0.5" strokeDasharray="4,8" opacity="0.2" />
           );
         })}
@@ -689,19 +701,21 @@ export const Canvas: React.FC<CanvasProps> = ({
         {viewMode === 'master' && flows?.map(flow => {
           const clusterNodes = nodes.filter(n => n.flow_id === flow.id);
           if (clusterNodes.length === 0) return null;
-          const centerNode = clusterNodes.find(n => n.id === flow.center_id && n.type === flow.center_type) 
+          const centerNode = clusterNodes.find(n => n.id === flow.center_id && n.type === flow.center_type)
+            || clusterNodes.find(n => n.id === flow.center_id)
             || clusterNodes.find(n => n.type === 'project') || clusterNodes[0];
           const pos = masterLayoutMap.get(centerNode.id);
           if (!pos) return null;
+          const ringRadius = getFlowRingRadius(clusterNodes.length);
           
           return (
             <g key={`label-${flow.id}`} pointerEvents="none">
-                <text x={pos.x} y={pos.y - MASTER_RING_RADIUS - 40} textAnchor="middle"
+                <text x={pos.x} y={pos.y - ringRadius - 40} textAnchor="middle"
                 fill="hsl(var(--muted-foreground))" fontSize="16" fontWeight="600"
                 letterSpacing="2" fontFamily="monospace">
                 {flow.name.toUpperCase()}
               </text>
-              <text x={pos.x} y={pos.y - MASTER_RING_RADIUS - 22} textAnchor="middle"
+              <text x={pos.x} y={pos.y - ringRadius - 22} textAnchor="middle"
                 fill="hsl(var(--muted-foreground))" fontSize="14" opacity="0.4" fontFamily="monospace">
                 {clusterNodes.length} {clusterNodes.length === 1 ? 'nó' : 'nós'}
               </text>

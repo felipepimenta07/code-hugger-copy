@@ -17,7 +17,6 @@ export interface ForceNode extends SimulationNodeDatum {
   type: string;
   depth?: number;
   isCenterNode?: boolean;
-  // Initial positions from DB
   initialX: number;
   initialY: number;
 }
@@ -51,21 +50,19 @@ export const useForceSimulation = ({
   const [isSimulating, setIsSimulating] = useState(false);
   const tickCountRef = useRef(0);
   const nodesRef = useRef<ForceNode[]>([]);
+  const connectionsRef = useRef<any[]>([]);
+  const prevNodesLengthRef = useRef(0);
 
-  // Calculate node depths via BFS from center
   const calculateDepths = useCallback((nodeList: any[], conns: any[], centerId?: number | null) => {
     const depths = new Map<number, number>();
     if (!centerId || nodeList.length === 0) return depths;
-
     const queue: Array<{ id: number; depth: number }> = [{ id: centerId, depth: 0 }];
     const visited = new Set<number>();
-
     while (queue.length > 0) {
       const current = queue.shift()!;
       if (visited.has(current.id)) continue;
       visited.add(current.id);
       depths.set(current.id, current.depth);
-
       conns
         .filter((c: any) => c.from === current.id || c.to === current.id)
         .forEach((c: any) => {
@@ -78,35 +75,28 @@ export const useForceSimulation = ({
     return depths;
   }, []);
 
-  // Build/rebuild simulation when nodes or connections change
+  // Build simulation when nodes change
   useEffect(() => {
     if (!enabled || viewMode !== 'single' || nodes.length === 0) {
       if (simulationRef.current) {
         simulationRef.current.stop();
         simulationRef.current = null;
       }
-      // For non-force modes, just pass through original positions
       if (nodes.length > 0) {
         const pos: ForcePositions = {};
-        nodes.forEach((n: any) => {
-          pos[n.id] = { x: n.x, y: n.y };
-        });
+        nodes.forEach((n: any) => { pos[n.id] = { x: n.x, y: n.y }; });
         setPositions(pos);
       }
       return;
     }
 
     const depths = calculateDepths(nodes, connections, centerNodeId);
+    connectionsRef.current = connections;
 
-    // Create force nodes, preserving existing simulation positions if available
     const forceNodes: ForceNode[] = nodes.map((n: any) => {
       const existing = nodesRef.current.find((fn) => fn.id === n.id);
       const depth = depths.get(n.id) ?? 3;
       const isCenter = n.id === centerNodeId;
-      const isNew = !existing && nodesRef.current.length > 0; // New node added to existing sim
-      const hasConnections = connections.some((c: any) => c.from === n.id || c.to === n.id);
-      // Pin center node always; pin new unconnected nodes so they don't fly away
-      const shouldFix = isCenter || (isNew && !hasConnections);
 
       return {
         id: n.id,
@@ -119,139 +109,110 @@ export const useForceSimulation = ({
         y: existing?.y ?? n.y,
         vx: existing?.vx ?? 0,
         vy: existing?.vy ?? 0,
-        ...(shouldFix ? { fx: existing?.x ?? n.x, fy: existing?.y ?? n.y } : {}),
+        // Bug 5 fix: Only pin center node
+        ...(isCenter ? { fx: existing?.x ?? n.x, fy: existing?.y ?? n.y } : {}),
       };
     });
 
     nodesRef.current = forceNodes;
 
-    // Create force links
     const forceLinks: ForceLink[] = connections
-      .filter((c: any) => {
-        return forceNodes.some((n) => n.id === c.from) && forceNodes.some((n) => n.id === c.to);
-      })
-      .map((c: any) => ({
-        source: c.from,
-        target: c.to,
-      }));
+      .filter((c: any) => forceNodes.some((n) => n.id === c.from) && forceNodes.some((n) => n.id === c.to))
+      .map((c: any) => ({ source: c.from, target: c.to }));
 
-    // Stop existing simulation
-    if (simulationRef.current) {
-      simulationRef.current.stop();
-    }
+    if (simulationRef.current) simulationRef.current.stop();
 
     const sim = forceSimulation<ForceNode>(forceNodes)
-      // Repulsion: variable by depth (center most repulsive)
-      .force(
-        'charge',
-        forceManyBody<ForceNode>().strength((d) => {
-          if (d.isCenterNode) return -1500;
-          switch (d.depth) {
-            case 1: return -700;
-            case 2: return -400;
-            default: return -250;
-          }
+      .force('charge', forceManyBody<ForceNode>().strength((d) => {
+        if (d.isCenterNode) return -1500;
+        switch (d.depth) {
+          case 1: return -700;
+          case 2: return -400;
+          default: return -250;
+        }
+      }))
+      .force('center', forceCenter(
+        centerNodeId ? (nodes.find((n: any) => n.id === centerNodeId)?.x ?? 500) : 500,
+        centerNodeId ? (nodes.find((n: any) => n.id === centerNodeId)?.y ?? 300) : 300
+      ).strength(0.04))
+      .force('collision', forceCollide<ForceNode>().radius((d) => {
+        const connectionCount = connections.filter((c: any) => c.from === d.id || c.to === d.id).length;
+        const baseSize = 20 + Math.min(connectionCount * 4, 25);
+        return (d.isCenterNode ? Math.max(baseSize, 45) : baseSize) + 15;
+      }))
+      .force('link', forceLink<ForceNode, ForceLink>(forceLinks)
+        .id((d) => d.id)
+        .distance((link) => {
+          const s = link.source as ForceNode;
+          const t = link.target as ForceNode;
+          const maxDepth = Math.max(s.depth ?? 0, t.depth ?? 0);
+          if (maxDepth <= 1) return 150;
+          if (maxDepth <= 2) return 220;
+          return 300;
         })
+        .strength(0.6)
       )
-      // Weak center gravity — keeps everything visible
-      .force(
-        'center',
-        forceCenter(
-          centerNodeId ? (nodes.find((n: any) => n.id === centerNodeId)?.x ?? 500) : 500,
-          centerNodeId ? (nodes.find((n: any) => n.id === centerNodeId)?.y ?? 300) : 300
-        ).strength(0.04)
-      )
-      // Collision avoidance
-      .force(
-        'collision',
-        forceCollide<ForceNode>().radius((d) => {
-          const connectionCount = connections.filter(
-            (c: any) => c.from === d.id || c.to === d.id
-          ).length;
-          const baseSize = 20 + Math.min(connectionCount * 4, 25);
-          return (d.isCenterNode ? Math.max(baseSize, 45) : baseSize) + 15;
-        })
-      )
-      // Elastic connections
-      .force(
-        'link',
-        forceLink<ForceNode, ForceLink>(forceLinks)
-          .id((d) => d.id)
-          .distance((link) => {
-            const s = link.source as ForceNode;
-            const t = link.target as ForceNode;
-            const sDepth = s.depth ?? 0;
-            const tDepth = t.depth ?? 0;
-            const maxDepth = Math.max(sDepth, tDepth);
-            // Closer nodes = shorter links
-            if (maxDepth <= 1) return 150;
-            if (maxDepth <= 2) return 220;
-            return 300;
-          })
-          .strength(0.6)
-      )
-      // Pull nodes toward their initial positions gently (stabilizer)
-      .force(
-        'x',
-        forceX<ForceNode>((d) => d.initialX).strength(0.02)
-      )
-      .force(
-        'y',
-        forceY<ForceNode>((d) => d.initialY).strength(0.02)
-      )
-      .alpha(0.8)
-      .alphaDecay(0.02)
-      .velocityDecay(0.3);
+      .force('x', forceX<ForceNode>((d) => d.initialX).strength(0.02))
+      .force('y', forceY<ForceNode>((d) => d.initialY).strength(0.02))
+      // Bug 3 fix: faster convergence
+      .alpha(0.5)
+      .alphaDecay(0.05)
+      .velocityDecay(0.45);
 
     tickCountRef.current = 0;
     setIsSimulating(true);
 
     sim.on('tick', () => {
       tickCountRef.current++;
-      // Update positions every 2 ticks for performance
       if (tickCountRef.current % 2 === 0 || tickCountRef.current < 10) {
         const pos: ForcePositions = {};
-        forceNodes.forEach((n) => {
-          pos[n.id] = { x: n.x ?? n.initialX, y: n.y ?? n.initialY };
-        });
+        forceNodes.forEach((n) => { pos[n.id] = { x: n.x ?? n.initialX, y: n.y ?? n.initialY }; });
         setPositions(pos);
       }
     });
 
     sim.on('end', () => {
       setIsSimulating(false);
-      // Final position update
       const pos: ForcePositions = {};
-      forceNodes.forEach((n) => {
-        pos[n.id] = { x: n.x ?? n.initialX, y: n.y ?? n.initialY };
-      });
+      forceNodes.forEach((n) => { pos[n.id] = { x: n.x ?? n.initialX, y: n.y ?? n.initialY }; });
       setPositions(pos);
     });
 
     simulationRef.current = sim;
+    prevNodesLengthRef.current = nodes.length;
 
-    return () => {
-      sim.stop();
-    };
-  }, [enabled, viewMode, nodes.length, connections.length, centerNodeId]);
+    return () => { sim.stop(); };
+    // Bug 4 fix: Only recreate simulation when nodes change, NOT connections
+  }, [enabled, viewMode, nodes.length, centerNodeId]);
 
-  // Drag handlers for force interaction
+  // Bug 4 fix: Separate effect for connection changes — gentle reheat only
+  useEffect(() => {
+    if (!simulationRef.current || !enabled || viewMode !== 'single') return;
+    
+    connectionsRef.current = connections;
+    const forceLinks: ForceLink[] = connections
+      .filter((c: any) => nodesRef.current.some((n) => n.id === c.from) && nodesRef.current.some((n) => n.id === c.to))
+      .map((c: any) => ({ source: c.from, target: c.to }));
+
+    const linkForce = simulationRef.current.force('link') as any;
+    if (linkForce) {
+      linkForce.links(forceLinks);
+    }
+    // Gentle reheat instead of full restart
+    simulationRef.current.alpha(0.15).restart();
+    setIsSimulating(true);
+  }, [connections.length, enabled, viewMode]);
+
   const onDragStart = useCallback((nodeId: number) => {
     if (!simulationRef.current) return;
     simulationRef.current.alphaTarget(0.3).restart();
     const node = nodesRef.current.find((n) => n.id === nodeId);
-    if (node) {
-      node.fx = node.x;
-      node.fy = node.y;
-    }
+    if (node) { node.fx = node.x; node.fy = node.y; }
   }, []);
 
   const onDrag = useCallback((nodeId: number, x: number, y: number) => {
     const node = nodesRef.current.find((n) => n.id === nodeId);
-    if (node) {
-      node.fx = x;
-      node.fy = y;
-    }
+    if (node) { node.fx = x; node.fy = y; }
   }, []);
 
   const onDragEnd = useCallback((nodeId: number) => {
@@ -259,21 +220,18 @@ export const useForceSimulation = ({
     simulationRef.current.alphaTarget(0);
     const node = nodesRef.current.find((n) => n.id === nodeId);
     if (node && !node.isCenterNode) {
-      // Release — let physics take over again
       node.fx = null;
       node.fy = null;
     }
   }, []);
 
-  // Reheat simulation (e.g. after adding a node)
-  const reheat = useCallback((alpha = 0.5) => {
+  const reheat = useCallback((alpha = 0.3) => {
     if (simulationRef.current) {
       simulationRef.current.alpha(alpha).restart();
       setIsSimulating(true);
     }
   }, []);
 
-  // Get position for a specific node (with fallback)
   const getNodePosition = useCallback(
     (nodeId: number, fallbackX: number, fallbackY: number) => {
       const pos = positions[nodeId];
@@ -282,13 +240,5 @@ export const useForceSimulation = ({
     [positions]
   );
 
-  return {
-    positions,
-    isSimulating,
-    getNodePosition,
-    onDragStart,
-    onDrag,
-    onDragEnd,
-    reheat,
-  };
+  return { positions, isSimulating, getNodePosition, onDragStart, onDrag, onDragEnd, reheat };
 };

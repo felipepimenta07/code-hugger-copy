@@ -137,15 +137,7 @@ export const NetworkModals: React.FC<NetworkModalsProps> = (props) => {
         />
       )}
 
-      {props.showFlowsManager && (
-        <FlowManagerPanel
-          open={props.showFlowsManager}
-          onOpenChange={props.setShowFlowsManager}
-          flows={props.flowsForManager}
-          onSelectFlow={props.onSelectFlow}
-          onDeleteFlow={props.onDeleteFlow}
-        />
-      )}
+      {/* FlowManagerPanel moved to NetworkMatrix as dropdown */}
 
       {props.showLinkedInImport && (
         <LinkedInImportModal
