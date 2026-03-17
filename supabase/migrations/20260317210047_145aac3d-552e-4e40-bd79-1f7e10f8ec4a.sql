@@ -1,0 +1,1 @@
+ALTER TABLE public.brands ALTER COLUMN flow_id DROP NOT NULL;

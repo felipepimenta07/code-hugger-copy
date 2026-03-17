@@ -845,7 +845,7 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
       if (noCompanyContacts.length > 0) {
         // Create a single placeholder brand for "no company"
         const { data: noBrand } = await sb.from('brands').insert({
-          user_id: user.id, flow_id: 1, name: 'LinkedIn - Sem Empresa', category: 'linkedin',
+          user_id: user.id, name: 'LinkedIn - Sem Empresa', category: 'linkedin',
           x: 0, y: 0, master_x: 0, master_y: 0,
         }).select().maybeSingle();
 
