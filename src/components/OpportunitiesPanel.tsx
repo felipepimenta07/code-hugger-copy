@@ -216,7 +216,7 @@ export const OpportunitiesPanel: React.FC<OpportunitiesPanelProps> = ({
                 {showGraph && results.opportunities.length > 0 && (
                   <OpportunityGraph
                     opportunities={results.opportunities}
-                    onNodeClick={onSelectNode}
+                    onNodeClick={(id: any) => onSelectNode?.(String(id))}
                   />
                 )}
 
