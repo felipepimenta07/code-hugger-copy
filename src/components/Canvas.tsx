@@ -538,8 +538,8 @@ export const Canvas: React.FC<CanvasProps> = ({
         
         {/* Removed bubble mode — dense layout always shows individual nodes */}
 
-        {/* Nodes - hidden in master bubble mode */}
-        {!(viewMode === 'master' && state.zoom < 0.15) && (() => {
+        {/* Nodes */}
+        {(() => {
           const activeNodeRef = selectedNodes.length === 1 ? selectedNodes[0] : null;
           const connectedNodeRefs = new Set<string>();
           if (activeNodeRef) {
