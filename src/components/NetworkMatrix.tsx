@@ -479,11 +479,23 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
       const positions: { x: number; y: number }[] = [];
       const getFlowOffset = (flowId: number) => {
         const idx = Math.max(0, flows.findIndex(f => f.id === flowId));
-        const angle = (idx / Math.max(flows.length, 1)) * Math.PI * 2;
         const count = Math.max(flows.length, 1);
-        let radius = 0;
-        if (count > 1) { radius = (2 * (MASTER_RING_RADIUS + 40) + 136) / (2 * Math.sin(Math.PI / count)); }
-        return { dx: Math.cos(angle) * radius, dy: Math.sin(angle) * radius };
+        
+        if (count <= 12) {
+          const angle = (idx / count) * Math.PI * 2;
+          let radius = 0;
+          if (count > 1) { radius = (2 * (MASTER_RING_RADIUS + 40) + 136) / (2 * Math.sin(Math.PI / count)); }
+          return { dx: Math.cos(angle) * radius, dy: Math.sin(angle) * radius };
+        }
+        
+        // Grid layout for many flows
+        const cols = Math.ceil(Math.sqrt(count));
+        const spacing = 2 * MASTER_RING_RADIUS + 300;
+        const row = Math.floor(idx / cols);
+        const col = idx % cols;
+        const totalWidth = (cols - 1) * spacing;
+        const totalHeight = (Math.ceil(count / cols) - 1) * spacing;
+        return { dx: col * spacing - totalWidth / 2, dy: row * spacing - totalHeight / 2 };
       };
       flows.forEach((flow: any) => {
         const clusterNodes = nodesList.filter(n => n.flow_id === flow.id);
@@ -505,7 +517,7 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
     return { minX: Math.min(...xs) - margin, maxX: Math.max(...xs) + margin, minY: Math.min(...ys) - margin, maxY: Math.max(...ys) + margin };
   };
 
-  const calculateOptimalZoom = (bounds: any, width: number, height: number) => Math.min((width * 0.85) / (bounds.maxX - bounds.minX), (height * 0.85) / (bounds.maxY - bounds.minY), 1.2);
+  const calculateOptimalZoom = (bounds: any, width: number, height: number) => Math.max(Math.min((width * 0.85) / (bounds.maxX - bounds.minX), (height * 0.85) / (bounds.maxY - bounds.minY), 1.2), 0.06);
 
   const calculateCenterPan = (bounds: any, zoom: number, width: number, height: number) => ({
     x: width / 2 - ((bounds.minX + bounds.maxX) / 2) * zoom,
