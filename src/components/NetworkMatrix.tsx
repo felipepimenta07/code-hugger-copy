@@ -63,6 +63,7 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
   const [showAIInsights, setShowAIInsights] = useState(false);
   const [showFlowStarterModal, setShowFlowStarterModal] = useState(false);
   const [showLinkedInImport, setShowLinkedInImport] = useState(false);
+  const [linkedInFilters, setLinkedInFilters] = useState<LinkedInFilterState>({ companies: new Set(), sectors: new Set(), countries: new Set() });
   const [aiSearchQuery, setAiSearchQuery] = useState('');
   const [isCreatingFlowRoot, setIsCreatingFlowRoot] = useState(false);
   const [showOpportunities, setShowOpportunities] = useState(false);
