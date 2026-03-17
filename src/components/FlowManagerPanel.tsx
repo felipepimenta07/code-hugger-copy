@@ -174,7 +174,7 @@ export const FlowManagerPanel = ({ open, onOpenChange, flows, onSelectFlow, onDe
                     </Badge>
                   </div>
 
-                  <p className="text-sm text-muted-foreground mb-3">
+                  <p className="text-base text-muted-foreground mb-3">
                     Centro: {flow.centerName || `ID ${flow.center_id}`}
                   </p>
 
