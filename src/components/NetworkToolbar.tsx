@@ -22,6 +22,9 @@ interface NetworkToolbarProps {
   onOpenLinkedIn?: () => void;
   onLogout?: () => void;
   onSearch: () => void;
+  allNodes?: any[];
+  linkedInFilters?: LinkedInFilterState;
+  onLinkedInFiltersChange?: (filters: LinkedInFilterState) => void;
 }
 
 export const NetworkToolbar: React.FC<NetworkToolbarProps> = ({
