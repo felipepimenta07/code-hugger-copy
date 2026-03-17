@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 // Category color map
@@ -43,7 +43,6 @@ export function NetworkSidebar({
   collapsed = false,
   onToggleCollapse,
 }: NetworkSidebarProps) {
-  // Build category groups from current nodes
   const categoryGroups = useMemo(() => {
     const groups: Record<string, { count: number; color: string }> = {};
     const activeNodes = viewMode === 'master' ? allNodes : nodes;
@@ -70,10 +69,10 @@ export function NetworkSidebar({
       {/* Header */}
       {!collapsed && (
         <div className="px-4 py-5 border-b border-border/20">
-          <h1 className="text-[11px] font-bold text-foreground tracking-[0.2em] font-mono uppercase">
+          <h1 className="text-xs font-bold text-foreground tracking-[0.2em] font-mono uppercase">
             Network Matrix
           </h1>
-          <p className="text-[9px] text-muted-foreground font-mono mt-0.5 tracking-wider uppercase">
+          <p className="text-xs text-muted-foreground font-mono mt-0.5 tracking-wider uppercase">
             Mapa de Conexões
           </p>
         </div>
@@ -81,7 +80,7 @@ export function NetworkSidebar({
 
       {collapsed && (
         <div className="h-[65px] border-b border-border/20 flex items-center justify-center">
-          <span className="text-[9px] font-bold text-foreground font-mono">NM</span>
+          <span className="text-xs font-bold text-foreground font-mono">NM</span>
         </div>
       )}
 
@@ -89,7 +88,7 @@ export function NetworkSidebar({
       <div className="flex-1 overflow-y-auto px-1 py-3">
         {!collapsed && (
           <div className="px-2 mb-2">
-            <span className="text-[9px] font-mono text-muted-foreground/50 uppercase tracking-[0.15em]">
+            <span className="text-xs font-mono text-muted-foreground/50 uppercase tracking-[0.15em]">
               Grupos ({totalNodes})
             </span>
           </div>
@@ -120,7 +119,7 @@ export function NetworkSidebar({
             return (
               <button
                 key={name}
-                className={`w-full flex items-center justify-between px-3 py-1.5 text-[11px] rounded transition-all group ${
+                className={`w-full flex items-center justify-between px-3 py-1.5 text-sm rounded transition-all group ${
                   isActive 
                     ? 'bg-secondary/60 text-foreground' 
                     : 'text-muted-foreground hover:text-foreground hover:bg-secondary/30'
@@ -134,12 +133,12 @@ export function NetworkSidebar({
                   />
                   <span className="truncate">{name}</span>
                 </span>
-                <span className="text-[9px] text-muted-foreground/50 font-mono ml-1 flex-shrink-0">{data.count}</span>
+                <span className="text-xs text-muted-foreground/50 font-mono ml-1 flex-shrink-0">{data.count}</span>
               </button>
             );
           })}
           {categoryGroups.length === 0 && !collapsed && (
-            <div className="px-3 py-4 text-[10px] text-muted-foreground/30 italic text-center">
+            <div className="px-3 py-4 text-xs text-muted-foreground/30 italic text-center">
               Nenhum grupo
             </div>
           )}
@@ -152,7 +151,7 @@ export function NetworkSidebar({
           onClick={onToggleCollapse}
           className="w-full flex items-center justify-center py-1.5 rounded text-muted-foreground hover:text-foreground hover:bg-secondary/30 transition-colors"
         >
-          {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+          {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
         </button>
       </div>
     </div>
