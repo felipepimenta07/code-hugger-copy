@@ -1,16 +1,16 @@
 import { useState } from 'react';
 
 interface NetworkState {
-  selectedNode: number | null;
+  selectedNode: string | null;
   editingNode: any | null;
-  dragging: number | null;
+  dragging: string | null;
   offset: { x: number; y: number };
   zoom: number;
   pan: { x: number; y: number };
   isPanning: boolean;
   panStart: { x: number; y: number };
   isDraggingConnection: boolean;
-  connectionStart: { id: number; x: number; y: number } | null;
+  connectionStart: { ref: string; x: number; y: number } | null;
   connectionEnd: { x: number; y: number };
   newNodeName: string;
   newNodeType: string;

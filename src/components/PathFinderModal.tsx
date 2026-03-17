@@ -4,12 +4,12 @@ import { Route } from 'lucide-react';
 interface PathFinderModalProps {
   nodes: any[];
   connections: any[];
-  pathStart: number | null;
-  pathEnd: number | null;
-  setPathStart: (id: number | null) => void;
-  setPathEnd: (id: number | null) => void;
+  pathStart: string | null;
+  pathEnd: string | null;
+  setPathStart: (ref: string | null) => void;
+  setPathEnd: (ref: string | null) => void;
   setShowPathFinder: (show: boolean) => void;
-  setHighlightedPath: (path: number[]) => void;
+  setHighlightedPath: (path: string[]) => void;
 }
 
 export const PathFinderModal: React.FC<PathFinderModalProps> = ({
@@ -22,22 +22,22 @@ export const PathFinderModal: React.FC<PathFinderModalProps> = ({
   setShowPathFinder,
   setHighlightedPath
 }) => {
-  const findShortestPath = (startId: number, endId: number) => {
-    if (startId === endId) return [startId];
-    const visited = new Set<number>();
-    const queue: number[][] = [[startId]];
+  const findShortestPath = (startRef: string, endRef: string): string[] | null => {
+    if (startRef === endRef) return [startRef];
+    const visited = new Set<string>();
+    const queue: string[][] = [[startRef]];
     
     while (queue.length > 0) {
       const path = queue.shift()!;
-      const node = path[path.length - 1];
+      const nodeRef = path[path.length - 1];
       
-      if (node === endId) return path;
+      if (nodeRef === endRef) return path;
       
-      if (!visited.has(node)) {
-        visited.add(node);
+      if (!visited.has(nodeRef)) {
+        visited.add(nodeRef);
         const neighbors = connections
-          .filter(c => c.from === node || c.to === node)
-          .map(c => c.from === node ? c.to : c.from)
+          .filter(c => c.from_ref === nodeRef || c.to_ref === nodeRef)
+          .map(c => c.from_ref === nodeRef ? c.to_ref : c.from_ref)
           .filter(n => !visited.has(n));
         
         neighbors.forEach(neighbor => queue.push([...path, neighbor]));
@@ -63,20 +63,20 @@ export const PathFinderModal: React.FC<PathFinderModalProps> = ({
             <label className="block text-sm text-muted-foreground mb-2 font-medium">De:</label>
             <select 
               value={pathStart || ''} 
-              onChange={(e) => setPathStart(parseInt(e.target.value))}
+              onChange={(e) => setPathStart(e.target.value || null)}
               className="w-full px-4 py-2.5 bg-secondary text-foreground border border-border rounded-xl focus:outline-none focus:border-primary">
               <option value="">Selecione um nó...</option>
-              {nodes.map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
+              {nodes.map(n => <option key={n.node_ref} value={n.node_ref}>{n.name}</option>)}
             </select>
           </div>
           <div>
             <label className="block text-sm text-muted-foreground mb-2 font-medium">Para:</label>
             <select 
               value={pathEnd || ''} 
-              onChange={(e) => setPathEnd(parseInt(e.target.value))}
+              onChange={(e) => setPathEnd(e.target.value || null)}
               className="w-full px-4 py-2.5 bg-secondary text-foreground border border-border rounded-xl focus:outline-none focus:border-primary">
               <option value="">Selecione um nó...</option>
-              {nodes.map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
+              {nodes.map(n => <option key={n.node_ref} value={n.node_ref}>{n.name}</option>)}
             </select>
           </div>
           <button

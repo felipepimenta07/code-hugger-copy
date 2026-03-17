@@ -15,6 +15,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useForceSimulation } from '@/hooks/useForceSimulation';
 import { supabase } from '@/integrations/supabase/client';
 import { ParsedLinkedInData, LinkedInImportOptions } from '@/types/linkedin';
+import { makeRef, parseRef, getTableName } from '@/utils/nodeRef';
 
 const CATEGORIES = {
   person: ['Pessoal', 'Profissional', 'Cliente', 'Fornecedor', 'Parceiro'],
@@ -39,20 +40,20 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
   const [isLoadingData, setIsLoadingData] = useState(true);
 
   // View state
-  const [activeProjectId, setActiveProjectId] = useState<number | null>(null);
+  const [activeNodeRef, setActiveNodeRef] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState('master');
   const [showLabels, setShowLabels] = useState(false);
-  const [selectedNodes, setSelectedNodes] = useState([]);
+  const [selectedNodes, setSelectedNodes] = useState<string[]>([]);
   const [selectedConnection, setSelectedConnection] = useState(null);
   const [customCategories, setCustomCategories] = useState({ person: [], brand: [], project: [] });
-  const [highlightedPath, setHighlightedPath] = useState([]);
-  const [hoveredNode, setHoveredNode] = useState(null);
+  const [highlightedPath, setHighlightedPath] = useState<string[]>([]);
+  const [hoveredNode, setHoveredNode] = useState<string | null>(null);
   const [flows, setFlows] = useState<any[]>([]);
 
   // Modal/panel state
   const [showPathFinder, setShowPathFinder] = useState(false);
-  const [pathStart, setPathStart] = useState(null);
-  const [pathEnd, setPathEnd] = useState(null);
+  const [pathStart, setPathStart] = useState<string | null>(null);
+  const [pathEnd, setPathEnd] = useState<string | null>(null);
   const [showQuickActions, setShowQuickActions] = useState(false);
   const [showNodeCreationModal, setShowNodeCreationModal] = useState(false);
   const [nodeCreationType, setNodeCreationType] = useState<'person' | 'project' | 'brand'>('person');
@@ -78,15 +79,35 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
   const recentUpdatesRef = useRef<Set<string>>(new Set());
   const isResettingRef = useRef(false);
 
-  // Force simulation for organic layout in Single View
-  const centerNodeIdForForce = (viewMode === 'single' && activeProjectId) ? (() => {
-    const currentFlowId = projects.find(p => p.id === activeProjectId)?.flow_id
-      || people.find(pe => pe.id === activeProjectId)?.flow_id
-      || brands.find(b => b.id === activeProjectId)?.flow_id
-      || null;
+  // Force simulation center node ref
+  const centerNodeRefForForce = (viewMode === 'single' && activeNodeRef) ? (() => {
+    const currentFlowId = getCurrentFlowIdFromRef(activeNodeRef);
     const flow = flows.find(f => f.id === currentFlowId);
-    return flow?.center_id ?? null;
+    return flow ? makeRef(flow.center_type, flow.center_id) : null;
   })() : null;
+
+  // ===== HELPERS =====
+  function getCurrentFlowIdFromRef(ref: string | null): number | null {
+    if (!ref) return null;
+    const { type, id } = parseRef(ref);
+    const node = type === 'project' ? projects.find(p => p.id === id)
+      : type === 'person' ? people.find(p => p.id === id)
+      : brands.find(b => b.id === id);
+    return node?.flow_id ?? null;
+  }
+
+  const addNodeRefs = (items: any[], type: string) => 
+    items.map(item => ({ ...item, type, node_ref: makeRef(type, item.id) }));
+  
+  const addConnRefs = (conns: any[]) => 
+    conns.map(c => ({
+      ...c,
+      from: c.from_id, to: c.to_id,
+      from_ref: makeRef(c.from_type, c.from_id),
+      to_ref: makeRef(c.to_type, c.to_id),
+      type: c.connection_type || 'related',
+      connection_type: c.connection_type
+    }));
 
   // ===== DATA LOADING =====
   const reloadData = async (options?: { forceReset?: boolean }) => {
@@ -103,15 +124,15 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
         sb.from('flows').select('*').eq('user_id', user.id),
       ]);
 
-      setProjects(projectsRes.data?.map((p: any) => ({ ...p, type: 'project' })) || []);
-      setPeople(peopleRes.data?.map((p: any) => ({ ...p, type: 'person' })) || []);
-      setBrands(brandsRes.data?.map((b: any) => ({ ...b, type: 'brand' })) || []);
-      setAllConnections(connectionsRes.data?.map((c: any) => ({ ...c, from: c.from_id, to: c.to_id, type: c.connection_type || 'related' })) || []);
+      setProjects(addNodeRefs(projectsRes.data || [], 'project'));
+      setPeople(addNodeRefs(peopleRes.data || [], 'person'));
+      setBrands(addNodeRefs(brandsRes.data || [], 'brand'));
+      setAllConnections(addConnRefs(connectionsRes.data || []));
       setWorkflows(workflowsRes.data || []);
       setFlows(flowsRes.data || []);
       
       if (options?.forceReset) {
-        setActiveProjectId(null);
+        setActiveNodeRef(null);
         setViewMode('master');
         setSelectedNodes([]);
         setSelectedConnection(null);
@@ -142,20 +163,16 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
           sb.from('flows').select('*').eq('user_id', user.id),
         ]);
 
-        if (projectsRes.data) setProjects(projectsRes.data.map((p: any) => ({ ...p, type: 'project' })));
-        if (peopleRes.data) setPeople(peopleRes.data.map((p: any) => ({ ...p, type: 'person' })));
-        if (brandsRes.data) setBrands(brandsRes.data.map((b: any) => ({ ...b, type: 'brand' })));
-        if (connectionsRes.data) {
-          setAllConnections(connectionsRes.data.map((c: any) => ({
-            id: c.id, from: c.from_id, to: c.to_id, from_type: c.from_type, to_type: c.to_type,
-            type: c.connection_type || 'related', connection_type: c.connection_type
-          })));
-        }
+        if (projectsRes.data) setProjects(addNodeRefs(projectsRes.data, 'project'));
+        if (peopleRes.data) setPeople(addNodeRefs(peopleRes.data, 'person'));
+        if (brandsRes.data) setBrands(addNodeRefs(brandsRes.data, 'brand'));
+        if (connectionsRes.data) setAllConnections(addConnRefs(connectionsRes.data));
         if (workflowsRes.data) setWorkflows(workflowsRes.data);
         if (flowsRes.data) setFlows(flowsRes.data);
         
-        if (projectsRes.data?.length > 0) {
-          setActiveProjectId(projectsRes.data[0].id);
+        if (flowsRes.data?.length > 0) {
+          const firstFlow = flowsRes.data[0];
+          setActiveNodeRef(makeRef(firstFlow.center_type, firstFlow.center_id));
         }
       } catch (error) {
         console.error('Erro ao carregar dados:', error);
@@ -203,54 +220,37 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
     [allNodesRaw, viewMode]
   );
 
-  const getCurrentFlowIdFromProjectId = (id: number): number | null => {
-    return projects.find(p => p.id === id)?.flow_id 
-      || people.find(p => p.id === id)?.flow_id 
-      || brands.find(b => b.id === id)?.flow_id 
-      || null;
-  };
-
-  const getNodesForSingleView = (projectId: number) => {
-    const currentFlowId = getCurrentFlowIdFromProjectId(projectId);
+  const getNodesForSingleView = (ref: string) => {
+    const currentFlowId = getCurrentFlowIdFromRef(ref);
     if (!currentFlowId) return [];
     const flowNodes = allNodes.filter(node => node.flow_id === currentFlowId);
     const flow = flows.find(f => f.id === currentFlowId);
     if (!flow) return flowNodes;
-    const getByType = (type: string, id: number) => {
-      if (type === 'project') return projects.find(p => p.id === id);
-      if (type === 'person') return people.find(p => p.id === id);
-      if (type === 'brand') return brands.find(b => b.id === id);
-      return null;
-    };
-    const center = flow.center_id ? getByType(flow.center_type, flow.center_id) : null;
+    const center = flowNodes.find(n => n.id === flow.center_id && n.type === flow.center_type);
     if (!center) return flowNodes;
-    // Avoid duplicate: filter out center from flowNodes first
-    const others = flowNodes.filter(n => !(n.id === center.id && n.type === center.type));
+    const others = flowNodes.filter(n => n.node_ref !== center.node_ref);
     return [{ ...center, type: flow.center_type }, ...others];
   };
 
   const nodes = viewMode === 'master'
     ? allNodes.filter(n => n.flow_id !== null && n.flow_id !== undefined)
-    : (activeProjectId ? getNodesForSingleView(activeProjectId) : []);
+    : (activeNodeRef ? getNodesForSingleView(activeNodeRef) : []);
 
-  const selectedNode = selectedNodes.length === 1 ? allNodes.find(n => n.id === selectedNodes[0]) : null;
+  const selectedNode = selectedNodes.length === 1 ? allNodes.find(n => n.node_ref === selectedNodes[0]) : null;
 
-  const centerNode = (viewMode === 'single' && activeProjectId) ? (() => {
-    const currentFlowId = getCurrentFlowIdFromProjectId(activeProjectId);
+  const centerNode = (viewMode === 'single' && activeNodeRef) ? (() => {
+    const currentFlowId = getCurrentFlowIdFromRef(activeNodeRef);
     const flow = flows.find(f => f.id === currentFlowId);
     if (!flow) return null;
-    if (flow.center_type === 'project') return projects.find(p => p.id === flow.center_id) || null;
-    if (flow.center_type === 'person') return people.find(p => p.id === flow.center_id) || null;
-    if (flow.center_type === 'brand') return brands.find(b => b.id === flow.center_id) || null;
-    return null;
+    return allNodes.find(n => n.id === flow.center_id && n.type === flow.center_type) || null;
   })() : null;
 
   const connections = viewMode === 'master'
     ? allConnections
     : allConnections.filter(c => {
-        const currentFlowId = activeProjectId ? getCurrentFlowIdFromProjectId(activeProjectId) : null;
-        return allNodes.find(n => n.id === c.from && n.flow_id === currentFlowId) 
-            && allNodes.find(n => n.id === c.to && n.flow_id === currentFlowId);
+        const currentFlowId = activeNodeRef ? getCurrentFlowIdFromRef(activeNodeRef) : null;
+        return allNodes.find(n => n.node_ref === c.from_ref && n.flow_id === currentFlowId) 
+            && allNodes.find(n => n.node_ref === c.to_ref && n.flow_id === currentFlowId);
       });
 
   // Force simulation for organic layout
@@ -266,7 +266,7 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
     connections,
     viewMode,
     enabled: viewMode === 'single',
-    centerNodeId: centerNodeIdForForce,
+    centerNodeRef: centerNodeRefForForce,
   });
 
   // ===== HISTORY =====
@@ -274,7 +274,7 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
   const [historyIndex, setHistoryIndex] = useState(-1);
 
   const saveToHistory = () => {
-    const snapshot = { projects: [...projects], people: [...people], brands: [...brands], allConnections: [...allConnections], viewMode, activeProjectId };
+    const snapshot = { projects: [...projects], people: [...people], brands: [...brands], allConnections: [...allConnections], viewMode, activeNodeRef };
     const newHistory = history.slice(0, historyIndex + 1);
     newHistory.push(snapshot);
     if (newHistory.length > 50) newHistory.shift();
@@ -286,7 +286,7 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
     if (historyIndex > 0) {
       const s = history[historyIndex - 1];
       setProjects(s.projects); setPeople(s.people); setBrands(s.brands); setAllConnections(s.allConnections);
-      setViewMode(s.viewMode); setActiveProjectId(s.activeProjectId);
+      setViewMode(s.viewMode); setActiveNodeRef(s.activeNodeRef);
       setHistoryIndex(historyIndex - 1);
     }
   };
@@ -295,7 +295,7 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
     if (historyIndex < history.length - 1) {
       const s = history[historyIndex + 1];
       setProjects(s.projects); setPeople(s.people); setBrands(s.brands); setAllConnections(s.allConnections);
-      setViewMode(s.viewMode); setActiveProjectId(s.activeProjectId);
+      setViewMode(s.viewMode); setActiveNodeRef(s.activeNodeRef);
       setHistoryIndex(historyIndex + 1);
     }
   };
@@ -315,39 +315,37 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
   };
 
   // ===== NODE POSITION =====
-  const updateNodePosition = async (nodeId: number, deltaX: number, deltaY: number, saveToDb: boolean = false) => {
+  const updateNodePosition = async (nodeRef: string, deltaX: number, deltaY: number, saveToDb: boolean = false) => {
     if (!user) return;
-    const isProject = projects.find(p => p.id === nodeId);
-    const isPerson = people.find(p => p.id === nodeId);
-    const isBrand = brands.find(b => b.id === nodeId);
+    const { type, id } = parseRef(nodeRef);
     const xColumn = viewMode === 'master' ? 'master_x' : 'x';
     const yColumn = viewMode === 'master' ? 'master_y' : 'y';
+    const tableName = getTableName(type);
     
-    let newX: number, newY: number;
-    let tableName: string | null = null;
+    let node: any;
+    let setter: any;
+    if (type === 'project') { node = projects.find(p => p.id === id); setter = setProjects; }
+    else if (type === 'person') { node = people.find(p => p.id === id); setter = setPeople; }
+    else { node = brands.find(b => b.id === id); setter = setBrands; }
     
-    if (isProject) {
-      const cx = viewMode === 'master' ? (isProject.master_x ?? isProject.x) : isProject.x;
-      const cy = viewMode === 'master' ? (isProject.master_y ?? isProject.y) : isProject.y;
-      newX = cx + deltaX; newY = cy + deltaY; tableName = 'projects';
-      setProjects(prev => prev.map(p => p.id === nodeId ? { ...p, ...(viewMode === 'master' ? { master_x: newX, master_y: newY } : { x: newX, y: newY }), isNewHighlight: false } : p));
-    } else if (isPerson) {
-      const cx = viewMode === 'master' ? (isPerson.master_x ?? isPerson.x) : isPerson.x;
-      const cy = viewMode === 'master' ? (isPerson.master_y ?? isPerson.y) : isPerson.y;
-      newX = cx + deltaX; newY = cy + deltaY; tableName = 'people';
-      setPeople(prev => prev.map(p => p.id === nodeId ? { ...p, ...(viewMode === 'master' ? { master_x: newX, master_y: newY } : { x: newX, y: newY }), isNewHighlight: false } : p));
-    } else if (isBrand) {
-      const cx = viewMode === 'master' ? (isBrand.master_x ?? isBrand.x) : isBrand.x;
-      const cy = viewMode === 'master' ? (isBrand.master_y ?? isBrand.y) : isBrand.y;
-      newX = cx + deltaX; newY = cy + deltaY; tableName = 'brands';
-      setBrands(prev => prev.map(b => b.id === nodeId ? { ...b, ...(viewMode === 'master' ? { master_x: newX, master_y: newY } : { x: newX, y: newY }), isNewHighlight: false } : b));
-    } else return;
+    if (!node) return;
     
-    if (saveToDb && tableName && user) {
+    const cx = viewMode === 'master' ? (node.master_x ?? node.x) : node.x;
+    const cy = viewMode === 'master' ? (node.master_y ?? node.y) : node.y;
+    const newX = cx + deltaX;
+    const newY = cy + deltaY;
+    
+    setter(prev => prev.map(p => p.id === id ? { 
+      ...p, 
+      ...(viewMode === 'master' ? { master_x: newX, master_y: newY } : { x: newX, y: newY }),
+      isNewHighlight: false 
+    } : p));
+    
+    if (saveToDb) {
       try {
-        const { error } = await (supabase as any).from(tableName).update({ [xColumn]: newX, [yColumn]: newY }).eq('id', nodeId).eq('user_id', user.id);
+        const { error } = await (supabase as any).from(tableName).update({ [xColumn]: newX, [yColumn]: newY }).eq('id', id).eq('user_id', user.id);
         if (!error) {
-          const key = `${tableName}:${nodeId}`;
+          const key = `${tableName}:${id}`;
           recentUpdatesRef.current.add(key);
           setTimeout(() => recentUpdatesRef.current.delete(key), 1200);
         }
@@ -368,26 +366,31 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
     const toCreate = newConnections.filter(c => !c.id);
     if (toCreate.length === 0) return;
     const payload = toCreate.map(c => {
-      const fromNode = allNodes.find(n => n.id === c.from);
-      const toNode = allNodes.find(n => n.id === c.to);
-      return { user_id: user.id, from_id: c.from, to_id: c.to, from_type: fromNode?.type, to_type: toNode?.type, connection_type: c.type || 'strong', flow_id: getCurrentFlowId() };
+      const fromType = c.from_type || (c.from_ref ? parseRef(c.from_ref).type : null);
+      const toType = c.to_type || (c.to_ref ? parseRef(c.to_ref).type : null);
+      const fromId = c.from || (c.from_ref ? parseRef(c.from_ref).id : null);
+      const toId = c.to || (c.to_ref ? parseRef(c.to_ref).id : null);
+      return { user_id: user.id, from_id: fromId, to_id: toId, from_type: fromType, to_type: toType, connection_type: c.type || 'strong', flow_id: getCurrentFlowId() };
     });
     const { data, error } = await supabase.from('connections').insert(payload).select();
     if (error) { console.error('Erro ao criar conexão:', error); toast.error('Erro ao criar conexão'); return; }
     setAllConnections(prev => {
       const updated = [...prev]; let dataIndex = 0;
-      for (let i = 0; i < updated.length; i++) { if (!updated[i].id && data && data[dataIndex]) { updated[i] = { ...updated[i], id: data[dataIndex].id }; dataIndex++; } }
+      for (let i = 0; i < updated.length; i++) { 
+        if (!updated[i].id && data && data[dataIndex]) { 
+          const d = data[dataIndex];
+          updated[i] = { ...updated[i], id: d.id, from_ref: makeRef(d.from_type, d.from_id), to_ref: makeRef(d.to_type, d.to_id) }; 
+          dataIndex++; 
+        } 
+      }
       return updated;
     });
     toast.success('Conexão criada!');
   };
 
   const getCurrentFlowId = (): number | null => {
-    if (viewMode === 'single' && activeProjectId) {
-      return projects.find(p => p.id === activeProjectId)?.flow_id
-        || people.find(pe => pe.id === activeProjectId)?.flow_id
-        || brands.find(b => b.id === activeProjectId)?.flow_id
-        || null;
+    if (viewMode === 'single' && activeNodeRef) {
+      return getCurrentFlowIdFromRef(activeNodeRef);
     }
     return null;
   };
@@ -422,21 +425,21 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
     const xColumn = viewMode === 'master' ? 'master_x' : 'x';
     const yColumn = viewMode === 'master' ? 'master_y' : 'y';
     for (const node of layoutedNodes) {
-      const tableName = projects.find(p => p.id === node.id) ? 'projects' : people.find(p => p.id === node.id) ? 'people' : brands.find(b => b.id === node.id) ? 'brands' : null;
-      if (!tableName) continue;
-      const updateFn = tableName === 'projects' ? setProjects : tableName === 'people' ? setPeople : setBrands;
+      const tableName = getTableName(node.type);
+      const updateFn = node.type === 'project' ? setProjects : node.type === 'person' ? setPeople : setBrands;
       updateFn(prev => prev.map(p => p.id === node.id ? { ...p, ...(viewMode === 'master' ? { master_x: node.x, master_y: node.y } : { x: node.x, y: node.y }) } : p));
       await supabase.from(tableName).update({ [xColumn]: node.x, [yColumn]: node.y }).eq('id', node.id).eq('user_id', user.id);
     }
   };
 
-  const autoOrganizeSingle = async (projectId: number | null) => {
-    if (!projectId) return;
-    const nodesToLayout = getNodesForSingleView(projectId);
+  const autoOrganizeSingle = async (ref: string | null) => {
+    if (!ref) return;
+    const nodesToLayout = getNodesForSingleView(ref);
     if (nodesToLayout.length === 0) return;
-    const flow = flows.find(f => f.id === getCurrentFlowIdFromProjectId(projectId));
+    const flowId = getCurrentFlowIdFromRef(ref);
+    const flow = flows.find(f => f.id === flowId);
     let cn = nodesToLayout.find(n => n.id === flow?.center_id && n.type === flow?.center_type) || nodesToLayout[0];
-    const reordered = [cn, ...nodesToLayout.filter(n => n.id !== cn.id)];
+    const reordered = [cn, ...nodesToLayout.filter(n => n.node_ref !== cn.node_ref)];
     await updateAllNodePositions(applyRadialLayout(reordered, 500, 300));
   };
 
@@ -454,7 +457,7 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
       if (flowNodes.length === 0) continue;
       const flow = flows.find(f => f.id === flowId);
       let cn = flowNodes.find(n => n.id === flow?.center_id && n.type === flow?.center_type) || flowNodes[0];
-      const reordered = [cn, ...flowNodes.filter(n => n.id !== cn.id)];
+      const reordered = [cn, ...flowNodes.filter(n => n.node_ref !== cn.node_ref)];
       const row = Math.floor(index / cols); const col = index % cols;
       allLayoutedNodes.push(...applyRadialLayout(reordered, col * flowSpacing + 500, row * flowSpacing + 300));
     }
@@ -462,7 +465,7 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
     toast.success('Flows organizados!');
   };
 
-  const autoOrganize = async () => { viewMode === 'single' ? await autoOrganizeSingle(activeProjectId) : await autoOrganizeMaster(); };
+  const autoOrganize = async () => { viewMode === 'single' ? await autoOrganizeSingle(activeNodeRef) : await autoOrganizeMaster(); };
 
   const calculateBounds = (nodesList: any[]) => {
     if (nodesList.length === 0) return { minX: 0, maxX: 1000, minY: 0, maxY: 800 };
@@ -536,9 +539,9 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
   }, [viewMode, masterViewState]);
 
   useEffect(() => {
-    if (viewMode === 'single' && activeProjectId && allNodes.length > 0) {
+    if (viewMode === 'single' && activeNodeRef && allNodes.length > 0) {
       const timer = setTimeout(() => {
-        const nodesToCenter = getNodesForSingleView(activeProjectId);
+        const nodesToCenter = getNodesForSingleView(activeNodeRef);
         if (nodesToCenter.length > 0 && svgRef.current) {
           const rect = svgRef.current.getBoundingClientRect();
           const bounds = calculateBounds(nodesToCenter);
@@ -548,7 +551,7 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
       }, 100);
       return () => clearTimeout(timer);
     }
-  }, [viewMode, activeProjectId]);
+  }, [viewMode, activeNodeRef]);
 
   // ===== DELETE =====
   const deleteConnection = async (connectionIndex: number) => {
@@ -564,18 +567,19 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
     } catch { toast.error('Erro ao deletar conexão'); }
   };
 
-  const deleteNode = async (nodeId: number) => {
+  const deleteNode = async (nodeRef: string) => {
     if (!user) return;
     saveToHistory();
-    const tableName = projects.some(p => p.id === nodeId) ? 'projects' : people.some(p => p.id === nodeId) ? 'people' : brands.some(b => b.id === nodeId) ? 'brands' : null;
-    setNodes(prev => prev.filter(n => n.id !== nodeId));
-    setConnections(prev => prev.filter(c => c.from !== nodeId && c.to !== nodeId));
+    const { type, id } = parseRef(nodeRef);
+    const tableName = getTableName(type);
+    setNodes(prev => prev.filter(n => n.node_ref !== nodeRef));
+    setConnections(prev => prev.filter(c => c.from_ref !== nodeRef && c.to_ref !== nodeRef));
     updateState({ selectedNode: null, showSidebar: false, editingNode: null });
-    setSelectedNodes(prev => prev.filter(id => id !== nodeId));
+    setSelectedNodes(prev => prev.filter(r => r !== nodeRef));
     try {
       const sb = supabase as any;
-      await sb.from('connections').delete().eq('user_id', user.id).or(`from_id.eq.${nodeId},to_id.eq.${nodeId}`);
-      if (tableName) await sb.from(tableName).delete().eq('id', nodeId).eq('user_id', user.id);
+      await sb.from('connections').delete().eq('user_id', user.id).or(`and(from_id.eq.${id},from_type.eq.${type}),and(to_id.eq.${id},to_type.eq.${type})`);
+      if (tableName) await sb.from(tableName).delete().eq('id', id).eq('user_id', user.id);
     } catch (error: any) { toast.error('Erro ao deletar nó'); reloadData(); }
   };
 
@@ -606,9 +610,9 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
     if (viewMode === 'master' && !isNewFlow && currentFlowId) {
       const flow = flows.find(f => f.id === currentFlowId);
       if (flow) {
-        let cn: any = flow.center_type === 'project' ? projects.find(p => p.id === flow.center_id) : flow.center_type === 'person' ? people.find(p => p.id === flow.center_id) : brands.find(b => b.id === flow.center_id);
+        const cn = allNodes.find(n => n.id === flow.center_id && n.type === flow.center_type);
         if (cn) {
-          const existing = [...projects, ...people, ...brands].filter(n => n.flow_id === currentFlowId && n.id !== flow.center_id).length;
+          const existing = allNodes.filter(n => n.flow_id === currentFlowId && n.node_ref !== cn.node_ref).length;
           const angle = existing * (2 * Math.PI) / Math.max(existing + 1, 1) - Math.PI / 2;
           centerX = (cn.master_x ?? cn.x ?? 500) + 200 * Math.cos(angle);
           centerY = (cn.master_y ?? cn.y ?? 300) + 200 * Math.sin(angle);
@@ -621,7 +625,7 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
     else if (nodeType === 'person') { baseData.email = nodeData.email || null; baseData.phone = nodeData.phone || null; baseData.company = nodeData.company || null; }
     else if (nodeType === 'brand') { baseData.website = nodeData.website || null; }
 
-    const tableName = nodeType === 'person' ? 'people' : nodeType === 'brand' ? 'brands' : 'projects';
+    const tableName = getTableName(nodeType);
     const { data: insertedNode, error } = await supabase.from(tableName).insert([baseData]).select().single();
     if (error || !insertedNode) { toast.error(`Erro ao criar ${nodeType}`); return null; }
 
@@ -630,18 +634,18 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
       const { data: updatedFlow } = await supabase.from('flows').select('*').eq('id', currentFlowId).single();
       if (updatedFlow) setFlows(prev => [...prev, updatedFlow]);
     }
-    return insertedNode;
+    return { ...insertedNode, type: nodeType, node_ref: makeRef(nodeType, insertedNode.id) };
   };
 
   const handleCreateNode = async (nodeData: any, originalNodeId: number | null) => {
     const nodeType = nodeData.nodeType || 'person';
     const insertedNode = await createNodeInDatabase(nodeType, nodeData, originalNodeId);
     if (!insertedNode) return;
-    const newNode = { ...insertedNode, type: nodeType, isNewHighlight: true };
+    const newNode = { ...insertedNode, isNewHighlight: true };
     if (nodeType === 'project') setProjects(prev => [...prev, newNode]);
     else if (nodeType === 'person') setPeople(prev => [...prev, newNode]);
     else setBrands(prev => [...prev, newNode]);
-    if (isCreatingFlowRoot) { setActiveProjectId(insertedNode.id); setViewMode('single'); setIsCreatingFlowRoot(false); }
+    if (isCreatingFlowRoot) { setActiveNodeRef(newNode.node_ref); setViewMode('single'); setIsCreatingFlowRoot(false); }
     setShowNodeCreationModal(false);
     toast.success(originalNodeId ? `Cópia criada!` : `${newNode.name} criado!`);
   };
@@ -650,7 +654,7 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
     if (!user) return;
     saveToHistory();
     const nodeType = nodeData.nodeType || 'person';
-    const tableName = nodeType === 'person' ? 'people' : nodeType === 'brand' ? 'brands' : 'projects';
+    const tableName = getTableName(nodeType);
     const { data: existingNodes } = await supabase.from(tableName).select('*').eq('name', nodeData.name.trim()).eq('user_id', user.id).limit(1);
     if (existingNodes?.length > 0) { setDuplicateCheckModal({ show: true, existingNode: existingNodes[0], newNodeData: nodeData, nodeType }); return; }
     await handleCreateNode(nodeData, null);
@@ -700,12 +704,12 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
       const brandMap = new Map<string, number>();
       if (options.createBrands && data.uniqueCompanies.length > 0) {
         const { data: createdBrands } = await sb.from('brands').insert(data.uniqueCompanies.map(c => ({ user_id: user.id, flow_id: newFlow.id, name: c, x: Math.random() * 400 + 100, y: Math.random() * 400 + 100, master_x: 0, master_y: 0 }))).select();
-        (createdBrands || []).forEach((b: any, i: number) => { brandMap.set(data.uniqueCompanies[i], b.id); setBrands(prev => [...prev, { ...b, type: 'brand' }]); });
+        (createdBrands || []).forEach((b: any, i: number) => { brandMap.set(data.uniqueCompanies[i], b.id); setBrands(prev => [...prev, { ...b, type: 'brand', node_ref: makeRef('brand', b.id) }]); });
       }
       const { data: createdPeople } = await sb.from('people').insert(data.contacts.map(c => ({ user_id: user.id, flow_id: newFlow.id, name: `${c.firstName} ${c.lastName}`.trim() || 'Contato', email: c.email || null, company: c.company || null, category: options.defaultCategory, notes: c.profileUrl ? `LinkedIn: ${c.profileUrl}` : null, x: Math.random() * 400 + 100, y: Math.random() * 400 + 100, master_x: 0, master_y: 0 }))).select();
       if (createdPeople?.length > 0) {
         await sb.from('flows').update({ center_id: createdPeople[0].id }).eq('id', newFlow.id);
-        setPeople(prev => [...prev, ...createdPeople.map((p: any) => ({ ...p, type: 'person' }))]);
+        setPeople(prev => [...prev, ...createdPeople.map((p: any) => ({ ...p, type: 'person', node_ref: makeRef('person', p.id) }))]);
       }
       const connsToInsert: any[] = [];
       (createdPeople || []).forEach((person: any, i: number) => {
@@ -715,7 +719,7 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
       });
       if (connsToInsert.length > 0) {
         const { data: createdConns } = await sb.from('connections').insert(connsToInsert).select();
-        if (createdConns) setAllConnections(prev => [...prev, ...createdConns.map((c: any) => ({ ...c, from: c.from_id, to: c.to_id, type: c.connection_type }))]);
+        if (createdConns) setAllConnections(prev => [...prev, ...createdConns.map((c: any) => ({ ...c, from: c.from_id, to: c.to_id, from_ref: makeRef(c.from_type, c.from_id), to_ref: makeRef(c.to_type, c.to_id), type: c.connection_type }))]);
       }
       setFlows(prev => [...prev, newFlow]);
       toast.dismiss(toastId);
@@ -740,7 +744,7 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
   };
 
   const handleSingleView = () => {
-    if (!activeProjectId) { toast.error('Selecione um flow para entrar no Single View.'); return; }
+    if (!activeNodeRef) { toast.error('Selecione um flow para entrar no Single View.'); return; }
     if (viewMode === 'master') setMasterViewState({ zoom: state.zoom, pan: state.pan, hasBeenOrganized: true });
     setViewMode('single');
   };
@@ -815,7 +819,14 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
             showLabels={showLabels}
             onOpenEditModal={(node) => { setEditingNodeInModal(node); setNodeCreationType(node.type); setShowNodeCreationModal(true); }}
             onSingleClick={(node) => { setDetailPanelNode(node); }}
-            onGoToProject={(id) => { setDetailPanelNode(null); setActiveProjectId(id); setViewMode('single'); }}
+            onGoToFlow={(flowId) => { 
+              setDetailPanelNode(null); 
+              const flow = flows.find(f => f.id === flowId);
+              if (flow) {
+                setActiveNodeRef(makeRef(flow.center_type, flow.center_id)); 
+                setViewMode('single'); 
+              }
+            }}
             forcePositions={forcePositions}
             onForceDragStart={onForceDragStart}
             onForceDrag={onForceDrag}
@@ -876,7 +887,7 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
             flows={flowsForManager}
             onSelectFlow={(flowId) => {
               const sf = flows.find(f => f.id === flowId);
-              if (sf) { setActiveProjectId(sf.center_id); setViewMode('single'); }
+              if (sf) { setActiveNodeRef(makeRef(sf.center_type, sf.center_id)); setViewMode('single'); }
             }}
             onDeleteFlow={async (flowId) => {
               if (!user) return;
@@ -885,7 +896,7 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
               setFlows(prev => prev.filter(f => f.id !== flowId));
               toast.success('Flow deletado');
               const df = flows.find(f => f.id === flowId);
-              if (df && activeProjectId === df.center_id) { setViewMode('master'); setActiveProjectId(null); }
+              if (df && activeNodeRef === makeRef(df.center_type, df.center_id)) { setViewMode('master'); setActiveNodeRef(null); }
             }}
           />
         </div>
@@ -897,11 +908,11 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
             connections={allConnections}
             allNodes={allNodes}
             onClose={() => setDetailPanelNode(null)}
-            onNavigateToNode={(nodeId) => {
-              const targetNode = allNodes.find(n => n.id === nodeId);
+            onNavigateToNode={(nodeRef) => {
+              const targetNode = allNodes.find(n => n.node_ref === nodeRef);
               if (targetNode) {
                 setDetailPanelNode(targetNode);
-                setSelectedNodes([nodeId]);
+                setSelectedNodes([nodeRef]);
               }
             }}
             onEdit={(node) => {
@@ -962,7 +973,7 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
         flowsForManager={flowsForManager}
         onSelectFlow={(flowId) => {
           const sf = flows.find(f => f.id === flowId);
-          if (sf) { setActiveProjectId(sf.center_id); setViewMode('single'); setShowFlowsManager(false); setTimeout(() => autoOrganizeSingle(sf.center_id), 50); }
+          if (sf) { setActiveNodeRef(makeRef(sf.center_type, sf.center_id)); setViewMode('single'); setShowFlowsManager(false); setTimeout(() => autoOrganizeSingle(makeRef(sf.center_type, sf.center_id)), 50); }
         }}
         onDeleteFlow={async (flowId) => {
           if (!user) return;
@@ -971,7 +982,7 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
           setFlows(prev => prev.filter(f => f.id !== flowId));
           toast.success('Flow deletado');
           const df = flows.find(f => f.id === flowId);
-          if (df && activeProjectId === df.center_id) { setViewMode('master'); setActiveProjectId(null); }
+          if (df && activeNodeRef === makeRef(df.center_type, df.center_id)) { setViewMode('master'); setActiveNodeRef(null); }
         }}
         showLinkedInImport={showLinkedInImport}
         setShowLinkedInImport={setShowLinkedInImport}
@@ -990,31 +1001,31 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
         people={people}
         brands={brands}
         onHighlightPath={(ids) => setHighlightedPath(ids)}
-        onFocusNode={(nodeId) => {
-          const node = allNodes.find(n => n.id === nodeId);
-          if (node) { updateState({ selectedNode: nodeId }); if (node.flow_id) { const flow = flows.find(f => f.id === node.flow_id); if (flow) { setActiveProjectId(flow.center_id); setViewMode('single'); } } }
+        onFocusNode={(nodeRef) => {
+          const node = allNodes.find(n => n.node_ref === nodeRef);
+          if (node) { updateState({ selectedNode: nodeRef }); if (node.flow_id) { const flow = flows.find(f => f.id === node.flow_id); if (flow) { setActiveNodeRef(makeRef(flow.center_type, flow.center_id)); setViewMode('single'); } } }
         }}
         onOpenConnectionModal={(conn, involvedNodes, type) => { setShowAIInsights(false); setAiConnectionModal({ connection: conn, nodes: involvedNodes, type }); }}
         aiConnectionModal={aiConnectionModal}
         setAiConnectionModal={setAiConnectionModal}
-        onAiConnectionFocusNode={(nodeId) => {
+        onAiConnectionFocusNode={(nodeRef) => {
           setAiConnectionModal(null);
-          const node = allNodes.find(n => n.id === nodeId);
-          if (node) { updateState({ selectedNode: nodeId }); if (node.flow_id) { const flow = flows.find(f => f.id === node.flow_id); if (flow) { setActiveProjectId(flow.center_id); setViewMode('single'); } } }
+          const node = allNodes.find(n => n.node_ref === nodeRef);
+          if (node) { updateState({ selectedNode: nodeRef }); if (node.flow_id) { const flow = flows.find(f => f.id === node.flow_id); if (flow) { setActiveNodeRef(makeRef(flow.center_type, flow.center_id)); setViewMode('single'); } } }
         }}
         showOpportunities={showOpportunities}
         setShowOpportunities={setShowOpportunities}
-        onSelectOpportunityNode={(nodeId) => { const node = allNodes.find(n => n.id === nodeId); if (node) { setSelectedNodes([node]); toast.success(`Selecionado: ${node.name}`); setShowOpportunities(false); } }}
+        onSelectOpportunityNode={(nodeRef) => { const node = allNodes.find(n => n.node_ref === nodeRef); if (node) { setSelectedNodes([nodeRef]); toast.success(`Selecionado: ${node.name}`); setShowOpportunities(false); } }}
         showSidebar={state.showSidebar}
         editingNode={state.editingNode}
         addCustomCategory={addCustomCategory}
         onNodeEditorUpdate={(field, value) => {
           const updated = { ...state.editingNode, [field]: value };
           updateState({ editingNode: updated });
-          setNodes(n => n.map(nd => nd.id === updated.id ? updated : nd));
+          setNodes(n => n.map(nd => nd.node_ref === updated.node_ref ? updated : nd));
         }}
         onNodeEditorClose={() => updateState({ showSidebar: false, editingNode: null })}
-        onNodeEditorDelete={() => deleteNode(state.editingNode.id)}
+        onNodeEditorDelete={() => deleteNode(state.editingNode.node_ref)}
         onNodeEditorConfirm={() => { updateState({ showSidebar: false, editingNode: null }); toast.success('Alterações salvas!'); }}
       />
     </div>
