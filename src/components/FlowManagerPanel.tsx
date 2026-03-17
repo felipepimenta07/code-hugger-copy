@@ -169,7 +169,7 @@ export const FlowManagerPanel = ({ open, onOpenChange, flows, onSelectFlow, onDe
                       {getCenterIcon(flow.center_type)}
                       <h3 className="font-semibold">{flow.name}</h3>
                     </div>
-                    <Badge variant="outline" className="text-xs">
+                    <Badge variant="outline" className="text-sm">
                       {getCenterLabel(flow.center_type)}
                     </Badge>
                   </div>
