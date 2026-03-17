@@ -904,7 +904,7 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
 
         </div>
 
-        {/* Flow Manager Panel - top left overlay */}
+        {/* Flow Manager Panel - right sidebar */}
         <FlowManagerPanel
           open={showFlowsManager}
           onOpenChange={setShowFlowsManager}
@@ -922,6 +922,8 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
             const df = flows.find(f => f.id === flowId);
             if (df && activeNodeRef === makeRef(df.center_type, df.center_id)) { setViewMode('master'); setActiveNodeRef(null); }
           }}
+          onHoverFlow={(flowId) => setHoveredFlowId(flowId)}
+          onHoverFlowEnd={() => setHoveredFlowId(null)}
         />
 
         {/* Node Detail Panel */}
