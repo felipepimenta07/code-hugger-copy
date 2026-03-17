@@ -135,14 +135,22 @@ export const Canvas: React.FC<CanvasProps> = ({
     const map = new Map<number, {x:number, y:number}>();
     const typeOrder = (t?: string) => (t === 'project' ? 0 : t === 'brand' ? 1 : 2);
     
+    // Pre-compute max ring radius for offset calculation
+    const maxRingRadius = flows.reduce((max, flow) => {
+      const count = nodes.filter(n => getNodeFlowId(n) === flow.id).length;
+      return Math.max(max, getFlowRingRadius(count));
+    }, 240);
+    
     flows.forEach(flow => {
       const clusterNodes = nodes.filter(n => getNodeFlowId(n) === flow.id);
       if (!clusterNodes.length) return;
       const centerNode = 
         clusterNodes.find(n => n.id === flow.center_id && n.type === flow.center_type) ||
+        clusterNodes.find(n => n.id === flow.center_id) ||
         clusterNodes.find(n => n.type === 'project') ||
         clusterNodes[0];
-      const { dx, dy } = getFlowOffset(flow.id);
+      const ringRadius = getFlowRingRadius(clusterNodes.length);
+      const { dx, dy } = getFlowOffset(flow.id, maxRingRadius);
       map.set(centerNode.id, { x: dx, y: dy });
       
       const others = clusterNodes.filter(n => n.id !== centerNode.id);
@@ -159,7 +167,7 @@ export const Canvas: React.FC<CanvasProps> = ({
       const step = (2 * Math.PI) / N;
       sorted.forEach((n, i) => {
         const angle = start + i * step;
-        map.set(n.id, { x: dx + MASTER_RING_RADIUS * Math.cos(angle), y: dy + MASTER_RING_RADIUS * Math.sin(angle) });
+        map.set(n.id, { x: dx + ringRadius * Math.cos(angle), y: dy + ringRadius * Math.sin(angle) });
       });
     });
     return map;
