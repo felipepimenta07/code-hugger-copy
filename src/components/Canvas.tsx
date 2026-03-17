@@ -555,7 +555,7 @@ export const Canvas: React.FC<CanvasProps> = ({
               {/* Connection label */}
               {showLabels && conn.connection_type && (
                 <text x={midX} y={controlY2 + 4} textAnchor="middle"
-                  fill="hsl(var(--muted-foreground))" fontSize="11" fontFamily="monospace" opacity={isConnDimmed ? 0.06 : 0.6}>
+                  fill="hsl(var(--muted-foreground))" fontSize="13" fontFamily="monospace" opacity={isConnDimmed ? 0.06 : 0.6}>
                   {conn.connection_type}
                 </text>
               )}
