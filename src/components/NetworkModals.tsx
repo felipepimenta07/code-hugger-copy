@@ -72,7 +72,7 @@ interface NetworkModalsProps {
 
   aiConnectionModal: any;
   setAiConnectionModal: (m: any) => void;
-  onAiConnectionFocusNode: (id: number) => void;
+  onAiConnectionFocusNode: (id: string) => void;
 
   showOpportunities: boolean;
   setShowOpportunities: (show: boolean) => void;
