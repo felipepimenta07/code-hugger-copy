@@ -1,5 +1,10 @@
 import React, { useState, useRef, useMemo } from 'react';
-import { forceSimulation, forceManyBody, forceCenter, forceCollide } from 'd3-force';
+import {
+  forceSimulation,
+  forceManyBody,
+  forceCenter,
+  forceCollide,
+} from 'd3-force';
 import { User, Target, Building2 } from 'lucide-react';
 import { ConnectionTooltip } from './ConnectionTooltip';
 import { parseRef } from '@/utils/nodeRef';
