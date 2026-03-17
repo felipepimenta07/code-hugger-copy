@@ -1,7 +1,8 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { User, Target, Building2 } from 'lucide-react';
 import { ConnectionTooltip } from './ConnectionTooltip';
 import { parseRef } from '@/utils/nodeRef';
+import { FLOW_COLORS } from './FlowManagerPanel';
 
 interface CanvasProps {
   svgRef: React.RefObject<SVGSVGElement>;
