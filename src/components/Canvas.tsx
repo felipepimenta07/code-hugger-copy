@@ -445,19 +445,7 @@ export const Canvas: React.FC<CanvasProps> = ({
           });
         })()}
         
-        {/* Cluster rings (Master View) - hidden in bubble mode */}
-        {viewMode === 'master' && state.zoom >= 0.15 && flows.map(flow => {
-          const clusterNodes = nodes.filter(n => getNodeFlowId(n) === flow.id);
-          if (clusterNodes.length === 0) return null;
-          const centerNode = clusterNodes.find(n => n.id === flow.center_id && n.type === flow.center_type) || clusterNodes.find(n => n.type === 'project') || clusterNodes[0];
-          const pos = masterLayoutMap.get(centerNode.node_ref);
-          if (!pos) return null;
-          const ringRadius = getFlowRingRadius(clusterNodes.length);
-          return (
-            <circle key={flow.id} cx={pos.x} cy={pos.y} r={ringRadius} fill="none"
-              stroke="hsl(var(--muted))" strokeWidth="0.5" strokeDasharray="4,8" opacity="0.2" />
-          );
-        })}
+        {/* Removed cluster rings — dense layout has no rings */}
 
         {/* Connections - hidden in master bubble mode */}
         {!(viewMode === 'master' && state.zoom < 0.15) && (() => {
