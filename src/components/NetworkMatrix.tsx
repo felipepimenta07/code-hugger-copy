@@ -745,39 +745,164 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
     toast.success('Exportação concluída!');
   };
 
-  // LinkedIn import
-  const handleLinkedInImport = async (data: ParsedLinkedInData, options: LinkedInImportOptions) => {
+  // LinkedIn import — one flow per company, brand as center
+  const handleLinkedInImport = async (data: ParsedLinkedInData, options: LinkedInImportOptions, enriched?: LinkedInEnrichedData) => {
     if (!user) return;
     saveToHistory();
     const sb = supabase as any;
-    const toastId = toast.loading(`Importando ${data.totalContacts} contatos...`);
+    const toastId = toast.loading(`Importando ${data.totalContacts} contatos em ${data.uniqueCompanies.length} flows...`);
+
     try {
-      const { data: newFlow, error: flowError } = await sb.from('flows').insert({ user_id: user.id, name: `LinkedIn Import - ${new Date().toLocaleDateString('pt-BR')}`, center_type: 'person', center_id: 1 }).select().maybeSingle();
-      if (flowError || !newFlow) throw flowError;
-      const brandMap = new Map<string, number>();
-      if (options.createBrands && data.uniqueCompanies.length > 0) {
-        const { data: createdBrands } = await sb.from('brands').insert(data.uniqueCompanies.map(c => ({ user_id: user.id, flow_id: newFlow.id, name: c, x: Math.random() * 400 + 100, y: Math.random() * 400 + 100, master_x: 0, master_y: 0 }))).select();
-        (createdBrands || []).forEach((b: any, i: number) => { brandMap.set(data.uniqueCompanies[i], b.id); setBrands(prev => [...prev, { ...b, type: 'brand', node_ref: makeRef('brand', b.id) }]); });
+      // Use enriched contacts if available
+      const contacts = enriched?.contacts || data.contacts;
+
+      // Group contacts by company
+      const companyMap = new Map<string, typeof contacts>();
+      const noCompanyContacts: typeof contacts = [];
+      for (const c of contacts) {
+        const company = c.company?.trim();
+        if (company) {
+          if (!companyMap.has(company)) companyMap.set(company, []);
+          companyMap.get(company)!.push(c);
+        } else {
+          noCompanyContacts.push(c);
+        }
       }
-      const { data: createdPeople } = await sb.from('people').insert(data.contacts.map(c => ({ user_id: user.id, flow_id: newFlow.id, name: `${c.firstName} ${c.lastName}`.trim() || 'Contato', email: c.email || null, company: c.company || null, category: options.defaultCategory, notes: c.profileUrl ? `LinkedIn: ${c.profileUrl}` : null, x: Math.random() * 400 + 100, y: Math.random() * 400 + 100, master_x: 0, master_y: 0 }))).select();
-      if (createdPeople?.length > 0) {
-        await sb.from('flows').update({ center_id: createdPeople[0].id }).eq('id', newFlow.id);
-        setPeople(prev => [...prev, ...createdPeople.map((p: any) => ({ ...p, type: 'person', node_ref: makeRef('person', p.id) }))]);
+
+      const allNewFlows: any[] = [];
+      const allNewBrands: any[] = [];
+      const allNewPeople: any[] = [];
+      const allNewConns: any[] = [];
+
+      // Create one flow per company
+      for (const [company, companyContacts] of companyMap.entries()) {
+        // 1. Create brand
+        const { data: brand, error: brandErr } = await sb.from('brands').insert({
+          user_id: user.id, flow_id: 1, name: company, category: 'linkedin',
+          x: 0, y: 0, master_x: 0, master_y: 0,
+        }).select().maybeSingle();
+        if (brandErr || !brand) { console.error('Brand error:', brandErr); continue; }
+
+        // 2. Create flow with brand as center
+        const { data: flow, error: flowErr } = await sb.from('flows').insert({
+          user_id: user.id, name: company, center_type: 'brand', center_id: brand.id,
+        }).select().maybeSingle();
+        if (flowErr || !flow) { console.error('Flow error:', flowErr); continue; }
+
+        // 3. Update brand's flow_id
+        await sb.from('brands').update({ flow_id: flow.id }).eq('id', brand.id);
+        brand.flow_id = flow.id;
+
+        allNewFlows.push(flow);
+        allNewBrands.push({ ...brand, type: 'brand', node_ref: makeRef('brand', brand.id) });
+
+        // 4. Create people in radial layout around brand
+        const radius = 150 + companyContacts.length * 10;
+        const peopleInserts = companyContacts.map((c, i) => {
+          const angle = (2 * Math.PI * i) / companyContacts.length;
+          return {
+            user_id: user.id, flow_id: flow.id,
+            name: `${c.firstName} ${c.lastName}`.trim() || 'Contato',
+            email: c.email || null, company: company, category: 'linkedin',
+            notes: [c.profileUrl ? `LinkedIn: ${c.profileUrl}` : '', c.position ? `Cargo: ${c.position}` : ''].filter(Boolean).join('\n') || null,
+            department: c.sector || (enriched?.companySectors[company]) || null,
+            x: Math.cos(angle) * radius, y: Math.sin(angle) * radius,
+            master_x: 0, master_y: 0,
+          };
+        });
+
+        const { data: createdPeople } = await sb.from('people').insert(peopleInserts).select();
+        if (!createdPeople) continue;
+
+        allNewPeople.push(...createdPeople.map((p: any) => ({ ...p, type: 'person', node_ref: makeRef('person', p.id) })));
+
+        // 5. Create connections person → brand
+        const connInserts = createdPeople.map((p: any) => ({
+          user_id: user.id, flow_id: flow.id,
+          from_id: p.id, from_type: 'person', to_id: brand.id, to_type: 'brand',
+          connection_type: 'works-at',
+        }));
+
+        // Also connect to project if option set
+        if (options.connectToProject && options.projectId) {
+          createdPeople.forEach((p: any) => {
+            connInserts.push({
+              user_id: user.id, flow_id: flow.id,
+              from_id: p.id, from_type: 'person', to_id: options.projectId!, to_type: 'project',
+              connection_type: 'related',
+            });
+          });
+        }
+
+        if (connInserts.length > 0) {
+          const { data: createdConns } = await sb.from('connections').insert(connInserts).select();
+          if (createdConns) allNewConns.push(...createdConns);
+        }
       }
-      const connsToInsert: any[] = [];
-      (createdPeople || []).forEach((person: any, i: number) => {
-        const contact = data.contacts[i];
-        if (contact.company && options.createBrands && brandMap.has(contact.company)) connsToInsert.push({ user_id: user.id, flow_id: newFlow.id, from_id: person.id, from_type: 'person', to_id: brandMap.get(contact.company)!, to_type: 'brand', connection_type: 'works-at' });
-        if (options.connectToProject && options.projectId) connsToInsert.push({ user_id: user.id, flow_id: newFlow.id, from_id: person.id, from_type: 'person', to_id: options.projectId, to_type: 'project', connection_type: 'related' });
-      });
-      if (connsToInsert.length > 0) {
-        const { data: createdConns } = await sb.from('connections').insert(connsToInsert).select();
-        if (createdConns) setAllConnections(prev => [...prev, ...createdConns.map((c: any) => ({ ...c, from: c.from_id, to: c.to_id, from_ref: makeRef(c.from_type, c.from_id), to_ref: makeRef(c.to_type, c.to_id), type: c.connection_type }))]);
+
+      // Handle contacts without company
+      if (noCompanyContacts.length > 0) {
+        // Create a single placeholder brand for "no company"
+        const { data: noBrand } = await sb.from('brands').insert({
+          user_id: user.id, flow_id: 1, name: 'LinkedIn - Sem Empresa', category: 'linkedin',
+          x: 0, y: 0, master_x: 0, master_y: 0,
+        }).select().maybeSingle();
+
+        if (noBrand) {
+          const { data: noFlow } = await sb.from('flows').insert({
+            user_id: user.id, name: 'LinkedIn - Sem Empresa', center_type: 'brand', center_id: noBrand.id,
+          }).select().maybeSingle();
+
+          if (noFlow) {
+            await sb.from('brands').update({ flow_id: noFlow.id }).eq('id', noBrand.id);
+            noBrand.flow_id = noFlow.id;
+            allNewFlows.push(noFlow);
+            allNewBrands.push({ ...noBrand, type: 'brand', node_ref: makeRef('brand', noBrand.id) });
+
+            const radius = 150 + noCompanyContacts.length * 10;
+            const peopleInserts = noCompanyContacts.map((c, i) => {
+              const angle = (2 * Math.PI * i) / noCompanyContacts.length;
+              return {
+                user_id: user.id, flow_id: noFlow.id,
+                name: `${c.firstName} ${c.lastName}`.trim() || 'Contato',
+                email: c.email || null, company: null, category: 'linkedin',
+                notes: c.profileUrl ? `LinkedIn: ${c.profileUrl}` : null,
+                x: Math.cos(angle) * radius, y: Math.sin(angle) * radius,
+                master_x: 0, master_y: 0,
+              };
+            });
+
+            const { data: createdPeople } = await sb.from('people').insert(peopleInserts).select();
+            if (createdPeople) {
+              allNewPeople.push(...createdPeople.map((p: any) => ({ ...p, type: 'person', node_ref: makeRef('person', p.id) })));
+              const connInserts = createdPeople.map((p: any) => ({
+                user_id: user.id, flow_id: noFlow.id,
+                from_id: p.id, from_type: 'person', to_id: noBrand.id, to_type: 'brand',
+                connection_type: 'works-at',
+              }));
+              const { data: createdConns } = await sb.from('connections').insert(connInserts).select();
+              if (createdConns) allNewConns.push(...createdConns);
+            }
+          }
+        }
       }
-      setFlows(prev => [...prev, newFlow]);
+
+      // Update state
+      setFlows(prev => [...prev, ...allNewFlows]);
+      setBrands(prev => [...prev, ...allNewBrands]);
+      setPeople(prev => [...prev, ...allNewPeople]);
+      setAllConnections(prev => [...prev, ...allNewConns.map((c: any) => ({
+        ...c, from: c.from_id, to: c.to_id,
+        from_ref: makeRef(c.from_type, c.from_id), to_ref: makeRef(c.to_type, c.to_id),
+        type: c.connection_type,
+      }))]);
+
       toast.dismiss(toastId);
-      toast.success(`LinkedIn importado! ${createdPeople?.length || 0} contatos`);
-    } catch (error: any) { toast.dismiss(toastId); toast.error('Erro na importação', { description: error?.message }); }
+      toast.success(`LinkedIn importado! ${allNewPeople.length} contatos em ${allNewFlows.length} flows`);
+    } catch (error: any) {
+      toast.dismiss(toastId);
+      toast.error('Erro na importação', { description: error?.message });
+    }
   };
 
   // ===== TOOLBAR HANDLERS =====
