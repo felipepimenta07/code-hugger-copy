@@ -900,26 +900,27 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
             </button>
           </div>
 
-          {/* Flow Manager Panel (dropdown) */}
-          <FlowManagerPanel
-            open={showFlowsManager}
-            onOpenChange={setShowFlowsManager}
-            flows={flowsForManager}
-            onSelectFlow={(flowId) => {
-              const sf = flows.find(f => f.id === flowId);
-              if (sf) { setActiveNodeRef(makeRef(sf.center_type, sf.center_id)); setViewMode('single'); }
-            }}
-            onDeleteFlow={async (flowId) => {
-              if (!user) return;
-              const { error } = await supabase.from('flows').delete().eq('id', flowId).eq('user_id', user.id);
-              if (error) { toast.error('Erro ao deletar flow'); return; }
-              setFlows(prev => prev.filter(f => f.id !== flowId));
-              toast.success('Flow deletado');
-              const df = flows.find(f => f.id === flowId);
-              if (df && activeNodeRef === makeRef(df.center_type, df.center_id)) { setViewMode('master'); setActiveNodeRef(null); }
-            }}
-          />
         </div>
+
+        {/* Flow Manager Panel - top left overlay */}
+        <FlowManagerPanel
+          open={showFlowsManager}
+          onOpenChange={setShowFlowsManager}
+          flows={flowsForManager}
+          onSelectFlow={(flowId) => {
+            const sf = flows.find(f => f.id === flowId);
+            if (sf) { setActiveNodeRef(makeRef(sf.center_type, sf.center_id)); setViewMode('single'); }
+          }}
+          onDeleteFlow={async (flowId) => {
+            if (!user) return;
+            const { error } = await supabase.from('flows').delete().eq('id', flowId).eq('user_id', user.id);
+            if (error) { toast.error('Erro ao deletar flow'); return; }
+            setFlows(prev => prev.filter(f => f.id !== flowId));
+            toast.success('Flow deletado');
+            const df = flows.find(f => f.id === flowId);
+            if (df && activeNodeRef === makeRef(df.center_type, df.center_id)) { setViewMode('master'); setActiveNodeRef(null); }
+          }}
+        />
 
         {/* Node Detail Panel */}
         {detailPanelNode && (
