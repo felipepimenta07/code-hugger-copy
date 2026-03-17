@@ -969,6 +969,9 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
           onOpenLinkedIn={() => setShowLinkedInImport(true)}
           onLogout={onLogout}
           onSearch={() => setShowOpportunities(true)}
+          allNodes={allNodes}
+          linkedInFilters={linkedInFilters}
+          onLinkedInFiltersChange={setLinkedInFilters}
         />
 
         {/* Canvas */}
