@@ -468,8 +468,8 @@ export const Canvas: React.FC<CanvasProps> = ({
           });
         })()}
         
-        {/* Cluster rings (Master View) */}
-        {viewMode === 'master' && flows.map(flow => {
+        {/* Cluster rings (Master View) - hidden in bubble mode */}
+        {viewMode === 'master' && state.zoom >= 0.15 && flows.map(flow => {
           const clusterNodes = nodes.filter(n => getNodeFlowId(n) === flow.id);
           if (clusterNodes.length === 0) return null;
           const centerNode = clusterNodes.find(n => n.id === flow.center_id && n.type === flow.center_type) || clusterNodes.find(n => n.type === 'project') || clusterNodes[0];
