@@ -101,114 +101,47 @@ export const Canvas: React.FC<CanvasProps> = ({
   
   const nodeDepths = calculateNodeDepths();
   
-  const getFlowOffset = (flowId: number, flowRingRadius: number) => {
-    if (!flows || flows.length === 0) return { dx: 0, dy: 0 };
-    const idx = Math.max(0, flows.findIndex(f => f.id === flowId));
-    const count = Math.max(flows.length, 1);
-    
-    if (count <= 12) {
-      // Circular layout for small number of flows
-      const angle = (idx / count) * Math.PI * 2;
-      let radius = 0;
-      if (count > 1) {
-        const filledRadius = flowRingRadius + 40;
-        const LABEL_CLEARANCE = 120;
-        const safeGap = 16 + LABEL_CLEARANCE;
-        const neededChord = 2 * filledRadius + safeGap;
-        radius = neededChord / (2 * Math.sin(Math.PI / count));
-      }
-      return { dx: Math.cos(angle) * radius, dy: Math.sin(angle) * radius };
-    }
-    
-    // Grid layout for many flows
-    const cols = Math.ceil(Math.sqrt(count));
-    const spacing = 2 * flowRingRadius + 300;
-    const row = Math.floor(idx / cols);
-    const col = idx % cols;
-    // Center the grid around origin
-    const totalWidth = (cols - 1) * spacing;
-    const totalHeight = (Math.ceil(count / cols) - 1) * spacing;
-    return { dx: col * spacing - totalWidth / 2, dy: row * spacing - totalHeight / 2 };
-  };
-
-  const getFlowRingRadius = (nodeCount: number) => Math.max(240, nodeCount * 30);
   const getNodeFlowId = (n: any) => n?.flow_id ?? (n?.type === 'project' ? n.id : null);
-  
-  // Bubble layout for semantic zoom — organic d3-force positioning
-  const bubbleLayoutMap = React.useMemo(() => {
-    if (viewMode !== 'master' || !flows?.length) return new Map<number, {x:number, y:number, radius:number}>();
-    const map = new Map<number, {x:number, y:number, radius:number}>();
 
-    // Build bubble nodes with radii
-    const bubbleNodes = flows.map((flow, idx) => {
-      const clusterNodes = nodes.filter(n => getNodeFlowId(n) === flow.id);
-      const bubbleRadius = Math.max(50, Math.sqrt(Math.max(clusterNodes.length, 1)) * 25);
-      return { flowId: flow.id, radius: bubbleRadius, x: 0, y: 0, vx: 0, vy: 0 };
+  // Dense galaxy layout — all nodes packed together, softly grouped by flow
+  const masterLayoutMap = React.useMemo(() => {
+    if (viewMode !== 'master' || !flows?.length || nodes.length === 0) return new Map<string, {x:number, y:number}>();
+    
+    // Calculate flow centroids (spread flows in a circle)
+    const flowCentroids = new Map<number, {x: number, y: number}>();
+    const flowCount = flows.length;
+    flows.forEach((flow: any, idx: number) => {
+      const angle = (idx / flowCount) * Math.PI * 2;
+      const radius = Math.max(80, flowCount * 12);
+      flowCentroids.set(flow.id, { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius });
     });
 
-    // Seed initial positions in a rough spiral to help convergence
-    bubbleNodes.forEach((bn, i) => {
-      const angle = i * 2.399; // golden angle
-      const r = 80 * Math.sqrt(i + 1);
-      bn.x = Math.cos(angle) * r;
-      bn.y = Math.sin(angle) * r;
+    // Build simulation nodes
+    const simNodes = nodes.map((n: any, i: number) => {
+      const flowId = getNodeFlowId(n);
+      const centroid = flowCentroids.get(flowId) ?? { x: 0, y: 0 };
+      return {
+        nodeRef: n.node_ref,
+        flowId,
+        x: centroid.x + (Math.random() - 0.5) * 40,
+        y: centroid.y + (Math.random() - 0.5) * 40,
+        vx: 0, vy: 0,
+      };
     });
 
-    // Run a short d3-force simulation synchronously
-    const sim = forceSimulation(bubbleNodes as any)
-      .force('charge', forceManyBody().strength(-300))
-      .force('center', forceCenter(0, 0).strength(0.05))
-      .force('collision', forceCollide<any>().radius((d: any) => d.radius + 40).strength(0.9))
+    const sim = forceSimulation(simNodes as any)
+      .force('charge', forceManyBody().strength(-15))
+      .force('center', forceCenter(0, 0).strength(0.01))
+      .force('collision', forceCollide<any>().radius(18).strength(0.9))
+      .force('x', forceX<any>((d: any) => flowCentroids.get(d.flowId)?.x ?? 0).strength(0.3))
+      .force('y', forceY<any>((d: any) => flowCentroids.get(d.flowId)?.y ?? 0).strength(0.3))
       .stop();
 
-    // Run 120 ticks synchronously
-    for (let i = 0; i < 120; i++) sim.tick();
+    for (let i = 0; i < 200; i++) sim.tick();
 
-    bubbleNodes.forEach(bn => {
-      map.set(bn.flowId, { x: bn.x, y: bn.y, radius: bn.radius });
-    });
-    return map;
-  }, [viewMode, flows, nodes]);
-
-  // Layout determinístico para Master View — keyed by node_ref
-  const masterLayoutMap = React.useMemo(() => {
-    if (viewMode !== 'master' || !flows?.length) return new Map<string, {x:number, y:number}>();
     const map = new Map<string, {x:number, y:number}>();
-    const typeOrder = (t?: string) => (t === 'project' ? 0 : t === 'brand' ? 1 : 2);
-    
-    const maxRingRadius = flows.reduce((max, flow) => {
-      const count = nodes.filter(n => getNodeFlowId(n) === flow.id).length;
-      return Math.max(max, getFlowRingRadius(count));
-    }, 240);
-    
-    flows.forEach(flow => {
-      const clusterNodes = nodes.filter(n => getNodeFlowId(n) === flow.id);
-      if (!clusterNodes.length) return;
-      const centerNode = 
-        clusterNodes.find(n => n.id === flow.center_id && n.type === flow.center_type) ||
-        clusterNodes.find(n => n.id === flow.center_id) ||
-        clusterNodes.find(n => n.type === 'project') ||
-        clusterNodes[0];
-      const ringRadius = getFlowRingRadius(clusterNodes.length);
-      const { dx, dy } = getFlowOffset(flow.id, maxRingRadius);
-      map.set(centerNode.node_ref, { x: dx, y: dy });
-      
-      const others = clusterNodes.filter(n => n.node_ref !== centerNode.node_ref);
-      const sorted = [...others].sort((a, b) => {
-        const t = typeOrder(a.type) - typeOrder(b.type);
-        if (t !== 0) return t;
-        const na = (a.name || '').localeCompare(b.name || '');
-        if (na !== 0) return na;
-        return a.id - b.id;
-      });
-      
-      const N = Math.max(sorted.length, 1);
-      const start = -Math.PI / 2;
-      const step = (2 * Math.PI) / N;
-      sorted.forEach((n, i) => {
-        const angle = start + i * step;
-        map.set(n.node_ref, { x: dx + ringRadius * Math.cos(angle), y: dy + ringRadius * Math.sin(angle) });
-      });
+    simNodes.forEach(sn => {
+      map.set(sn.nodeRef, { x: sn.x, y: sn.y });
     });
     return map;
   }, [viewMode, flows, nodes]);
