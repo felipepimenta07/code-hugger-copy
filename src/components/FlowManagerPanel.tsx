@@ -169,17 +169,17 @@ export const FlowManagerPanel = ({ open, onOpenChange, flows, onSelectFlow, onDe
                       {getCenterIcon(flow.center_type)}
                       <h3 className="font-semibold">{flow.name}</h3>
                     </div>
-                    <Badge variant="outline" className="text-xs">
+                    <Badge variant="outline" className="text-sm">
                       {getCenterLabel(flow.center_type)}
                     </Badge>
                   </div>
 
-                  <p className="text-sm text-muted-foreground mb-3">
+                  <p className="text-base text-muted-foreground mb-3">
                     Centro: {flow.centerName || `ID ${flow.center_id}`}
                   </p>
 
                   {flow.stats && (
-                    <div className="flex gap-4 text-xs text-muted-foreground mb-3">
+                    <div className="flex gap-4 text-sm text-muted-foreground mb-3">
                       <span className="flex items-center gap-1">
                         <Users className="h-3 w-3" />
                         {flow.stats.people}
