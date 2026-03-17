@@ -1,32 +1,25 @@
 import { useMemo, useState, useRef, useCallback } from 'react';
 import { GripVertical, X } from 'lucide-react';
 
-const CATEGORY_COLORS: Record<string, string> = {
-  'Pessoal': 'hsl(210, 100%, 56%)',
-  'Profissional': 'hsl(158, 64%, 52%)',
-  'Cliente': 'hsl(43, 96%, 56%)',
-  'Fornecedor': 'hsl(27, 96%, 61%)',
-  'Parceiro': 'hsl(258, 90%, 66%)',
-  'Bebida': 'hsl(340, 80%, 55%)',
-  'Entretenimento': 'hsl(280, 70%, 60%)',
-  'Hotelaria': 'hsl(190, 80%, 50%)',
-  'Varejo': 'hsl(30, 90%, 55%)',
-  'Serviços': 'hsl(170, 60%, 50%)',
-  'Tecnologia': 'hsl(210, 90%, 55%)',
-  'Alimentação': 'hsl(15, 85%, 55%)',
-  'Agência': 'hsl(260, 80%, 60%)',
-  'Banco': 'hsl(200, 70%, 50%)',
-  'Telecomunicação': 'hsl(180, 70%, 45%)',
-  'Moda': 'hsl(320, 70%, 55%)',
-  'Cosméticos': 'hsl(340, 60%, 60%)',
-  'Automotivo': 'hsl(220, 60%, 50%)',
-  'P': 'hsl(120, 50%, 50%)',
-  'M': 'hsl(45, 90%, 55%)',
-  'G': 'hsl(0, 70%, 55%)',
-};
+const SEED_COLORS: string[] = [
+  'hsl(210, 100%, 56%)', 'hsl(158, 64%, 52%)', 'hsl(43, 96%, 56%)',
+  'hsl(27, 96%, 61%)', 'hsl(258, 90%, 66%)', 'hsl(340, 80%, 55%)',
+  'hsl(280, 70%, 60%)', 'hsl(190, 80%, 50%)', 'hsl(30, 90%, 55%)',
+  'hsl(170, 60%, 50%)', 'hsl(210, 90%, 55%)', 'hsl(15, 85%, 55%)',
+  'hsl(260, 80%, 60%)', 'hsl(200, 70%, 50%)', 'hsl(180, 70%, 45%)',
+  'hsl(320, 70%, 55%)', 'hsl(340, 60%, 60%)', 'hsl(220, 60%, 50%)',
+  'hsl(120, 50%, 50%)', 'hsl(45, 90%, 55%)', 'hsl(0, 70%, 55%)',
+];
+
+// Deterministic hash so the same category always gets the same color
+function hashStr(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
 
 function getColor(category: string): string {
-  return CATEGORY_COLORS[category] || 'hsl(220, 10%, 55%)';
+  return SEED_COLORS[hashStr(category) % SEED_COLORS.length];
 }
 
 interface NetworkSidebarProps {
