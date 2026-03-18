@@ -275,11 +275,18 @@ export const Canvas: React.FC<CanvasProps> = ({
     [viewMode, nodeImportance],
   );
 
-  // Position resolver
+  // Position resolver with rotation for master view
   const getDisplayPos = (n: any) => {
     if (viewMode === "master") {
       const pos = masterLayoutMap.get(n.node_ref);
-      return pos ?? { x: n.x, y: n.y };
+      const p = pos ?? { x: n.x, y: n.y };
+      // Apply 2D rotation around center (0,0)
+      const cos = Math.cos(rotationAngle);
+      const sin = Math.sin(rotationAngle);
+      return {
+        x: p.x * cos - p.y * sin,
+        y: p.x * sin + p.y * cos,
+      };
     }
     if (useForceLayout && forcePositions && forcePositions[n.node_ref]) {
       return forcePositions[n.node_ref];
