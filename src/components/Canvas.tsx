@@ -145,7 +145,7 @@ export const Canvas: React.FC<CanvasProps> = ({
 
     // Grid-based centroids — compact 4-column layout
     const cols = Math.min(4, Math.ceil(Math.sqrt(flowSizes.length)));
-    const spacing = Math.max(120, Math.sqrt(nodes.length) * 8);
+    const spacing = Math.max(80, Math.sqrt(nodes.length) * 5);
     const flowCentroids = new Map<number, { x: number; y: number }>();
     flowSizes.forEach(({ flow, count }, idx) => {
       const col = idx % cols;
@@ -825,7 +825,7 @@ export const Canvas: React.FC<CanvasProps> = ({
               const isMasterView = viewMode === "master";
               const importance = nodeImportance.get(node.node_ref) ?? 0;
               const baseSize = isMasterView
-                ? (importance >= 0.7 ? 14 + Math.min(connectionCount * 2, 12) : 6 + Math.min(connectionCount * 1.5, 8))
+                ? (importance >= 0.7 ? 10 + Math.min(connectionCount * 1.5, 10) : 5 + Math.min(connectionCount * 1, 6))
                 : 20 + Math.min(connectionCount * 4, 25);
               const isCenterNode = viewMode !== "master" && viewMode === "single" && nodes[0]?.node_ref === node.node_ref;
               const nodeSize = isCenterNode ? Math.max(baseSize, 45) : baseSize;
