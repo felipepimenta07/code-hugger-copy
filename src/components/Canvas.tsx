@@ -856,6 +856,34 @@ export const Canvas: React.FC<CanvasProps> = ({
             });
           })()}
 
+          {/* Traveling dots on master view connections */}
+          {viewMode === "master" && connections.map((conn, idx) => {
+            const from = nodes.find((n) => n.node_ref === conn.from_ref);
+            const to = nodes.find((n) => n.node_ref === conn.to_ref);
+            if (!from || !to) return null;
+            const fi = nodeImportance.get(from.node_ref) ?? 0;
+            const ti = nodeImportance.get(to.node_ref) ?? 0;
+            if (fi < 0.25 || ti < 0.25) return null;
+            const { x: fromX, y: fromY } = getDisplayPos(from);
+            const { x: toX, y: toY } = getDisplayPos(to);
+            const midX = (fromX + toX) / 2;
+            const controlY2 = (fromY + toY) / 2 - 60;
+            const t = (Math.sin(animTime * 1.2 + idx * 1.7) + 1) / 2;
+            const tx = (1 - t) * (1 - t) * fromX + 2 * (1 - t) * t * midX + t * t * toX;
+            const ty = (1 - t) * (1 - t) * fromY + 2 * (1 - t) * t * controlY2 + t * t * toY;
+            return (
+              <circle
+                key={`tdot-${idx}`}
+                cx={tx}
+                cy={ty}
+                r={1.5}
+                fill="hsl(var(--primary))"
+                opacity={0.6}
+                className="pointer-events-none"
+              />
+            );
+          })}
+
           {/* Dragging connection line */}
           {state.isDraggingConnection && state.connectionStart && (
             <line
