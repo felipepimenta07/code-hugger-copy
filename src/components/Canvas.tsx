@@ -853,7 +853,7 @@ export const Canvas: React.FC<CanvasProps> = ({
               const isMasterView = viewMode === "master";
               const importance = nodeImportance.get(node.node_ref) ?? 0;
               const baseSize = isMasterView
-                ? 3 + Math.min(importance * 5, 5) // 3-8px max in master view
+                ? 4 + Math.min(importance * 4, 4) // 4-8px max in master view
                 : 20 + Math.min(connectionCount * 4, 25);
               const isCenterNode = !isMasterView && viewMode === "single" && nodes[0]?.node_ref === node.node_ref;
               const nodeSize = isCenterNode ? Math.max(baseSize, 45) : baseSize;
@@ -863,7 +863,7 @@ export const Canvas: React.FC<CanvasProps> = ({
               const zoomOpacity = getNodeZoomOpacity(node.node_ref, state.zoom);
               const finalOpacity = isDimmed ? 0.15 : (isMasterView ? zoomOpacity : 1);
 
-              // In master view, always small dots, never labels
+              // In master view, always small dots, never labels/text
               const showAsSmallDot = isMasterView;
               const showLabel = !isMasterView;
 
@@ -886,25 +886,8 @@ export const Canvas: React.FC<CanvasProps> = ({
                       state.dragging === node.node_ref ? "none" : "transform 0.1s ease-out, opacity 0.4s ease",
                   }}
                 >
-                  {/* Small dot mode for low-importance nodes at low zoom */}
                   {showAsSmallDot ? (
-                    <>
-                      <circle r={nodeSize} fill={nodeColor} opacity="0.7" />
-                      {isHovered && (
-                        <>
-                          <circle r={nodeSize + 6} fill={nodeColor} opacity="0.2" />
-                          <text
-                            y={nodeSize + 14}
-                            textAnchor="middle"
-                            fill="hsl(var(--foreground))"
-                            fontSize="11"
-                            fontWeight="500"
-                          >
-                            {node.name.length > 16 ? node.name.substring(0, 16) + "…" : node.name}
-                          </text>
-                        </>
-                      )}
-                    </>
+                    <circle r={nodeSize} fill={nodeColor} opacity={isHovered ? "0.9" : "0.75"} />
                   ) : (
                     <>
                       {isHovered && <circle r={nodeSize + 12} fill={nodeColor} opacity="0.12" filter="url(#glow-node)" />}
@@ -1029,40 +1012,7 @@ export const Canvas: React.FC<CanvasProps> = ({
             });
           })()}
 
-          {/* Flow labels (Master View) — positioned at flow centroid */}
-          {viewMode === "master" &&
-            flows?.map((flow, flowIdx) => {
-              const clusterNodes = nodes.filter((n) => n.flow_id === flow.id);
-              if (clusterNodes.length === 0) return null;
-              // Calculate centroid from actual node positions
-              const positions = clusterNodes.map((n) => masterLayoutMap.get(n.node_ref)).filter(Boolean) as {
-                x: number;
-                y: number;
-              }[];
-              if (positions.length === 0) return null;
-              const cx = positions.reduce((s, p) => s + p.x, 0) / positions.length;
-              const cy = positions.reduce((s, p) => s + p.y, 0) / positions.length;
-              // Find bounding radius of the cluster
-              const maxDist = Math.max(...positions.map((p) => Math.sqrt((p.x - cx) ** 2 + (p.y - cy) ** 2)), 30);
-              const flowColor = FLOW_COLORS[flowIdx % FLOW_COLORS.length];
-              return (
-                <g key={`label-${flow.id}`} pointerEvents="none">
-                  <text
-                    x={cx}
-                    y={cy - maxDist - 12}
-                    textAnchor="middle"
-                    fill={flowColor}
-                    fontSize="13"
-                    fontWeight="700"
-                    letterSpacing="1.5"
-                    fontFamily="monospace"
-                    opacity="0.85"
-                  >
-                    {flow.name.toUpperCase()}
-                  </text>
-                </g>
-              );
-            })}
+          {/* Master view intentionally renders no labels */}
         </g>
       </svg>
 
