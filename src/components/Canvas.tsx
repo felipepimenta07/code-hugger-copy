@@ -827,7 +827,7 @@ export const Canvas: React.FC<CanvasProps> = ({
               const baseSize = isMasterView
                 ? (importance >= 0.7 ? 14 + Math.min(connectionCount * 2, 12) : 6 + Math.min(connectionCount * 1.5, 8))
                 : 20 + Math.min(connectionCount * 4, 25);
-              const isCenterNode = viewMode === "single" && nodes[0]?.node_ref === node.node_ref;
+              const isCenterNode = viewMode !== "master" && viewMode === "single" && nodes[0]?.node_ref === node.node_ref;
               const nodeSize = isCenterNode ? Math.max(baseSize, 45) : baseSize;
               const isHovered = hoveredNode === node.node_ref;
 
@@ -969,21 +969,20 @@ export const Canvas: React.FC<CanvasProps> = ({
                         />
                       )}
 
-                      {showLabel && (
+                      {showLabel && !isMasterView && (
                         <text
                           y={nodeSize + 20}
                           textAnchor="middle"
                           fill="hsl(var(--foreground))"
-                          fontSize={isHovered ? 16 : (isMasterView ? 11 : 15)}
+                          fontSize={isHovered ? 16 : 15}
                           fontWeight={isHovered ? 600 : 400}
                           style={{ transition: "font-size 0.15s ease, opacity 0.3s ease" }}
-                          opacity={isMasterView && !isHovered ? 0.6 : 1}
                         >
                           {node.name.length > 18 ? node.name.substring(0, 18) + "…" : node.name}
                         </text>
                       )}
 
-                      {showLabel && node.category && (
+                      {showLabel && !isMasterView && node.category && (
                         <text
                           y={nodeSize + 38}
                           textAnchor="middle"
