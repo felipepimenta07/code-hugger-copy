@@ -16,6 +16,7 @@ import { useForceSimulation } from '@/hooks/useForceSimulation';
 import { supabase } from '@/integrations/supabase/client';
 import { ParsedLinkedInData, LinkedInImportOptions, LinkedInEnrichedData, LinkedInFilterState } from '@/types/linkedin';
 import { makeRef, parseRef, getTableName } from '@/utils/nodeRef';
+import { getConsistentColor } from '@/data/groupColors';
 
 const CATEGORIES = {
   person: ['Pessoal', 'Profissional', 'Cliente', 'Fornecedor', 'Parceiro'],
