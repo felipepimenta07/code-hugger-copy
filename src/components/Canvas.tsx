@@ -125,43 +125,53 @@ export const Canvas: React.FC<CanvasProps> = ({
 
   const getNodeFlowId = (n: any) => n?.flow_id ?? (n?.type === "project" ? n.id : null);
 
-  // Dense galaxy layout — all nodes packed together, softly grouped by flow
+  // Dense galaxy layout — grid-based compact centroids, organic clustering
   const masterLayoutMap = React.useMemo(() => {
     if (viewMode !== "master" || !flows?.length || nodes.length === 0)
       return new Map<string, { x: number; y: number }>();
 
-    // Calculate flow centroids (spread flows in a circle)
+    // Sort flows by size (largest first) for better packing
+    const flowSizes = flows.map((flow: any) => ({
+      flow,
+      count: nodes.filter((n: any) => getNodeFlowId(n) === flow.id).length,
+    })).sort((a, b) => b.count - a.count);
+
+    // Grid-based centroids — compact 4-column layout
+    const cols = Math.min(4, Math.ceil(Math.sqrt(flowSizes.length)));
+    const spacing = Math.max(120, Math.sqrt(nodes.length) * 8);
     const flowCentroids = new Map<number, { x: number; y: number }>();
-    const flowCount = flows.length;
-    flows.forEach((flow: any, idx: number) => {
-      const angle = (idx / flowCount) * Math.PI * 2;
-      const radius = Math.max(80, flowCount * 12);
-      flowCentroids.set(flow.id, { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius });
+    flowSizes.forEach(({ flow, count }, idx) => {
+      const col = idx % cols;
+      const row = Math.floor(idx / cols);
+      flowCentroids.set(flow.id, {
+        x: (col - (cols - 1) / 2) * spacing,
+        y: (row - (Math.ceil(flowSizes.length / cols) - 1) / 2) * spacing,
+      });
     });
 
     // Build simulation nodes
-    const simNodes = nodes.map((n: any, i: number) => {
+    const simNodes = nodes.map((n: any) => {
       const flowId = getNodeFlowId(n);
       const centroid = flowCentroids.get(flowId) ?? { x: 0, y: 0 };
       return {
         nodeRef: n.node_ref,
         flowId,
-        x: centroid.x + (Math.random() - 0.5) * 40,
-        y: centroid.y + (Math.random() - 0.5) * 40,
+        x: centroid.x + (Math.random() - 0.5) * 30,
+        y: centroid.y + (Math.random() - 0.5) * 30,
         vx: 0,
         vy: 0,
       };
     });
 
     const sim = forceSimulation(simNodes as any)
-      .force("charge", forceManyBody().strength(-15))
-      .force("center", forceCenter(0, 0).strength(0.01))
-      .force("collision", forceCollide<any>().radius(15).strength(0.9))
-      .force("x", forceX<any>((d: any) => flowCentroids.get(d.flowId)?.x ?? 0).strength(0.3))
-      .force("y", forceY<any>((d: any) => flowCentroids.get(d.flowId)?.y ?? 0).strength(0.3))
+      .force("charge", forceManyBody().strength(-8))
+      .force("center", forceCenter(0, 0).strength(0.005))
+      .force("collision", forceCollide<any>().radius(10).strength(0.95))
+      .force("x", forceX<any>((d: any) => flowCentroids.get(d.flowId)?.x ?? 0).strength(0.5))
+      .force("y", forceY<any>((d: any) => flowCentroids.get(d.flowId)?.y ?? 0).strength(0.5))
       .stop();
 
-    for (let i = 0; i < 200; i++) sim.tick();
+    for (let i = 0; i < 250; i++) sim.tick();
 
     const map = new Map<string, { x: number; y: number }>();
     simNodes.forEach((sn) => {
@@ -169,6 +179,41 @@ export const Canvas: React.FC<CanvasProps> = ({
     });
     return map;
   }, [viewMode, flows, nodes]);
+
+  // Importance score for progressive zoom visibility in master view
+  const nodeImportance = React.useMemo(() => {
+    if (viewMode !== "master") return new Map<string, number>();
+    const scores = new Map<string, number>();
+    const maxConns = Math.max(1, ...nodes.map((n: any) =>
+      connections.filter((c: any) => c.from_ref === n.node_ref || c.to_ref === n.node_ref).length
+    ));
+    nodes.forEach((n: any) => {
+      const isCenter = flows?.some((f: any) => f.center_id === n.id && f.center_type === n.type);
+      const connCount = connections.filter((c: any) => c.from_ref === n.node_ref || c.to_ref === n.node_ref).length;
+      const score = isCenter ? 1.0 : Math.max(0.05, connCount / maxConns);
+      scores.set(n.node_ref, score);
+    });
+    return scores;
+  }, [viewMode, nodes, connections, flows]);
+
+  // Determine if a node is visible at current zoom
+  const isNodeVisibleAtZoom = React.useCallback((nodeRef: string, zoom: number) => {
+    if (viewMode !== "master") return true;
+    const importance = nodeImportance.get(nodeRef) ?? 0;
+    if (zoom >= 0.6) return true;
+    if (zoom >= 0.3) return importance >= 0.15;
+    return importance >= 0.7;
+  }, [viewMode, nodeImportance]);
+
+  // Get node opacity based on zoom and importance (for fade-in effect)
+  const getNodeZoomOpacity = React.useCallback((nodeRef: string, zoom: number) => {
+    if (viewMode !== "master") return 1;
+    const importance = nodeImportance.get(nodeRef) ?? 0;
+    if (importance >= 0.7) return 1;
+    if (zoom >= 0.6) return 0.5 + importance * 0.5;
+    if (zoom >= 0.3) return importance >= 0.15 ? 0.3 + importance * 0.7 : 0;
+    return 0;
+  }, [viewMode, nodeImportance]);
 
   // Position resolver
   const getDisplayPos = (n: any) => {
@@ -525,6 +570,7 @@ export const Canvas: React.FC<CanvasProps> = ({
               }
 
               return specificConnections.map((conn, idx) => {
+                if (!isNodeVisibleAtZoom(conn.personA.node_ref, state.zoom) || !isNodeVisibleAtZoom(conn.personB.node_ref, state.zoom)) return null;
                 const posA = masterLayoutMap.get(conn.personA.node_ref);
                 const posB = masterLayoutMap.get(conn.personB.node_ref);
                 if (!posA || !posB) return null;
@@ -563,6 +609,9 @@ export const Canvas: React.FC<CanvasProps> = ({
               const from = nodes.find((n) => n.node_ref === conn.from_ref);
               const to = nodes.find((n) => n.node_ref === conn.to_ref);
               if (!from || !to) return null;
+
+              // In master view, hide connections if either node is not visible at current zoom
+              if (viewMode === "master" && (!isNodeVisibleAtZoom(from.node_ref, state.zoom) || !isNodeVisibleAtZoom(to.node_ref, state.zoom))) return null;
 
               const globalIdx = allConnections.findIndex(
                 (c) =>
@@ -726,6 +775,9 @@ export const Canvas: React.FC<CanvasProps> = ({
             const hasFocus = activeNodeRef !== null;
 
             return nodes.map((node) => {
+              // Progressive visibility in master view
+              if (viewMode === "master" && !isNodeVisibleAtZoom(node.node_ref, state.zoom)) return null;
+
               const nodeType = (node.type as keyof typeof nodeColors) || "person";
               const depth = nodeDepths.get(node.node_ref);
               const useDepthColor = viewMode === "single" && depth !== undefined;
@@ -760,12 +812,23 @@ export const Canvas: React.FC<CanvasProps> = ({
 
               const { x: displayX, y: displayY } = getDisplayPos(node);
 
-              const baseSize = 20 + Math.min(connectionCount * 4, 25);
+              // Smaller nodes in master view at low zoom
+              const isMasterView = viewMode === "master";
+              const importance = nodeImportance.get(node.node_ref) ?? 0;
+              const baseSize = isMasterView
+                ? (importance >= 0.7 ? 14 + Math.min(connectionCount * 2, 12) : 6 + Math.min(connectionCount * 1.5, 8))
+                : 20 + Math.min(connectionCount * 4, 25);
               const isCenterNode = viewMode === "single" && nodes[0]?.node_ref === node.node_ref;
               const nodeSize = isCenterNode ? Math.max(baseSize, 45) : baseSize;
               const isHovered = hoveredNode === node.node_ref;
 
               const isDimmed = hasFocus && !connectedNodeRefs.has(node.node_ref);
+              const zoomOpacity = getNodeZoomOpacity(node.node_ref, state.zoom);
+              const finalOpacity = isDimmed ? 0.15 : (isMasterView ? zoomOpacity : 1);
+
+              // In master view at low zoom, show small dots for low-importance nodes
+              const showAsSmallDot = isMasterView && importance < 0.7 && state.zoom < 0.5;
+              const showLabel = isMasterView ? (isHovered || state.zoom > 0.5) : true;
 
               return (
                 <g
@@ -780,122 +843,150 @@ export const Canvas: React.FC<CanvasProps> = ({
                   onMouseEnter={() => setHoveredNode(node.node_ref)}
                   onMouseLeave={() => setHoveredNode(null)}
                   className="cursor-pointer"
-                  opacity={isDimmed ? 0.15 : 1}
+                  opacity={finalOpacity}
                   style={{
                     transition:
-                      state.dragging === node.node_ref ? "none" : "transform 0.1s ease-out, opacity 0.3s ease",
+                      state.dragging === node.node_ref ? "none" : "transform 0.1s ease-out, opacity 0.4s ease",
                   }}
                 >
-                  {isHovered && <circle r={nodeSize + 12} fill={nodeColor} opacity="0.12" filter="url(#glow-node)" />}
-
-                  {isSelected && (
-                    <circle
-                      r={nodeSize + 6}
-                      fill="none"
-                      stroke="white"
-                      strokeWidth="2"
-                      opacity="0.8"
-                      strokeDasharray="4,3"
-                    />
-                  )}
-
-                  {isInPath && (
-                    <circle
-                      r={nodeSize + 8}
-                      fill="none"
-                      stroke="hsl(var(--connection-path))"
-                      strokeWidth="3"
-                      opacity="0.6"
-                    />
-                  )}
-
-                  {(node as any).isNewHighlight && (
-                    <circle
-                      r={nodeSize + 10}
-                      fill="none"
-                      stroke="#facc15"
-                      strokeWidth="3"
-                      opacity="0.8"
-                      className="animate-pulse"
-                    />
-                  )}
-
-                  {node.profile_picture_url ? (
+                  {/* Small dot mode for low-importance nodes at low zoom */}
+                  {showAsSmallDot ? (
                     <>
-                      <defs>
-                        <clipPath id={`clip-${node.type}-${node.id}`}>
-                          <circle r={nodeSize} />
-                        </clipPath>
-                      </defs>
-                      <image
-                        href={node.profile_picture_url}
-                        x={-nodeSize}
-                        y={-nodeSize}
-                        width={nodeSize * 2}
-                        height={nodeSize * 2}
-                        clipPath={`url(#clip-${node.type}-${node.id})`}
-                        preserveAspectRatio="xMidYMid slice"
-                      />
-                      <circle r={nodeSize} fill="none" stroke={nodeColor} strokeWidth={isCenterNode ? 3 : 2} />
+                      <circle r={nodeSize} fill={nodeColor} opacity="0.7" />
+                      {isHovered && (
+                        <>
+                          <circle r={nodeSize + 6} fill={nodeColor} opacity="0.2" />
+                          <text
+                            y={nodeSize + 14}
+                            textAnchor="middle"
+                            fill="hsl(var(--foreground))"
+                            fontSize="11"
+                            fontWeight="500"
+                          >
+                            {node.name.length > 16 ? node.name.substring(0, 16) + "…" : node.name}
+                          </text>
+                        </>
+                      )}
                     </>
                   ) : (
                     <>
-                      <circle
-                        r={nodeSize}
-                        fill="hsl(var(--background))"
-                        stroke={nodeColor}
-                        strokeWidth={isCenterNode ? 3 : 2}
-                        opacity="0.95"
-                      />
-                      <text
-                        textAnchor="middle"
-                        dominantBaseline="central"
-                        fill={nodeColor}
-                        fontSize={nodeSize * 0.6}
-                        fontWeight="600"
-                        fontFamily="monospace"
-                      >
-                        {getInitial(node.name)}
-                      </text>
+                      {isHovered && <circle r={nodeSize + 12} fill={nodeColor} opacity="0.12" filter="url(#glow-node)" />}
+
+                      {isSelected && (
+                        <circle
+                          r={nodeSize + 6}
+                          fill="none"
+                          stroke="white"
+                          strokeWidth="2"
+                          opacity="0.8"
+                          strokeDasharray="4,3"
+                        />
+                      )}
+
+                      {isInPath && (
+                        <circle
+                          r={nodeSize + 8}
+                          fill="none"
+                          stroke="hsl(var(--connection-path))"
+                          strokeWidth="3"
+                          opacity="0.6"
+                        />
+                      )}
+
+                      {(node as any).isNewHighlight && (
+                        <circle
+                          r={nodeSize + 10}
+                          fill="none"
+                          stroke="#facc15"
+                          strokeWidth="3"
+                          opacity="0.8"
+                          className="animate-pulse"
+                        />
+                      )}
+
+                      {node.profile_picture_url ? (
+                        <>
+                          <defs>
+                            <clipPath id={`clip-${node.type}-${node.id}`}>
+                              <circle r={nodeSize} />
+                            </clipPath>
+                          </defs>
+                          <image
+                            href={node.profile_picture_url}
+                            x={-nodeSize}
+                            y={-nodeSize}
+                            width={nodeSize * 2}
+                            height={nodeSize * 2}
+                            clipPath={`url(#clip-${node.type}-${node.id})`}
+                            preserveAspectRatio="xMidYMid slice"
+                          />
+                          <circle r={nodeSize} fill="none" stroke={nodeColor} strokeWidth={isCenterNode ? 3 : 2} />
+                        </>
+                      ) : (
+                        <>
+                          <circle
+                            r={nodeSize}
+                            fill="hsl(var(--background))"
+                            stroke={nodeColor}
+                            strokeWidth={isCenterNode ? 3 : 2}
+                            opacity="0.95"
+                          />
+                          {nodeSize > 10 && (
+                            <text
+                              textAnchor="middle"
+                              dominantBaseline="central"
+                              fill={nodeColor}
+                              fontSize={nodeSize * 0.6}
+                              fontWeight="600"
+                              fontFamily="monospace"
+                            >
+                              {getInitial(node.name)}
+                            </text>
+                          )}
+                        </>
+                      )}
+
+                      {viewMode === "single" && (
+                        <circle
+                          cx={nodeSize + 8}
+                          cy="0"
+                          r="6"
+                          fill="rgba(59, 130, 246, 0.9)"
+                          stroke="white"
+                          strokeWidth="1.5"
+                          className="cursor-crosshair"
+                          style={{ pointerEvents: "all" }}
+                          onMouseDown={(e) => handleConnectionDotMouseDown(e, node)}
+                        />
+                      )}
+
+                      {showLabel && (
+                        <text
+                          y={nodeSize + 20}
+                          textAnchor="middle"
+                          fill="hsl(var(--foreground))"
+                          fontSize={isHovered ? 16 : (isMasterView ? 11 : 15)}
+                          fontWeight={isHovered ? 600 : 400}
+                          style={{ transition: "font-size 0.15s ease, opacity 0.3s ease" }}
+                          opacity={isMasterView && !isHovered ? 0.6 : 1}
+                        >
+                          {node.name.length > 18 ? node.name.substring(0, 18) + "…" : node.name}
+                        </text>
+                      )}
+
+                      {showLabel && node.category && (
+                        <text
+                          y={nodeSize + 38}
+                          textAnchor="middle"
+                          fill={nodeColor}
+                          fontSize="13"
+                          opacity={isHovered ? 0.9 : 0.5}
+                          fontFamily="monospace"
+                        >
+                          {node.category}
+                        </text>
+                      )}
                     </>
-                  )}
-
-                  {viewMode === "single" && (
-                    <circle
-                      cx={nodeSize + 8}
-                      cy="0"
-                      r="6"
-                      fill="rgba(59, 130, 246, 0.9)"
-                      stroke="white"
-                      strokeWidth="1.5"
-                      className="cursor-crosshair"
-                      style={{ pointerEvents: "all" }}
-                      onMouseDown={(e) => handleConnectionDotMouseDown(e, node)}
-                    />
-                  )}
-
-                  <text
-                    y={nodeSize + 20}
-                    textAnchor="middle"
-                    fill="hsl(var(--foreground))"
-                    fontSize={isHovered ? 16 : 15}
-                    fontWeight={isHovered ? 600 : 400}
-                    style={{ transition: "font-size 0.15s ease" }}
-                  >
-                    {node.name.length > 18 ? node.name.substring(0, 18) + "…" : node.name}
-                  </text>
-
-                  {node.category && (
-                    <text
-                      y={nodeSize + 38}
-                      textAnchor="middle"
-                      fill={nodeColor}
-                      fontSize="13"
-                      opacity={isHovered ? 0.9 : 0.5}
-                      fontFamily="monospace"
-                    >
-                      {node.category}
-                    </text>
                   )}
                 </g>
               );
