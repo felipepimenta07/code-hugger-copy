@@ -170,12 +170,14 @@ export const Canvas: React.FC<CanvasProps> = ({
       };
     });
 
+    // Master view: stronger center attraction for compact "globe" layout
+    const isMasterMode = viewMode === "master";
     const sim = forceSimulation(simNodes as any)
-      .force("charge", forceManyBody().strength(-8))
-      .force("center", forceCenter(0, 0).strength(0.005))
-      .force("collision", forceCollide<any>().radius(10).strength(0.95))
-      .force("x", forceX<any>((d: any) => flowCentroids.get(d.flowId)?.x ?? 0).strength(0.5))
-      .force("y", forceY<any>((d: any) => flowCentroids.get(d.flowId)?.y ?? 0).strength(0.5))
+      .force("charge", forceManyBody().strength(isMasterMode ? -3 : -8))
+      .force("center", forceCenter(0, 0).strength(isMasterMode ? 0.15 : 0.005))
+      .force("collision", forceCollide<any>().radius(isMasterMode ? 4 : 10).strength(0.95))
+      .force("x", forceX<any>((d: any) => flowCentroids.get(d.flowId)?.x ?? 0).strength(isMasterMode ? 0.8 : 0.5))
+      .force("y", forceY<any>((d: any) => flowCentroids.get(d.flowId)?.y ?? 0).strength(isMasterMode ? 0.8 : 0.5))
       .stop();
 
     for (let i = 0; i < 250; i++) sim.tick();
