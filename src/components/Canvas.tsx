@@ -724,8 +724,14 @@ export const Canvas: React.FC<CanvasProps> = ({
               if (isSelected) opacity = 1;
               if (isConnDimmed) opacity = 0.06;
               if (viewMode === "master" && !isSelected) {
-                strokeWidth = 0.3;
-                opacity = Math.min(opacity, 0.05);
+                const isHoverConn = hoveredNode && (conn.from_ref === hoveredNode || conn.to_ref === hoveredNode);
+                if (isHoverConn) {
+                  strokeWidth = 1;
+                  opacity = 0.35;
+                } else {
+                  strokeWidth = 0.3;
+                  opacity = hoveredNode ? 0.03 : Math.min(opacity, 0.05);
+                }
                 strokeDasharray = undefined;
               }
               // Early return: skip rendering nearly invisible connections
@@ -819,6 +825,16 @@ export const Canvas: React.FC<CanvasProps> = ({
             }
             const hasFocus = activeNodeRef !== null;
 
+            // Build set of nodes connected to hovered node (for organic hover effect)
+            const connectedToHovered = new Set<string>();
+            if (hoveredNode) {
+              connections.forEach((c) => {
+                if (c.from_ref === hoveredNode) connectedToHovered.add(c.to_ref);
+                if (c.to_ref === hoveredNode) connectedToHovered.add(c.from_ref);
+              });
+            }
+            const hasHover = hoveredNode !== null;
+
             return nodes.map((node) => {
               // Progressive visibility in master view
               if (viewMode === "master" && !isNodeVisibleAtZoom(node.node_ref, state.zoom)) return null;
@@ -869,11 +885,21 @@ export const Canvas: React.FC<CanvasProps> = ({
 
               const isDimmed = hasFocus && !connectedNodeRefs.has(node.node_ref);
               const zoomOpacity = getNodeZoomOpacity(node.node_ref, state.zoom);
-              const finalOpacity = isDimmed ? 0.15 : isMasterView ? zoomOpacity : 1;
+              
+              // Organic hover: dim unrelated nodes when hovering in master view
+              const isNeighborOfHovered = hasHover && connectedToHovered.has(node.node_ref);
+              const masterHoverOpacity = hasHover && isMasterView
+                ? (isHovered ? 1 : isNeighborOfHovered ? 0.9 : 0.3)
+                : zoomOpacity;
+              const finalOpacity = isDimmed ? 0.15 : isMasterView ? masterHoverOpacity : 1;
 
               // In master view, always small dots, never labels/text
               const showAsSmallDot = isMasterView;
               const showLabel = !isMasterView;
+
+              // Organic hover: scale nodes
+              const hoverScale = isMasterView && isHovered ? 2.5 : isMasterView && isNeighborOfHovered ? 1.5 : 1;
+              const displayRadius = nodeSize * hoverScale;
 
               return (
                 <g
@@ -895,13 +921,31 @@ export const Canvas: React.FC<CanvasProps> = ({
                   opacity={finalOpacity}
                   style={{
                     transition:
-                      state.dragging === node.node_ref ? "none" : "transform 0.1s ease-out, opacity 0.05s ease",
+                      state.dragging === node.node_ref ? "none" : "all 0.3s ease",
                   }}
                 >
                   {showAsSmallDot ? (
                     <>
-                      <title>{node.name}</title>
-                      <circle r={nodeSize} fill={nodeColor} opacity={isHovered ? "0.9" : "0.75"} />
+                      {/* Glow circle for hovered node */}
+                      {isHovered && (
+                        <circle r={displayRadius + 6} fill={nodeColor} opacity="0.25" filter="url(#glow-node)" style={{ transition: "all 0.3s ease" }} />
+                      )}
+                      <circle r={displayRadius} fill={nodeColor} opacity={isHovered ? "1" : "0.75"} style={{ transition: "all 0.3s ease" }} />
+                      {/* Floating label on hover */}
+                      {isHovered && (
+                        <text
+                          y={-displayRadius - 8}
+                          textAnchor="middle"
+                          fill="hsl(var(--foreground))"
+                          fontSize="10"
+                          fontWeight="500"
+                          fontFamily="monospace"
+                          opacity="0.9"
+                          style={{ pointerEvents: "none", transition: "opacity 0.3s ease" }}
+                        >
+                          {node.name.length > 22 ? node.name.substring(0, 22) + "…" : node.name}
+                        </text>
+                      )}
                     </>
                   ) : (
                     <>
