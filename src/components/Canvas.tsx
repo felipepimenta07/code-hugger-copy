@@ -145,7 +145,7 @@ export const Canvas: React.FC<CanvasProps> = ({
 
     // Grid-based centroids — compact 4-column layout
     const cols = Math.min(4, Math.ceil(Math.sqrt(flowSizes.length)));
-    const spacing = Math.max(120, Math.sqrt(nodes.length) * 8);
+    const spacing = Math.max(80, Math.sqrt(nodes.length) * 5);
     const flowCentroids = new Map<number, { x: number; y: number }>();
     flowSizes.forEach(({ flow, count }, idx) => {
       const col = idx % cols;
