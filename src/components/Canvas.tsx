@@ -899,7 +899,10 @@ export const Canvas: React.FC<CanvasProps> = ({
                   }}
                 >
                   {showAsSmallDot ? (
-                    <circle r={nodeSize} fill={nodeColor} opacity={isHovered ? "0.9" : "0.75"} />
+                    <>
+                      <title>{node.name}</title>
+                      <circle r={nodeSize} fill={nodeColor} opacity={isHovered ? "0.9" : "0.75"} />
+                    </>
                   ) : (
                     <>
                       {isHovered && (
