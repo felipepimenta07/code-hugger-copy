@@ -648,7 +648,7 @@ export const Canvas: React.FC<CanvasProps> = ({
               if (viewMode === "master") {
                 const fi = nodeImportance.get(from.node_ref) ?? 0;
                 const ti = nodeImportance.get(to.node_ref) ?? 0;
-                if (fi < 0.15 && ti < 0.15) return null;
+                if (fi < 0.25 || ti < 0.25) return null;
               }
 
               const globalIdx = allConnections.findIndex(
