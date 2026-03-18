@@ -4,6 +4,13 @@ import { User, Target, Building2 } from "lucide-react";
 import { ConnectionTooltip } from "./ConnectionTooltip";
 import { parseRef } from "@/utils/nodeRef";
 import { FLOW_COLORS } from "./FlowManagerPanel";
+import {
+  calculateAffinity,
+  detectCommunities,
+  calculateBetweennessCentrality,
+  calculateNodeImportance,
+} from "@/utils/graphAlgorithms";
+import { getConsistentColor } from "@/data/groupColors";
 
 interface CanvasProps {
   svgRef: React.RefObject<SVGSVGElement>;
