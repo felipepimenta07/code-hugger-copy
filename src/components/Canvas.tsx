@@ -127,7 +127,7 @@ export const Canvas: React.FC<CanvasProps> = ({
 
   // Dense galaxy layout — all nodes packed together, softly grouped by flow
   const masterLayoutMap = React.useMemo(() => {
-    if (viewMode !== "master" || !flows?.length === 0 || nodes.length === 0)
+    if (viewMode !== "master" || !flows?.length || nodes.length === 0)
       return new Map<string, { x: number; y: number }>();
 
     // Calculate flow centroids (spread flows in a circle)
