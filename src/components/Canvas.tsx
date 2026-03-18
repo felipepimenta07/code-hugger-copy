@@ -710,6 +710,7 @@ export const Canvas: React.FC<CanvasProps> = ({
               }
               if (isSelected) opacity = 1;
               if (isConnDimmed) opacity = 0.06;
+              if (viewMode === "master") opacity = Math.min(opacity, 0.15);
 
               const { x: fromX, y: fromY } = getDisplayPos(from);
               const { x: toX, y: toY } = getDisplayPos(to);
