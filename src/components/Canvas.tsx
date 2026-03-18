@@ -848,116 +848,144 @@ export const Canvas: React.FC<CanvasProps> = ({
                       state.dragging === node.node_ref ? "none" : "transform 0.1s ease-out, opacity 0.4s ease",
                   }}
                 >
-                  {isHovered && <circle r={nodeSize + 12} fill={nodeColor} opacity="0.12" filter="url(#glow-node)" />}
-
-                  {isSelected && (
-                    <circle
-                      r={nodeSize + 6}
-                      fill="none"
-                      stroke="white"
-                      strokeWidth="2"
-                      opacity="0.8"
-                      strokeDasharray="4,3"
-                    />
-                  )}
-
-                  {isInPath && (
-                    <circle
-                      r={nodeSize + 8}
-                      fill="none"
-                      stroke="hsl(var(--connection-path))"
-                      strokeWidth="3"
-                      opacity="0.6"
-                    />
-                  )}
-
-                  {(node as any).isNewHighlight && (
-                    <circle
-                      r={nodeSize + 10}
-                      fill="none"
-                      stroke="#facc15"
-                      strokeWidth="3"
-                      opacity="0.8"
-                      className="animate-pulse"
-                    />
-                  )}
-
-                  {node.profile_picture_url ? (
+                  {/* Small dot mode for low-importance nodes at low zoom */}
+                  {showAsSmallDot ? (
                     <>
-                      <defs>
-                        <clipPath id={`clip-${node.type}-${node.id}`}>
-                          <circle r={nodeSize} />
-                        </clipPath>
-                      </defs>
-                      <image
-                        href={node.profile_picture_url}
-                        x={-nodeSize}
-                        y={-nodeSize}
-                        width={nodeSize * 2}
-                        height={nodeSize * 2}
-                        clipPath={`url(#clip-${node.type}-${node.id})`}
-                        preserveAspectRatio="xMidYMid slice"
-                      />
-                      <circle r={nodeSize} fill="none" stroke={nodeColor} strokeWidth={isCenterNode ? 3 : 2} />
+                      <circle r={nodeSize} fill={nodeColor} opacity="0.7" />
+                      {isHovered && (
+                        <>
+                          <circle r={nodeSize + 6} fill={nodeColor} opacity="0.2" />
+                          <text
+                            y={nodeSize + 14}
+                            textAnchor="middle"
+                            fill="hsl(var(--foreground))"
+                            fontSize="11"
+                            fontWeight="500"
+                          >
+                            {node.name.length > 16 ? node.name.substring(0, 16) + "…" : node.name}
+                          </text>
+                        </>
+                      )}
                     </>
                   ) : (
                     <>
-                      <circle
-                        r={nodeSize}
-                        fill="hsl(var(--background))"
-                        stroke={nodeColor}
-                        strokeWidth={isCenterNode ? 3 : 2}
-                        opacity="0.95"
-                      />
-                      <text
-                        textAnchor="middle"
-                        dominantBaseline="central"
-                        fill={nodeColor}
-                        fontSize={nodeSize * 0.6}
-                        fontWeight="600"
-                        fontFamily="monospace"
-                      >
-                        {getInitial(node.name)}
-                      </text>
+                      {isHovered && <circle r={nodeSize + 12} fill={nodeColor} opacity="0.12" filter="url(#glow-node)" />}
+
+                      {isSelected && (
+                        <circle
+                          r={nodeSize + 6}
+                          fill="none"
+                          stroke="white"
+                          strokeWidth="2"
+                          opacity="0.8"
+                          strokeDasharray="4,3"
+                        />
+                      )}
+
+                      {isInPath && (
+                        <circle
+                          r={nodeSize + 8}
+                          fill="none"
+                          stroke="hsl(var(--connection-path))"
+                          strokeWidth="3"
+                          opacity="0.6"
+                        />
+                      )}
+
+                      {(node as any).isNewHighlight && (
+                        <circle
+                          r={nodeSize + 10}
+                          fill="none"
+                          stroke="#facc15"
+                          strokeWidth="3"
+                          opacity="0.8"
+                          className="animate-pulse"
+                        />
+                      )}
+
+                      {node.profile_picture_url ? (
+                        <>
+                          <defs>
+                            <clipPath id={`clip-${node.type}-${node.id}`}>
+                              <circle r={nodeSize} />
+                            </clipPath>
+                          </defs>
+                          <image
+                            href={node.profile_picture_url}
+                            x={-nodeSize}
+                            y={-nodeSize}
+                            width={nodeSize * 2}
+                            height={nodeSize * 2}
+                            clipPath={`url(#clip-${node.type}-${node.id})`}
+                            preserveAspectRatio="xMidYMid slice"
+                          />
+                          <circle r={nodeSize} fill="none" stroke={nodeColor} strokeWidth={isCenterNode ? 3 : 2} />
+                        </>
+                      ) : (
+                        <>
+                          <circle
+                            r={nodeSize}
+                            fill="hsl(var(--background))"
+                            stroke={nodeColor}
+                            strokeWidth={isCenterNode ? 3 : 2}
+                            opacity="0.95"
+                          />
+                          {nodeSize > 10 && (
+                            <text
+                              textAnchor="middle"
+                              dominantBaseline="central"
+                              fill={nodeColor}
+                              fontSize={nodeSize * 0.6}
+                              fontWeight="600"
+                              fontFamily="monospace"
+                            >
+                              {getInitial(node.name)}
+                            </text>
+                          )}
+                        </>
+                      )}
+
+                      {viewMode === "single" && (
+                        <circle
+                          cx={nodeSize + 8}
+                          cy="0"
+                          r="6"
+                          fill="rgba(59, 130, 246, 0.9)"
+                          stroke="white"
+                          strokeWidth="1.5"
+                          className="cursor-crosshair"
+                          style={{ pointerEvents: "all" }}
+                          onMouseDown={(e) => handleConnectionDotMouseDown(e, node)}
+                        />
+                      )}
+
+                      {showLabel && (
+                        <text
+                          y={nodeSize + 20}
+                          textAnchor="middle"
+                          fill="hsl(var(--foreground))"
+                          fontSize={isHovered ? 16 : (isMasterView ? 11 : 15)}
+                          fontWeight={isHovered ? 600 : 400}
+                          style={{ transition: "font-size 0.15s ease, opacity 0.3s ease" }}
+                          opacity={isMasterView && !isHovered ? 0.6 : 1}
+                        >
+                          {node.name.length > 18 ? node.name.substring(0, 18) + "…" : node.name}
+                        </text>
+                      )}
+
+                      {showLabel && node.category && (
+                        <text
+                          y={nodeSize + 38}
+                          textAnchor="middle"
+                          fill={nodeColor}
+                          fontSize="13"
+                          opacity={isHovered ? 0.9 : 0.5}
+                          fontFamily="monospace"
+                        >
+                          {node.category}
+                        </text>
+                      )}
                     </>
-                  )}
-
-                  {viewMode === "single" && (
-                    <circle
-                      cx={nodeSize + 8}
-                      cy="0"
-                      r="6"
-                      fill="rgba(59, 130, 246, 0.9)"
-                      stroke="white"
-                      strokeWidth="1.5"
-                      className="cursor-crosshair"
-                      style={{ pointerEvents: "all" }}
-                      onMouseDown={(e) => handleConnectionDotMouseDown(e, node)}
-                    />
-                  )}
-
-                  <text
-                    y={nodeSize + 20}
-                    textAnchor="middle"
-                    fill="hsl(var(--foreground))"
-                    fontSize={isHovered ? 16 : 15}
-                    fontWeight={isHovered ? 600 : 400}
-                    style={{ transition: "font-size 0.15s ease" }}
-                  >
-                    {node.name.length > 18 ? node.name.substring(0, 18) + "…" : node.name}
-                  </text>
-
-                  {node.category && (
-                    <text
-                      y={nodeSize + 38}
-                      textAnchor="middle"
-                      fill={nodeColor}
-                      fontSize="13"
-                      opacity={isHovered ? 0.9 : 0.5}
-                      fontFamily="monospace"
-                    >
-                      {node.category}
-                    </text>
                   )}
                 </g>
               );
