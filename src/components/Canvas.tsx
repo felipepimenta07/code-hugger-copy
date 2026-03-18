@@ -827,7 +827,7 @@ export const Canvas: React.FC<CanvasProps> = ({
               const baseSize = isMasterView
                 ? (importance >= 0.7 ? 14 + Math.min(connectionCount * 2, 12) : 6 + Math.min(connectionCount * 1.5, 8))
                 : 20 + Math.min(connectionCount * 4, 25);
-              const isCenterNode = viewMode === "single" && nodes[0]?.node_ref === node.node_ref;
+              const isCenterNode = viewMode !== "master" && viewMode === "single" && nodes[0]?.node_ref === node.node_ref;
               const nodeSize = isCenterNode ? Math.max(baseSize, 45) : baseSize;
               const isHovered = hoveredNode === node.node_ref;
 
