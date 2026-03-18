@@ -570,6 +570,7 @@ export const Canvas: React.FC<CanvasProps> = ({
               }
 
               return specificConnections.map((conn, idx) => {
+                if (!isNodeVisibleAtZoom(conn.personA.node_ref, state.zoom) || !isNodeVisibleAtZoom(conn.personB.node_ref, state.zoom)) return null;
                 const posA = masterLayoutMap.get(conn.personA.node_ref);
                 const posB = masterLayoutMap.get(conn.personB.node_ref);
                 if (!posA || !posB) return null;
