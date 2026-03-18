@@ -24,12 +24,7 @@ const CATEGORIES = {
   project: ['P', 'M', 'G']
 };
 
-interface NetworkMatrixProps {
-  onOpenWhatsApp?: () => void;
-  onLogout?: () => void;
-}
-
-export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps = {}) => {
+export const NetworkMatrix = () => {
   const { user } = useAuth();
   
   // Data state

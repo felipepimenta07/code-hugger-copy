@@ -19,10 +19,7 @@ const Index = () => {
 
   return (
     <div className="relative h-screen w-screen">
-      <NetworkMatrix 
-        onOpenWhatsApp={() => setShowWhatsAppDialog(true)}
-        onLogout={handleLogout}
-      />
+      <NetworkMatrix />
       <WhatsAppDialog 
         open={showWhatsAppDialog} 
         onOpenChange={setShowWhatsAppDialog}
