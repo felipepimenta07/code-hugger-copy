@@ -185,25 +185,13 @@ export const Canvas: React.FC<CanvasProps> = ({
     });
 
     const sim = forceSimulation(simNodes as any)
-      // Charge: important nodes repel more (take more visual space)
-      .force("charge", forceManyBody<any>().strength((d: any) => {
-        const imp = d.importance ?? 0.1;
-        return -10 - imp * 25; // range: -10 to -35
-      }))
-      .force("center", forceCenter(0, 0).strength(0.12))
-      // Collision: important nodes get slightly more space
-      .force("collision", forceCollide<any>().radius((d: any) => {
-        const imp = d.importance ?? 0.1;
-        return 4 + imp * 6; // range: 4 to 10
-      }).strength(0.9))
-      // Gravity: less important nodes pulled stronger to center (periphery compaction)
-      .force("x", forceX<any>(0).strength((d: any) => 0.05 + (1 - (d.importance ?? 0.1)) * 0.08))
-      .force("y", forceY<any>(0).strength((d: any) => 0.05 + (1 - (d.importance ?? 0.1)) * 0.08))
-      // Links: high-affinity pairs stay closer together
+      .force("charge", forceManyBody().strength(-8))
+      .force("center", forceCenter(0, 0).strength(0.4))
+      .force("collision", forceCollide<any>().radius(5).strength(0.9))
+      .force("x", forceX(0).strength(0.15))
+      .force("y", forceY(0).strength(0.15))
       .force("link", links.length > 0
-        ? forceLink(links).id((d: any) => d.id)
-            .distance((l: any) => 15 + (1 - (l.affinity ?? 0)) * 20) // range: 15-35
-            .strength((l: any) => 0.2 + (l.affinity ?? 0) * 0.5) // range: 0.2-0.7
+        ? forceLink(links).id((d: any) => d.id).distance(25).strength(0.1)
         : null
       )
       .stop();
