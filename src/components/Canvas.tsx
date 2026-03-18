@@ -191,7 +191,7 @@ export const Canvas: React.FC<CanvasProps> = ({
       .force("x", forceX(0).strength(0.15))
       .force("y", forceY(0).strength(0.15))
       .force("link", links.length > 0
-        ? forceLink(links).id((d: any) => d.id).distance(25).strength(0.1)
+        ? forceLink(links).id((d: any) => d.id).distance(25).strength(0.05)
         : null
       )
       .stop();
@@ -710,6 +710,7 @@ export const Canvas: React.FC<CanvasProps> = ({
               }
               if (isSelected) opacity = 1;
               if (isConnDimmed) opacity = 0.06;
+              if (viewMode === "master") opacity = Math.min(opacity, 0.15);
 
               const { x: fromX, y: fromY } = getDisplayPos(from);
               const { x: toX, y: toY } = getDisplayPos(to);
@@ -841,7 +842,7 @@ export const Canvas: React.FC<CanvasProps> = ({
               const isMasterView = viewMode === "master";
               const importance = nodeImportance.get(node.node_ref) ?? 0;
               const baseSize = isMasterView
-                ? 4 + Math.min(importance * 4, 4) // 4-8px max in master view
+                ? Math.min(3 + Math.min(importance * 3, 3), 6) // max 6px in master view
                 : 20 + Math.min(connectionCount * 4, 25);
               const isCenterNode = !isMasterView && viewMode === "single" && nodes[0]?.node_ref === node.node_ref;
               const nodeSize = isCenterNode ? Math.max(baseSize, 45) : baseSize;
