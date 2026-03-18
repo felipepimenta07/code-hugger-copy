@@ -724,10 +724,12 @@ export const Canvas: React.FC<CanvasProps> = ({
               if (isSelected) opacity = 1;
               if (isConnDimmed) opacity = 0.06;
               if (viewMode === "master" && !isSelected) {
-                strokeWidth = 0.9;
-                opacity = Math.min(opacity, 0.2);
+                strokeWidth = 0.3;
+                opacity = Math.min(opacity, 0.05);
                 strokeDasharray = undefined;
               }
+              // Early return: skip rendering nearly invisible connections
+              if (opacity < 0.02) return null;
 
               const { x: fromX, y: fromY } = getDisplayPos(from);
               const { x: toX, y: toY } = getDisplayPos(to);
