@@ -969,21 +969,20 @@ export const Canvas: React.FC<CanvasProps> = ({
                         />
                       )}
 
-                      {showLabel && (
+                      {showLabel && !isMasterView && (
                         <text
                           y={nodeSize + 20}
                           textAnchor="middle"
                           fill="hsl(var(--foreground))"
-                          fontSize={isHovered ? 16 : (isMasterView ? 11 : 15)}
+                          fontSize={isHovered ? 16 : 15}
                           fontWeight={isHovered ? 600 : 400}
                           style={{ transition: "font-size 0.15s ease, opacity 0.3s ease" }}
-                          opacity={isMasterView && !isHovered ? 0.6 : 1}
                         >
                           {node.name.length > 18 ? node.name.substring(0, 18) + "…" : node.name}
                         </text>
                       )}
 
-                      {showLabel && node.category && (
+                      {showLabel && !isMasterView && node.category && (
                         <text
                           y={nodeSize + 38}
                           textAnchor="middle"
