@@ -609,6 +609,9 @@ export const Canvas: React.FC<CanvasProps> = ({
               const to = nodes.find((n) => n.node_ref === conn.to_ref);
               if (!from || !to) return null;
 
+              // In master view, hide connections if either node is not visible at current zoom
+              if (viewMode === "master" && (!isNodeVisibleAtZoom(from.node_ref, state.zoom) || !isNodeVisibleAtZoom(to.node_ref, state.zoom))) return null;
+
               const globalIdx = allConnections.findIndex(
                 (c) =>
                   (c.from_ref === conn.from_ref && c.to_ref === conn.to_ref) ||
