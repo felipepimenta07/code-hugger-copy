@@ -132,62 +132,47 @@ export const Canvas: React.FC<CanvasProps> = ({
 
   const getNodeFlowId = (n: any) => n?.flow_id ?? (n?.type === "project" ? n.id : null);
 
-  // Dense galaxy layout — grid-based compact centroids, organic clustering
+  // Single unified cloud/globe layout — all nodes form one organic cluster
   const masterLayoutMap = React.useMemo(() => {
-    if (viewMode !== "master" || !flows?.length || nodes.length === 0)
+    if (viewMode !== "master" || nodes.length === 0)
       return new Map<string, { x: number; y: number }>();
 
-    // Sort flows by size (largest first) for better packing
-    const flowSizes = flows.map((flow: any) => ({
-      flow,
-      count: nodes.filter((n: any) => getNodeFlowId(n) === flow.id).length,
-    })).sort((a, b) => b.count - a.count);
+    // Build adjacency from allConnections for link force
+    const nodeRefSet = new Set(nodes.map((n: any) => n.node_ref));
+    const links = (allConnections || connections).filter(
+      (c: any) => nodeRefSet.has(c.from_ref) && nodeRefSet.has(c.to_ref)
+    ).map((c: any) => ({ source: c.from_ref, target: c.to_ref }));
 
-    // Grid-based centroids — compact 4-column layout
-    const cols = Math.min(4, Math.ceil(Math.sqrt(flowSizes.length)));
-    const spacing = Math.max(80, Math.sqrt(nodes.length) * 5);
-    const flowCentroids = new Map<number, { x: number; y: number }>();
-    flowSizes.forEach(({ flow, count }, idx) => {
-      const col = idx % cols;
-      const row = Math.floor(idx / cols);
-      flowCentroids.set(flow.id, {
-        x: (col - (cols - 1) / 2) * spacing,
-        y: (row - (Math.ceil(flowSizes.length / cols) - 1) / 2) * spacing,
-      });
-    });
+    // Scatter all nodes randomly around center — no per-flow clustering
+    const simNodes = nodes.map((n: any) => ({
+      id: n.node_ref,
+      nodeRef: n.node_ref,
+      x: (Math.random() - 0.5) * 80,
+      y: (Math.random() - 0.5) * 80,
+      vx: 0,
+      vy: 0,
+    }));
 
-    // Build simulation nodes
-    const simNodes = nodes.map((n: any) => {
-      const flowId = getNodeFlowId(n);
-      const centroid = flowCentroids.get(flowId) ?? { x: 0, y: 0 };
-      return {
-        nodeRef: n.node_ref,
-        flowId,
-        x: centroid.x + (Math.random() - 0.5) * 30,
-        y: centroid.y + (Math.random() - 0.5) * 30,
-        vx: 0,
-        vy: 0,
-      };
-    });
-
-    // Master view: stronger center attraction for compact "globe" layout
-    const isMasterMode = viewMode === "master";
     const sim = forceSimulation(simNodes as any)
-      .force("charge", forceManyBody().strength(isMasterMode ? -12 : -8))
-      .force("center", forceCenter(0, 0).strength(isMasterMode ? 0.15 : 0.005))
-      .force("collision", forceCollide<any>().radius(isMasterMode ? 4 : 10).strength(0.95))
-      .force("x", forceX<any>((d: any) => flowCentroids.get(d.flowId)?.x ?? 0).strength(isMasterMode ? 0.8 : 0.5))
-      .force("y", forceY<any>((d: any) => flowCentroids.get(d.flowId)?.y ?? 0).strength(isMasterMode ? 0.8 : 0.5))
+      .force("charge", forceManyBody().strength(-18))
+      .force("center", forceCenter(0, 0).strength(0.12))
+      .force("collision", forceCollide<any>().radius(6).strength(0.9))
+      .force("x", forceX(0).strength(0.08))
+      .force("y", forceY(0).strength(0.08))
+      .force("link", links.length > 0
+        ? (await import("d3-force")).forceLink(links).id((d: any) => d.id).distance(20).strength(0.3)
+        : null
+      )
       .stop();
 
-    for (let i = 0; i < 250; i++) sim.tick();
+    for (let i = 0; i < 300; i++) sim.tick();
 
     const map = new Map<string, { x: number; y: number }>();
     simNodes.forEach((sn) => {
       map.set(sn.nodeRef, { x: sn.x, y: sn.y });
     });
     return map;
-  }, [viewMode, flows, nodes]);
+  }, [viewMode, nodes, connections, allConnections]);
 
   // Importance score for progressive zoom visibility in master view
   const nodeImportance = React.useMemo(() => {
