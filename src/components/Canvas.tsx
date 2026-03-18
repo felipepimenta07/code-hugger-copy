@@ -125,43 +125,53 @@ export const Canvas: React.FC<CanvasProps> = ({
 
   const getNodeFlowId = (n: any) => n?.flow_id ?? (n?.type === "project" ? n.id : null);
 
-  // Dense galaxy layout — all nodes packed together, softly grouped by flow
+  // Dense galaxy layout — grid-based compact centroids, organic clustering
   const masterLayoutMap = React.useMemo(() => {
     if (viewMode !== "master" || !flows?.length || nodes.length === 0)
       return new Map<string, { x: number; y: number }>();
 
-    // Calculate flow centroids (spread flows in a circle)
+    // Sort flows by size (largest first) for better packing
+    const flowSizes = flows.map((flow: any) => ({
+      flow,
+      count: nodes.filter((n: any) => getNodeFlowId(n) === flow.id).length,
+    })).sort((a, b) => b.count - a.count);
+
+    // Grid-based centroids — compact 4-column layout
+    const cols = Math.min(4, Math.ceil(Math.sqrt(flowSizes.length)));
+    const spacing = Math.max(120, Math.sqrt(nodes.length) * 8);
     const flowCentroids = new Map<number, { x: number; y: number }>();
-    const flowCount = flows.length;
-    flows.forEach((flow: any, idx: number) => {
-      const angle = (idx / flowCount) * Math.PI * 2;
-      const radius = Math.max(80, flowCount * 12);
-      flowCentroids.set(flow.id, { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius });
+    flowSizes.forEach(({ flow, count }, idx) => {
+      const col = idx % cols;
+      const row = Math.floor(idx / cols);
+      flowCentroids.set(flow.id, {
+        x: (col - (cols - 1) / 2) * spacing,
+        y: (row - (Math.ceil(flowSizes.length / cols) - 1) / 2) * spacing,
+      });
     });
 
     // Build simulation nodes
-    const simNodes = nodes.map((n: any, i: number) => {
+    const simNodes = nodes.map((n: any) => {
       const flowId = getNodeFlowId(n);
       const centroid = flowCentroids.get(flowId) ?? { x: 0, y: 0 };
       return {
         nodeRef: n.node_ref,
         flowId,
-        x: centroid.x + (Math.random() - 0.5) * 40,
-        y: centroid.y + (Math.random() - 0.5) * 40,
+        x: centroid.x + (Math.random() - 0.5) * 30,
+        y: centroid.y + (Math.random() - 0.5) * 30,
         vx: 0,
         vy: 0,
       };
     });
 
     const sim = forceSimulation(simNodes as any)
-      .force("charge", forceManyBody().strength(-15))
-      .force("center", forceCenter(0, 0).strength(0.01))
-      .force("collision", forceCollide<any>().radius(15).strength(0.9))
-      .force("x", forceX<any>((d: any) => flowCentroids.get(d.flowId)?.x ?? 0).strength(0.3))
-      .force("y", forceY<any>((d: any) => flowCentroids.get(d.flowId)?.y ?? 0).strength(0.3))
+      .force("charge", forceManyBody().strength(-8))
+      .force("center", forceCenter(0, 0).strength(0.005))
+      .force("collision", forceCollide<any>().radius(10).strength(0.95))
+      .force("x", forceX<any>((d: any) => flowCentroids.get(d.flowId)?.x ?? 0).strength(0.5))
+      .force("y", forceY<any>((d: any) => flowCentroids.get(d.flowId)?.y ?? 0).strength(0.5))
       .stop();
 
-    for (let i = 0; i < 200; i++) sim.tick();
+    for (let i = 0; i < 250; i++) sim.tick();
 
     const map = new Map<string, { x: number; y: number }>();
     simNodes.forEach((sn) => {
@@ -169,6 +179,41 @@ export const Canvas: React.FC<CanvasProps> = ({
     });
     return map;
   }, [viewMode, flows, nodes]);
+
+  // Importance score for progressive zoom visibility in master view
+  const nodeImportance = React.useMemo(() => {
+    if (viewMode !== "master") return new Map<string, number>();
+    const scores = new Map<string, number>();
+    const maxConns = Math.max(1, ...nodes.map((n: any) =>
+      connections.filter((c: any) => c.from_ref === n.node_ref || c.to_ref === n.node_ref).length
+    ));
+    nodes.forEach((n: any) => {
+      const isCenter = flows?.some((f: any) => f.center_id === n.id && f.center_type === n.type);
+      const connCount = connections.filter((c: any) => c.from_ref === n.node_ref || c.to_ref === n.node_ref).length;
+      const score = isCenter ? 1.0 : Math.max(0.05, connCount / maxConns);
+      scores.set(n.node_ref, score);
+    });
+    return scores;
+  }, [viewMode, nodes, connections, flows]);
+
+  // Determine if a node is visible at current zoom
+  const isNodeVisibleAtZoom = React.useCallback((nodeRef: string, zoom: number) => {
+    if (viewMode !== "master") return true;
+    const importance = nodeImportance.get(nodeRef) ?? 0;
+    if (zoom >= 0.6) return true;
+    if (zoom >= 0.3) return importance >= 0.15;
+    return importance >= 0.7;
+  }, [viewMode, nodeImportance]);
+
+  // Get node opacity based on zoom and importance (for fade-in effect)
+  const getNodeZoomOpacity = React.useCallback((nodeRef: string, zoom: number) => {
+    if (viewMode !== "master") return 1;
+    const importance = nodeImportance.get(nodeRef) ?? 0;
+    if (importance >= 0.7) return 1;
+    if (zoom >= 0.6) return 0.5 + importance * 0.5;
+    if (zoom >= 0.3) return importance >= 0.15 ? 0.3 + importance * 0.7 : 0;
+    return 0;
+  }, [viewMode, nodeImportance]);
 
   // Position resolver
   const getDisplayPos = (n: any) => {
