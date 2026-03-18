@@ -191,7 +191,7 @@ export const Canvas: React.FC<CanvasProps> = ({
       .force("x", forceX(0).strength(0.15))
       .force("y", forceY(0).strength(0.15))
       .force("link", links.length > 0
-        ? forceLink(links).id((d: any) => d.id).distance(25).strength(0.1)
+        ? forceLink(links).id((d: any) => d.id).distance(25).strength(0.05)
         : null
       )
       .stop();
