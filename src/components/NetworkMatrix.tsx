@@ -947,9 +947,9 @@ export const NetworkMatrix = () => {
           onMasterView={handleMasterView}
           onSingleView={handleSingleView}
           onOpenFlows={() => setShowFlowsManager(prev => !prev)}
-          onOpenWhatsApp={onOpenWhatsApp}
+          onOpenWhatsApp={() => {}}
           onOpenLinkedIn={() => setShowLinkedInImport(true)}
-          onLogout={onLogout}
+          onLogout={() => {}}
           onSearch={() => setShowOpportunities(true)}
           allNodes={allNodes}
           linkedInFilters={linkedInFilters}
