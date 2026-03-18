@@ -853,9 +853,9 @@ export const Canvas: React.FC<CanvasProps> = ({
               const isMasterView = viewMode === "master";
               const importance = nodeImportance.get(node.node_ref) ?? 0;
               const baseSize = isMasterView
-                ? (importance >= 0.7 ? 10 + Math.min(connectionCount * 1.5, 10) : 5 + Math.min(connectionCount * 1, 6))
+                ? 3 + Math.min(importance * 5, 5) // 3-8px max in master view
                 : 20 + Math.min(connectionCount * 4, 25);
-              const isCenterNode = viewMode !== "master" && viewMode === "single" && nodes[0]?.node_ref === node.node_ref;
+              const isCenterNode = !isMasterView && viewMode === "single" && nodes[0]?.node_ref === node.node_ref;
               const nodeSize = isCenterNode ? Math.max(baseSize, 45) : baseSize;
               const isHovered = hoveredNode === node.node_ref;
 
@@ -863,9 +863,9 @@ export const Canvas: React.FC<CanvasProps> = ({
               const zoomOpacity = getNodeZoomOpacity(node.node_ref, state.zoom);
               const finalOpacity = isDimmed ? 0.15 : (isMasterView ? zoomOpacity : 1);
 
-              // In master view at low zoom, show small dots for low-importance nodes
-              const showAsSmallDot = isMasterView && importance < 0.7 && state.zoom < 0.5;
-              const showLabel = isMasterView ? (isHovered || state.zoom > 0.5) : true;
+              // In master view, always small dots, never labels
+              const showAsSmallDot = isMasterView;
+              const showLabel = !isMasterView;
 
               return (
                 <g
