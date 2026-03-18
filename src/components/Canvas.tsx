@@ -103,6 +103,36 @@ export const Canvas: React.FC<CanvasProps> = ({
     position: { x: number; y: number };
   } | null>(null);
 
+  // Globe-like auto-rotation for master view
+  const rotationAngleRef = useRef(0);
+  const timeRef = useRef(0);
+  const animFrameRef = useRef(0);
+  const [rotationAngle, setRotationAngle] = useState(0);
+  const [animTime, setAnimTime] = useState(0);
+  const dragRotateRef = useRef<{ active: boolean; startX: number; startAngle: number }>({ active: false, startX: 0, startAngle: 0 });
+
+  useEffect(() => {
+    if (viewMode !== "master") {
+      cancelAnimationFrame(animFrameRef.current);
+      return;
+    }
+    let lastTime = performance.now();
+    const tick = (now: number) => {
+      const dt = (now - lastTime) / 1000;
+      lastTime = now;
+      timeRef.current += dt;
+      // Auto-rotate only when not dragging/panning/hovering
+      if (!state.isPanning && !hoveredNode && !dragRotateRef.current.active) {
+        rotationAngleRef.current += 0.08 * dt; // slow orbit
+      }
+      setRotationAngle(rotationAngleRef.current);
+      setAnimTime(timeRef.current);
+      animFrameRef.current = requestAnimationFrame(tick);
+    };
+    animFrameRef.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(animFrameRef.current);
+  }, [viewMode, state.isPanning, hoveredNode]);
+
   // BFS to calculate depth from center node using node_ref
   const calculateNodeDepths = () => {
     if (viewMode !== "single" || nodes.length === 0) return new Map<string, number>();
