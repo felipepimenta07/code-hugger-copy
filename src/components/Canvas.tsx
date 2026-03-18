@@ -525,6 +525,12 @@ export const Canvas: React.FC<CanvasProps> = ({
           <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
             <polygon points="0 0, 10 3, 0 6" fill="hsl(var(--connection-strong))" />
           </marker>
+          {/* Ambient glow gradient for master view */}
+          <radialGradient id="ambientGlow" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.04" />
+            <stop offset="60%" stopColor="hsl(var(--accent))" stopOpacity="0.02" />
+            <stop offset="100%" stopColor="transparent" stopOpacity="0" />
+          </radialGradient>
         </defs>
 
         <g
@@ -532,6 +538,10 @@ export const Canvas: React.FC<CanvasProps> = ({
           style={{ transition: state.isPanning || state.dragging ? "none" : "transform 0.15s ease-out" }}
         >
           <rect x="-5000" y="-5000" width="15000" height="15000" fill="transparent" />
+          {/* Ambient glow background for master view */}
+          {viewMode === "master" && (
+            <ellipse cx="0" cy="0" rx="120" ry="120" fill="url(#ambientGlow)" className="pointer-events-none" />
+          )}
 
           {/* Subtle dotted rings (Single View only) */}
           {viewMode === "single" &&
