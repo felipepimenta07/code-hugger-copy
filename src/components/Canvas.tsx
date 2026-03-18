@@ -192,7 +192,7 @@ export const Canvas: React.FC<CanvasProps> = ({
       .force("link", null)
       .stop();
 
-    for (let i = 0; i < 200; i++) sim.tick();
+    for (let i = 0; i < 300; i++) sim.tick();
 
     const map = new Map<string, { x: number; y: number }>();
     simNodes.forEach((sn) => {
