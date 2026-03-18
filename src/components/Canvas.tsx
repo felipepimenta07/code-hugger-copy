@@ -134,8 +134,7 @@ export const Canvas: React.FC<CanvasProps> = ({
 
   // Single unified cloud/globe layout with graph-intelligence-driven forces
   const masterLayoutMap = React.useMemo(() => {
-    if (viewMode !== "master" || nodes.length === 0)
-      return new Map<string, { x: number; y: number }>();
+    if (viewMode !== "master" || nodes.length === 0) return new Map<string, { x: number; y: number }>();
 
     // Build graph edges for algorithms (id-based)
     const graphEdges = (allConnections || connections).map((c: any) => ({
@@ -160,14 +159,14 @@ export const Canvas: React.FC<CanvasProps> = ({
     const nodeIdByRef = new Map<string, number>();
     nodes.forEach((n: any) => nodeIdByRef.set(n.node_ref, n.id));
 
-    const links = (allConnections || connections).filter(
-      (c: any) => nodeRefSet.has(c.from_ref) && nodeRefSet.has(c.to_ref)
-    ).map((c: any) => {
-      const fromId = nodeIdByRef.get(c.from_ref) ?? 0;
-      const toId = nodeIdByRef.get(c.to_ref) ?? 0;
-      const affinity = calculateAffinity(fromId, toId, graphEdges);
-      return { source: c.from_ref, target: c.to_ref, affinity };
-    });
+    const links = (allConnections || connections)
+      .filter((c: any) => nodeRefSet.has(c.from_ref) && nodeRefSet.has(c.to_ref))
+      .map((c: any) => {
+        const fromId = nodeIdByRef.get(c.from_ref) ?? 0;
+        const toId = nodeIdByRef.get(c.to_ref) ?? 0;
+        const affinity = calculateAffinity(fromId, toId, graphEdges);
+        return { source: c.from_ref, target: c.to_ref, affinity };
+      });
 
     // Scatter nodes — important nodes closer to center
     const simNodes = nodes.map((n: any) => {
@@ -190,9 +189,14 @@ export const Canvas: React.FC<CanvasProps> = ({
       .force("collision", forceCollide<any>().radius(5).strength(0.9))
       .force("x", forceX(0).strength(0.15))
       .force("y", forceY(0).strength(0.15))
-      .force("link", links.length > 0
-        ? forceLink(links).id((d: any) => d.id).distance(25).strength(0.05)
-        : null
+      .force(
+        "link",
+        links.length > 0
+          ? forceLink(links)
+              .id((d: any) => d.id)
+              .distance(25)
+              .strength(0.05)
+          : null,
       )
       .stop();
 
@@ -209,9 +213,12 @@ export const Canvas: React.FC<CanvasProps> = ({
   const nodeImportance = React.useMemo(() => {
     if (viewMode !== "master") return new Map<string, number>();
     const scores = new Map<string, number>();
-    const maxConns = Math.max(1, ...nodes.map((n: any) =>
-      connections.filter((c: any) => c.from_ref === n.node_ref || c.to_ref === n.node_ref).length
-    ));
+    const maxConns = Math.max(
+      1,
+      ...nodes.map(
+        (n: any) => connections.filter((c: any) => c.from_ref === n.node_ref || c.to_ref === n.node_ref).length,
+      ),
+    );
     nodes.forEach((n: any) => {
       const isCenter = flows?.some((f: any) => f.center_id === n.id && f.center_type === n.type);
       const connCount = connections.filter((c: any) => c.from_ref === n.node_ref || c.to_ref === n.node_ref).length;
@@ -222,23 +229,29 @@ export const Canvas: React.FC<CanvasProps> = ({
   }, [viewMode, nodes, connections, flows]);
 
   // Determine if a node is visible at current zoom
-  const isNodeVisibleAtZoom = React.useCallback((nodeRef: string, zoom: number) => {
-    if (viewMode !== "master") return true;
-    const importance = nodeImportance.get(nodeRef) ?? 0;
-    if (zoom >= 0.6) return true;
-    if (zoom >= 0.3) return importance >= 0.15;
-    return importance >= 0.7;
-  }, [viewMode, nodeImportance]);
+  const isNodeVisibleAtZoom = React.useCallback(
+    (nodeRef: string, zoom: number) => {
+      if (viewMode !== "master") return true;
+      const importance = nodeImportance.get(nodeRef) ?? 0;
+      if (zoom >= 0.6) return true;
+      if (zoom >= 0.3) return importance >= 0.15;
+      return importance >= 0.7;
+    },
+    [viewMode, nodeImportance],
+  );
 
   // Get node opacity based on zoom and importance (for fade-in effect)
-  const getNodeZoomOpacity = React.useCallback((nodeRef: string, zoom: number) => {
-    if (viewMode !== "master") return 1;
-    const importance = nodeImportance.get(nodeRef) ?? 0;
-    if (importance >= 0.7) return 1;
-    if (zoom >= 0.6) return 0.5 + importance * 0.5;
-    if (zoom >= 0.3) return importance >= 0.15 ? 0.3 + importance * 0.7 : 0;
-    return 0;
-  }, [viewMode, nodeImportance]);
+  const getNodeZoomOpacity = React.useCallback(
+    (nodeRef: string, zoom: number) => {
+      if (viewMode !== "master") return 1;
+      const importance = nodeImportance.get(nodeRef) ?? 0;
+      if (importance >= 0.7) return 1;
+      if (zoom >= 0.6) return 0.5 + importance * 0.5;
+      if (zoom >= 0.3) return importance >= 0.15 ? 0.3 + importance * 0.7 : 0;
+      return 0;
+    },
+    [viewMode, nodeImportance],
+  );
 
   // Position resolver
   const getDisplayPos = (n: any) => {
@@ -595,7 +608,11 @@ export const Canvas: React.FC<CanvasProps> = ({
               }
 
               return specificConnections.map((conn, idx) => {
-                if (!isNodeVisibleAtZoom(conn.personA.node_ref, state.zoom) || !isNodeVisibleAtZoom(conn.personB.node_ref, state.zoom)) return null;
+                if (
+                  !isNodeVisibleAtZoom(conn.personA.node_ref, state.zoom) ||
+                  !isNodeVisibleAtZoom(conn.personB.node_ref, state.zoom)
+                )
+                  return null;
                 const posA = masterLayoutMap.get(conn.personA.node_ref);
                 const posB = masterLayoutMap.get(conn.personB.node_ref);
                 if (!posA || !posB) return null;
@@ -636,7 +653,11 @@ export const Canvas: React.FC<CanvasProps> = ({
               if (!from || !to) return null;
 
               // In master view, hide connections if either node is not visible at current zoom
-              if (viewMode === "master" && (!isNodeVisibleAtZoom(from.node_ref, state.zoom) || !isNodeVisibleAtZoom(to.node_ref, state.zoom))) return null;
+              if (
+                viewMode === "master" &&
+                (!isNodeVisibleAtZoom(from.node_ref, state.zoom) || !isNodeVisibleAtZoom(to.node_ref, state.zoom))
+              )
+                return null;
 
               const globalIdx = allConnections.findIndex(
                 (c) =>
@@ -850,7 +871,7 @@ export const Canvas: React.FC<CanvasProps> = ({
 
               const isDimmed = hasFocus && !connectedNodeRefs.has(node.node_ref);
               const zoomOpacity = getNodeZoomOpacity(node.node_ref, state.zoom);
-              const finalOpacity = isDimmed ? 0.15 : (isMasterView ? zoomOpacity : 1);
+              const finalOpacity = isDimmed ? 0.15 : isMasterView ? zoomOpacity : 1;
 
               // In master view, always small dots, never labels/text
               const showAsSmallDot = isMasterView;
@@ -866,20 +887,26 @@ export const Canvas: React.FC<CanvasProps> = ({
                     handleNodeClick(e, node);
                   }}
                   onDoubleClick={(e) => handleNodeDoubleClick(e, node)}
-                  onMouseEnter={() => setHoveredNode(node.node_ref)}
-                  onMouseLeave={() => setHoveredNode(null)}
+                  onMouseEnter={() => {
+                    if (!isMasterView) setHoveredNode(node.node_ref);
+                  }}
+                  onMouseLeave={() => {
+                    if (!isMasterView) setHoveredNode(null);
+                  }}
                   className="cursor-pointer"
                   opacity={finalOpacity}
                   style={{
                     transition:
-                      state.dragging === node.node_ref ? "none" : "transform 0.1s ease-out, opacity 0.4s ease",
+                      state.dragging === node.node_ref ? "none" : "transform 0.1s ease-out, opacity 0.05s ease",
                   }}
                 >
                   {showAsSmallDot ? (
                     <circle r={nodeSize} fill={nodeColor} opacity={isHovered ? "0.9" : "0.75"} />
                   ) : (
                     <>
-                      {isHovered && <circle r={nodeSize + 12} fill={nodeColor} opacity="0.12" filter="url(#glow-node)" />}
+                      {isHovered && (
+                        <circle r={nodeSize + 12} fill={nodeColor} opacity="0.12" filter="url(#glow-node)" />
+                      )}
 
                       {isSelected && (
                         <circle
