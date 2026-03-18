@@ -1,46 +1,39 @@
 
 
-## Apagar 724 nós do LinkedIn (manter ~300)
+## Novo Layout Master View: Agrupamento Orgânico com Zoom Progressivo
 
-### Situação atual
-- **690 people** com `category = 'linkedin'` em 334 flows
-- **334 brands** com `category = 'linkedin'` (1 por flow)
-- **690 connections** ligando people às brands
-- Total: 1024 nós → precisa reduzir para ~300
+Inspirado na referência (grafo denso tipo Twitter/social network), o master view vai mudar de layout circular para um **cluster orgânico** com revelação progressiva de nós conforme o zoom.
 
-### Estratégia
-Manter os flows com mais contatos (os maiores/mais relevantes) e apagar os flows menores até ficar com ~300 nós totais. Cada flow contém 1 brand + N people, então mantemos os top ~X flows cujo total acumulado ≈ 300.
+### Mudanças em `src/components/Canvas.tsx`
 
-Pelos dados, os top 20 flows somam ~260 people + 20 brands = ~280 nós. Mantendo ~25–30 flows maiores chegamos perto de 300.
+**1. Novo `masterLayoutMap` — layout orgânico sem forma circular**
+- Remover a distribuição de flow centroids em círculo (`angle = idx / flowCount * 2π`)
+- Usar centroids em **grid compacto** (e.g. 3-4 colunas) para que os flows se agrupem lado a lado organicamente, não em anel
+- Reduzir `forceCollide` para ~10, `forceManyBody` para ~-8, e aumentar a atração ao centroid (`forceX/Y strength 0.5`) para criar clusters muito densos
+- Manter `forceCenter(0,0)` para centralizar tudo
 
-### Execução via SQL migration
+**2. Zoom semântico progressivo — nós aparecem conforme zoom**
+- Calcular um "importance score" por nó: nós com mais conexões ou que são center de um flow têm score alto
+- Definir 3 tiers de visibilidade baseados no `state.zoom`:
+  - **Zoom < 0.3**: Só nós de alta importância (brands/centers, top connectors) + labels dos flows
+  - **Zoom 0.3–0.6**: Nós de média importância aparecem (pessoas com 2+ conexões)  
+  - **Zoom > 0.6**: Todos os nós visíveis
+- Aplicar `opacity` e `display` condicional na renderização dos nós no master view
+- Conexões seguem a mesma lógica: só renderizar se ambos os nós extremos estão visíveis
 
-Uma única migration que:
+**3. Ajustes visuais no master view**
+- Nós distantes (baixa importância) entram com fade-in suave via `opacity` transition
+- Reduzir tamanho base dos nós no master (nodeSize menor para nós não-center)
+- Labels de nó: escondidos em zoom baixo, aparecem só em hover ou zoom > 0.5
+- Labels de flow: sempre visíveis, tamanho escala inversamente com zoom
 
-1. **Identifica os flows a manter** — top flows por contagem de people até acumular ~300 nós (people + brands)
-2. **Deleta connections** dos flows LinkedIn que NÃO estão na lista de mantidos
-3. **Deleta people** desses flows
-4. **Deleta brands** desses flows  
-5. **Deleta os flows** vazios
+### Mudanças em `src/components/NetworkMatrix.tsx`
 
-```sql
--- Flows to keep: top flows by people count, accumulated up to ~300 total nodes
-WITH ranked_flows AS (
-  SELECT flow_id, count(*) as cnt,
-    SUM(count(*) + 1) OVER (ORDER BY count(*) DESC) as running_total
-  FROM people WHERE category = 'linkedin'
-  GROUP BY flow_id
-),
-flows_to_keep AS (
-  SELECT flow_id FROM ranked_flows WHERE running_total <= 300
-),
-flows_to_delete AS (
-  SELECT DISTINCT flow_id FROM people 
-  WHERE category = 'linkedin' AND flow_id NOT IN (SELECT flow_id FROM flows_to_keep)
-)
--- Then cascade delete connections, people, brands, flows
-```
+- Passar `state.zoom` para o Canvas (já está disponível via `state`)
+- Nenhuma outra mudança necessária — o Canvas já recebe `state` com zoom
 
-### Nenhuma mudança em código
-Só dados — os componentes já renderizam o que existe no banco.
+### Resultado esperado
+- Ao abrir master view: nuvem densa compacta com clusters de flow visíveis, só nós importantes mostrados
+- Ao dar zoom in: progressivamente mais nós e conexões aparecem, revelando a rede completa
+- Visual mais próximo da referência: orgânico, denso, sem geometria artificial
 
