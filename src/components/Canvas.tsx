@@ -825,13 +825,15 @@ export const Canvas: React.FC<CanvasProps> = ({
             }
             const hasFocus = activeNodeRef !== null;
 
-            return nodes.map((node) => {
-              // Progressive visibility in master view
-              if (viewMode === "master" && !isNodeVisibleAtZoom(node.node_ref, state.zoom)) return null;
-
-              const nodeType = (node.type as keyof typeof nodeColors) || "person";
-              const depth = nodeDepths.get(node.node_ref);
-              const useDepthColor = viewMode === "single" && depth !== undefined;
+            // Build set of nodes connected to hovered node (for organic hover effect)
+            const connectedToHovered = new Set<string>();
+            if (hoveredNode) {
+              connections.forEach((c) => {
+                if (c.from_ref === hoveredNode) connectedToHovered.add(c.to_ref);
+                if (c.to_ref === hoveredNode) connectedToHovered.add(c.from_ref);
+              });
+            }
+            const hasHover = hoveredNode !== null;
               const depthColor = useDepthColor
                 ? depthColors[Math.min(depth, depthColors.length - 1)]
                 : depth === undefined && viewMode === "single"
