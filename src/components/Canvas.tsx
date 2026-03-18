@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo } from "react";
+import React, { useState, useRef, useMemo, useEffect, useCallback } from "react";
 import { forceSimulation, forceManyBody, forceCenter, forceCollide, forceX, forceY, forceLink } from "d3-force";
 import { User, Target, Building2 } from "lucide-react";
 import { ConnectionTooltip } from "./ConnectionTooltip";
@@ -102,6 +102,36 @@ export const Canvas: React.FC<CanvasProps> = ({
     index: number;
     position: { x: number; y: number };
   } | null>(null);
+
+  // Globe-like auto-rotation for master view
+  const rotationAngleRef = useRef(0);
+  const timeRef = useRef(0);
+  const animFrameRef = useRef(0);
+  const [rotationAngle, setRotationAngle] = useState(0);
+  const [animTime, setAnimTime] = useState(0);
+  const dragRotateRef = useRef<{ active: boolean; startX: number; startAngle: number }>({ active: false, startX: 0, startAngle: 0 });
+
+  useEffect(() => {
+    if (viewMode !== "master") {
+      cancelAnimationFrame(animFrameRef.current);
+      return;
+    }
+    let lastTime = performance.now();
+    const tick = (now: number) => {
+      const dt = (now - lastTime) / 1000;
+      lastTime = now;
+      timeRef.current += dt;
+      // Auto-rotate only when not dragging/panning/hovering
+      if (!state.isPanning && !hoveredNode && !dragRotateRef.current.active) {
+        rotationAngleRef.current += 0.08 * dt; // slow orbit
+      }
+      setRotationAngle(rotationAngleRef.current);
+      setAnimTime(timeRef.current);
+      animFrameRef.current = requestAnimationFrame(tick);
+    };
+    animFrameRef.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(animFrameRef.current);
+  }, [viewMode, state.isPanning, hoveredNode]);
 
   // BFS to calculate depth from center node using node_ref
   const calculateNodeDepths = () => {
@@ -245,11 +275,18 @@ export const Canvas: React.FC<CanvasProps> = ({
     [viewMode, nodeImportance],
   );
 
-  // Position resolver
+  // Position resolver with rotation for master view
   const getDisplayPos = (n: any) => {
     if (viewMode === "master") {
       const pos = masterLayoutMap.get(n.node_ref);
-      return pos ?? { x: n.x, y: n.y };
+      const p = pos ?? { x: n.x, y: n.y };
+      // Apply 2D rotation around center (0,0)
+      const cos = Math.cos(rotationAngle);
+      const sin = Math.sin(rotationAngle);
+      return {
+        x: p.x * cos - p.y * sin,
+        y: p.x * sin + p.y * cos,
+      };
     }
     if (useForceLayout && forcePositions && forcePositions[n.node_ref]) {
       return forcePositions[n.node_ref];
@@ -355,7 +392,14 @@ export const Canvas: React.FC<CanvasProps> = ({
         }
       }
     } else if (state.isPanning) {
-      updateState({ pan: { x: e.clientX - state.panStart.x, y: e.clientY - state.panStart.y } });
+      if (viewMode === "master" && dragRotateRef.current.active) {
+        // Drag-to-rotate: horizontal drag controls rotation
+        const dx = e.clientX - dragRotateRef.current.startX;
+        rotationAngleRef.current = dragRotateRef.current.startAngle + dx * 0.005;
+        setRotationAngle(rotationAngleRef.current);
+      } else {
+        updateState({ pan: { x: e.clientX - state.panStart.x, y: e.clientY - state.panStart.y } });
+      }
     } else if (state.isDraggingConnection) {
       updateState({ connectionEnd: { x, y } });
     }
@@ -420,6 +464,7 @@ export const Canvas: React.FC<CanvasProps> = ({
       }
       saveToHistory();
     }
+    dragRotateRef.current.active = false;
     updateState({ dragging: null, isPanning: false, isDraggingConnection: false, connectionStart: null });
   };
 
@@ -453,6 +498,10 @@ export const Canvas: React.FC<CanvasProps> = ({
         onWheel={onWheel}
         onMouseDown={(e) => {
           if (e.button === 0 && !e.shiftKey) {
+            if (viewMode === "master") {
+              // Drag-to-rotate in master view
+              dragRotateRef.current = { active: true, startX: e.clientX, startAngle: rotationAngleRef.current };
+            }
             setSelectedNodes([]);
             updateState({ isPanning: true, panStart: { x: e.clientX - state.pan.x, y: e.clientY - state.pan.y } });
           }
@@ -476,6 +525,12 @@ export const Canvas: React.FC<CanvasProps> = ({
           <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
             <polygon points="0 0, 10 3, 0 6" fill="hsl(var(--connection-strong))" />
           </marker>
+          {/* Ambient glow gradient for master view */}
+          <radialGradient id="ambientGlow" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.04" />
+            <stop offset="60%" stopColor="hsl(var(--accent))" stopOpacity="0.02" />
+            <stop offset="100%" stopColor="transparent" stopOpacity="0" />
+          </radialGradient>
         </defs>
 
         <g
@@ -483,6 +538,10 @@ export const Canvas: React.FC<CanvasProps> = ({
           style={{ transition: state.isPanning || state.dragging ? "none" : "transform 0.15s ease-out" }}
         >
           <rect x="-5000" y="-5000" width="15000" height="15000" fill="transparent" />
+          {/* Ambient glow background for master view */}
+          {viewMode === "master" && (
+            <ellipse cx="0" cy="0" rx="120" ry="120" fill="url(#ambientGlow)" className="pointer-events-none" />
+          )}
 
           {/* Subtle dotted rings (Single View only) */}
           {viewMode === "single" &&
@@ -797,6 +856,34 @@ export const Canvas: React.FC<CanvasProps> = ({
             });
           })()}
 
+          {/* Traveling dots on master view connections */}
+          {viewMode === "master" && connections.map((conn, idx) => {
+            const from = nodes.find((n) => n.node_ref === conn.from_ref);
+            const to = nodes.find((n) => n.node_ref === conn.to_ref);
+            if (!from || !to) return null;
+            const fi = nodeImportance.get(from.node_ref) ?? 0;
+            const ti = nodeImportance.get(to.node_ref) ?? 0;
+            if (fi < 0.25 || ti < 0.25) return null;
+            const { x: fromX, y: fromY } = getDisplayPos(from);
+            const { x: toX, y: toY } = getDisplayPos(to);
+            const midX = (fromX + toX) / 2;
+            const controlY2 = (fromY + toY) / 2 - 60;
+            const t = (Math.sin(animTime * 1.2 + idx * 1.7) + 1) / 2;
+            const tx = (1 - t) * (1 - t) * fromX + 2 * (1 - t) * t * midX + t * t * toX;
+            const ty = (1 - t) * (1 - t) * fromY + 2 * (1 - t) * t * controlY2 + t * t * toY;
+            return (
+              <circle
+                key={`tdot-${idx}`}
+                cx={tx}
+                cy={ty}
+                r={1.5}
+                fill="hsl(var(--primary))"
+                opacity={0.6}
+                className="pointer-events-none"
+              />
+            );
+          })}
+
           {/* Dragging connection line */}
           {state.isDraggingConnection && state.connectionStart && (
             <line
@@ -926,6 +1013,20 @@ export const Canvas: React.FC<CanvasProps> = ({
                 >
                   {showAsSmallDot ? (
                     <>
+                      {/* Pulse ring for important nodes */}
+                      {importance >= 0.5 && !isHovered && (() => {
+                        const pulse = Math.sin(animTime * 2 + (node.id || 0) * 0.7) * 0.5 + 0.5;
+                        return (
+                          <circle
+                            r={displayRadius + 2 + pulse * 4}
+                            fill="none"
+                            stroke={nodeColor}
+                            strokeWidth={0.5}
+                            opacity={0.15 + pulse * 0.15}
+                            className="pointer-events-none"
+                          />
+                        );
+                      })()}
                       {/* Glow circle for hovered node */}
                       {isHovered && (
                         <circle r={displayRadius + 6} fill={nodeColor} opacity="0.25" filter="url(#glow-node)" style={{ transition: "all 0.3s ease" }} />
