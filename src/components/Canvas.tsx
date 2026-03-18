@@ -525,7 +525,7 @@ export const Canvas: React.FC<CanvasProps> = ({
             })()}
 
           {/* Cross-flow connections (Master View) */}
-          {false &&
+          {viewMode === "master" &&
             (() => {
               const specificConnections: Array<{
                 personA: any;
@@ -724,8 +724,8 @@ export const Canvas: React.FC<CanvasProps> = ({
               if (isSelected) opacity = 1;
               if (isConnDimmed) opacity = 0.06;
               if (viewMode === "master" && !isSelected) {
-                strokeWidth = 0.4;
-                opacity = Math.min(opacity, 0.07);
+                strokeWidth = 0.9;
+                opacity = Math.min(opacity, 0.2);
                 strokeDasharray = undefined;
               }
 
@@ -884,10 +884,10 @@ export const Canvas: React.FC<CanvasProps> = ({
                   }}
                   onDoubleClick={(e) => handleNodeDoubleClick(e, node)}
                   onMouseEnter={() => {
-                    if (!isMasterView) setHoveredNode(node.node_ref);
+                    setHoveredNode(node.node_ref);
                   }}
                   onMouseLeave={() => {
-                    if (!isMasterView) setHoveredNode(null);
+                    setHoveredNode(null);
                   }}
                   className="cursor-pointer"
                   opacity={finalOpacity}
@@ -1024,7 +1024,7 @@ export const Canvas: React.FC<CanvasProps> = ({
             });
           })()}
 
-          {/* Master view intentionally renders no labels */}
+          {isHovered && isMasterView && (() => { const s = 1 / state.zoom; const tw = 150 * s; const th = node.category ? 44 * s : 28 * s; const ox = (nodeSize + 8) * s; const oy = -(th / 2); return (<g style={{ pointerEvents: "none" }}><rect x={ox} y={oy} width={tw} height={th} rx={4 * s} fill="rgba(10,10,20,0.92)" stroke="rgba(255,255,255,0.2)" strokeWidth={s} /><text x={ox + 8 * s} y={oy + 17 * s} fontSize={12 * s} fill="white" fontWeight="600">{node.name.length > 22 ? node.name.substring(0, 22) + "…" : node.name}</text>{node.category && <text x={ox + 8 * s} y={oy + 34 * s} fontSize={10 * s} fill="#94a3b8">{String(node.category).length > 26 ? String(node.category).substring(0, 26) + "…" : String(node.category)}</text>}</g>);})()} */}
         </g>
       </svg>
 
