@@ -774,6 +774,9 @@ export const Canvas: React.FC<CanvasProps> = ({
             const hasFocus = activeNodeRef !== null;
 
             return nodes.map((node) => {
+              // Progressive visibility in master view
+              if (viewMode === "master" && !isNodeVisibleAtZoom(node.node_ref, state.zoom)) return null;
+
               const nodeType = (node.type as keyof typeof nodeColors) || "person";
               const depth = nodeDepths.get(node.node_ref);
               const useDepthColor = viewMode === "single" && depth !== undefined;
@@ -808,12 +811,23 @@ export const Canvas: React.FC<CanvasProps> = ({
 
               const { x: displayX, y: displayY } = getDisplayPos(node);
 
-              const baseSize = 20 + Math.min(connectionCount * 4, 25);
+              // Smaller nodes in master view at low zoom
+              const isMasterView = viewMode === "master";
+              const importance = nodeImportance.get(node.node_ref) ?? 0;
+              const baseSize = isMasterView
+                ? (importance >= 0.7 ? 14 + Math.min(connectionCount * 2, 12) : 6 + Math.min(connectionCount * 1.5, 8))
+                : 20 + Math.min(connectionCount * 4, 25);
               const isCenterNode = viewMode === "single" && nodes[0]?.node_ref === node.node_ref;
               const nodeSize = isCenterNode ? Math.max(baseSize, 45) : baseSize;
               const isHovered = hoveredNode === node.node_ref;
 
               const isDimmed = hasFocus && !connectedNodeRefs.has(node.node_ref);
+              const zoomOpacity = getNodeZoomOpacity(node.node_ref, state.zoom);
+              const finalOpacity = isDimmed ? 0.15 : (isMasterView ? zoomOpacity : 1);
+
+              // In master view at low zoom, show small dots for low-importance nodes
+              const showAsSmallDot = isMasterView && importance < 0.7 && state.zoom < 0.5;
+              const showLabel = isMasterView ? (isHovered || state.zoom > 0.5) : true;
 
               return (
                 <g
@@ -828,10 +842,10 @@ export const Canvas: React.FC<CanvasProps> = ({
                   onMouseEnter={() => setHoveredNode(node.node_ref)}
                   onMouseLeave={() => setHoveredNode(null)}
                   className="cursor-pointer"
-                  opacity={isDimmed ? 0.15 : 1}
+                  opacity={finalOpacity}
                   style={{
                     transition:
-                      state.dragging === node.node_ref ? "none" : "transform 0.1s ease-out, opacity 0.3s ease",
+                      state.dragging === node.node_ref ? "none" : "transform 0.1s ease-out, opacity 0.4s ease",
                   }}
                 >
                   {isHovered && <circle r={nodeSize + 12} fill={nodeColor} opacity="0.12" filter="url(#glow-node)" />}
