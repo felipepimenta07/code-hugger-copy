@@ -724,8 +724,14 @@ export const Canvas: React.FC<CanvasProps> = ({
               if (isSelected) opacity = 1;
               if (isConnDimmed) opacity = 0.06;
               if (viewMode === "master" && !isSelected) {
-                strokeWidth = 0.3;
-                opacity = Math.min(opacity, 0.05);
+                const isHoverConn = hoveredNode && (conn.from_ref === hoveredNode || conn.to_ref === hoveredNode);
+                if (isHoverConn) {
+                  strokeWidth = 1;
+                  opacity = 0.35;
+                } else {
+                  strokeWidth = 0.3;
+                  opacity = hoveredNode ? 0.03 : Math.min(opacity, 0.05);
+                }
                 strokeDasharray = undefined;
               }
               // Early return: skip rendering nearly invisible connections
