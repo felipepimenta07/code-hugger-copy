@@ -525,7 +525,7 @@ export const Canvas: React.FC<CanvasProps> = ({
             })()}
 
           {/* Cross-flow connections (Master View) */}
-          {false &&}
+          {false &&
             (() => {
               const specificConnections: Array<{
                 personA: any;
