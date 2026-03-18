@@ -132,35 +132,78 @@ export const Canvas: React.FC<CanvasProps> = ({
 
   const getNodeFlowId = (n: any) => n?.flow_id ?? (n?.type === "project" ? n.id : null);
 
-  // Single unified cloud/globe layout — all nodes form one organic cluster
+  // Single unified cloud/globe layout with graph-intelligence-driven forces
   const masterLayoutMap = React.useMemo(() => {
     if (viewMode !== "master" || nodes.length === 0)
       return new Map<string, { x: number; y: number }>();
 
-    // Build adjacency from allConnections for link force
-    const nodeRefSet = new Set(nodes.map((n: any) => n.node_ref));
-    const links = (allConnections || connections).filter(
-      (c: any) => nodeRefSet.has(c.from_ref) && nodeRefSet.has(c.to_ref)
-    ).map((c: any) => ({ source: c.from_ref, target: c.to_ref }));
-
-    // Scatter all nodes randomly around center — no per-flow clustering
-    const simNodes = nodes.map((n: any) => ({
-      id: n.node_ref,
-      nodeRef: n.node_ref,
-      x: (Math.random() - 0.5) * 80,
-      y: (Math.random() - 0.5) * 80,
-      vx: 0,
-      vy: 0,
+    // Build graph edges for algorithms (id-based)
+    const graphEdges = (allConnections || connections).map((c: any) => ({
+      from: c.from_id ?? c.from,
+      to: c.to_id ?? c.to,
+      from_ref: c.from_ref,
+      to_ref: c.to_ref,
+      type: c.connection_type ?? c.type,
     }));
 
+    // Calculate importance scores via graphAlgorithms
+    const graphNodes = nodes.map((n: any) => ({ id: n.id, node_ref: n.node_ref, type: n.type }));
+    const centralityMap = calculateBetweennessCentrality(graphNodes, graphEdges);
+    const importanceMap = new Map<string, number>();
+    graphNodes.forEach((gn) => {
+      const score = calculateNodeImportance(gn, graphEdges, centralityMap);
+      importanceMap.set(gn.node_ref, score);
+    });
+
+    // Pre-compute pairwise affinity for link strengths
+    const nodeRefSet = new Set(nodes.map((n: any) => n.node_ref));
+    const nodeIdByRef = new Map<string, number>();
+    nodes.forEach((n: any) => nodeIdByRef.set(n.node_ref, n.id));
+
+    const links = (allConnections || connections).filter(
+      (c: any) => nodeRefSet.has(c.from_ref) && nodeRefSet.has(c.to_ref)
+    ).map((c: any) => {
+      const fromId = nodeIdByRef.get(c.from_ref) ?? 0;
+      const toId = nodeIdByRef.get(c.to_ref) ?? 0;
+      const affinity = calculateAffinity(fromId, toId, graphEdges);
+      return { source: c.from_ref, target: c.to_ref, affinity };
+    });
+
+    // Scatter nodes — important nodes closer to center
+    const simNodes = nodes.map((n: any) => {
+      const imp = importanceMap.get(n.node_ref) ?? 0.1;
+      const spread = 80 * (1 - imp * 0.6); // important nodes start closer to center
+      return {
+        id: n.node_ref,
+        nodeRef: n.node_ref,
+        importance: imp,
+        x: (Math.random() - 0.5) * spread,
+        y: (Math.random() - 0.5) * spread,
+        vx: 0,
+        vy: 0,
+      };
+    });
+
     const sim = forceSimulation(simNodes as any)
-      .force("charge", forceManyBody().strength(-18))
+      // Charge: important nodes repel more (take more visual space)
+      .force("charge", forceManyBody<any>().strength((d: any) => {
+        const imp = d.importance ?? 0.1;
+        return -10 - imp * 25; // range: -10 to -35
+      }))
       .force("center", forceCenter(0, 0).strength(0.12))
-      .force("collision", forceCollide<any>().radius(6).strength(0.9))
-      .force("x", forceX(0).strength(0.08))
-      .force("y", forceY(0).strength(0.08))
+      // Collision: important nodes get slightly more space
+      .force("collision", forceCollide<any>().radius((d: any) => {
+        const imp = d.importance ?? 0.1;
+        return 4 + imp * 6; // range: 4 to 10
+      }).strength(0.9))
+      // Gravity: less important nodes pulled stronger to center (periphery compaction)
+      .force("x", forceX<any>(0).strength((d: any) => 0.05 + (1 - (d.importance ?? 0.1)) * 0.08))
+      .force("y", forceY<any>(0).strength((d: any) => 0.05 + (1 - (d.importance ?? 0.1)) * 0.08))
+      // Links: high-affinity pairs stay closer together
       .force("link", links.length > 0
-        ? forceLink(links).id((d: any) => d.id).distance(20).strength(0.3)
+        ? forceLink(links).id((d: any) => d.id)
+            .distance((l: any) => 15 + (1 - (l.affinity ?? 0)) * 20) // range: 15-35
+            .strength((l: any) => 0.2 + (l.affinity ?? 0) * 0.5) // range: 0.2-0.7
         : null
       )
       .stop();
