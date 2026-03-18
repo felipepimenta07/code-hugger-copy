@@ -192,7 +192,7 @@ export const Canvas: React.FC<CanvasProps> = ({
       .force("link", null)
       .stop();
 
-    for (let i = 0; i < 200; i++) sim.tick();
+    for (let i = 0; i < 300; i++) sim.tick();
 
     const map = new Map<string, { x: number; y: number }>();
     simNodes.forEach((sn) => {
@@ -648,7 +648,7 @@ export const Canvas: React.FC<CanvasProps> = ({
               if (viewMode === "master") {
                 const fi = nodeImportance.get(from.node_ref) ?? 0;
                 const ti = nodeImportance.get(to.node_ref) ?? 0;
-                if (fi < 0.15 && ti < 0.15) return null;
+                if (fi < 0.25 || ti < 0.25) return null;
               }
 
               const globalIdx = allConnections.findIndex(
@@ -724,10 +724,12 @@ export const Canvas: React.FC<CanvasProps> = ({
               if (isSelected) opacity = 1;
               if (isConnDimmed) opacity = 0.06;
               if (viewMode === "master" && !isSelected) {
-                strokeWidth = 0.9;
-                opacity = Math.min(opacity, 0.2);
+                strokeWidth = 0.3;
+                opacity = Math.min(opacity, 0.05);
                 strokeDasharray = undefined;
               }
+              // Early return: skip rendering nearly invisible connections
+              if (opacity < 0.02) return null;
 
               const { x: fromX, y: fromY } = getDisplayPos(from);
               const { x: toX, y: toY } = getDisplayPos(to);
@@ -897,7 +899,10 @@ export const Canvas: React.FC<CanvasProps> = ({
                   }}
                 >
                   {showAsSmallDot ? (
-                    <circle r={nodeSize} fill={nodeColor} opacity={isHovered ? "0.9" : "0.75"} />
+                    <>
+                      <title>{node.name}</title>
+                      <circle r={nodeSize} fill={nodeColor} opacity={isHovered ? "0.9" : "0.75"} />
+                    </>
                   ) : (
                     <>
                       {isHovered && (
