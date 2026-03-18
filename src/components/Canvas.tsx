@@ -1024,7 +1024,39 @@ export const Canvas: React.FC<CanvasProps> = ({
             });
           })()}
 
-          {isHovered && isMasterView && (() => { const s = 1 / state.zoom; const tw = 150 * s; const th = node.category ? 44 * s : 28 * s; const ox = (nodeSize + 8) * s; const oy = -(th / 2); return (<g style={{ pointerEvents: "none" }}><rect x={ox} y={oy} width={tw} height={th} rx={4 * s} fill="rgba(10,10,20,0.92)" stroke="rgba(255,255,255,0.2)" strokeWidth={s} /><text x={ox + 8 * s} y={oy + 17 * s} fontSize={12 * s} fill="white" fontWeight="600">{node.name.length > 22 ? node.name.substring(0, 22) + "…" : node.name}</text>{node.category && <text x={ox + 8 * s} y={oy + 34 * s} fontSize={10 * s} fill="#94a3b8">{String(node.category).length > 26 ? String(node.category).substring(0, 26) + "…" : String(node.category)}</text>}</g>);})()} */}
+          {isHovered &&
+            isMasterView &&
+            (() => {
+              const s = 1 / state.zoom;
+              const tw = 150 * s;
+              const th = node.category ? 44 * s : 28 * s;
+              const ox = (nodeSize + 8) * s;
+              const oy = -(th / 2);
+              return (
+                <g style={{ pointerEvents: "none" }}>
+                  <rect
+                    x={ox}
+                    y={oy}
+                    width={tw}
+                    height={th}
+                    rx={4 * s}
+                    fill="rgba(10,10,20,0.92)"
+                    stroke="rgba(255,255,255,0.2)"
+                    strokeWidth={s}
+                  />
+                  <text x={ox + 8 * s} y={oy + 17 * s} fontSize={12 * s} fill="white" fontWeight="600">
+                    {node.name.length > 22 ? node.name.substring(0, 22) + "…" : node.name}
+                  </text>
+                  {node.category && (
+                    <text x={ox + 8 * s} y={oy + 34 * s} fontSize={10 * s} fill="#94a3b8">
+                      {String(node.category).length > 26
+                        ? String(node.category).substring(0, 26) + "…"
+                        : String(node.category)}
+                    </text>
+                  )}
+                </g>
+              );
+            })()}
         </g>
       </svg>
 
