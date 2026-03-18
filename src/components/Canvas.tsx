@@ -192,7 +192,7 @@ export const Canvas: React.FC<CanvasProps> = ({
       .force("link", null)
       .stop();
 
-    for (let i = 0; i < 500; i++) sim.tick();
+    for (let i = 0; i < 200; i++) sim.tick();
 
     const map = new Map<string, { x: number; y: number }>();
     simNodes.forEach((sn) => {
@@ -225,7 +225,7 @@ export const Canvas: React.FC<CanvasProps> = ({
     (nodeRef: string, zoom: number) => {
       if (viewMode !== "master") return true;
       const importance = nodeImportance.get(nodeRef) ?? 0;
-      if (zoom >= 0.6) return true;
+      return true;
       if (zoom >= 0.3) return importance >= 0.15;
       return importance >= 0.7;
     },
@@ -239,7 +239,7 @@ export const Canvas: React.FC<CanvasProps> = ({
       const importance = nodeImportance.get(nodeRef) ?? 0;
       if (importance >= 0.7) return 1;
       if (zoom >= 0.6) return 0.5 + importance * 0.5;
-      if (zoom >= 0.3) return importance >= 0.15 ? 0.3 + importance * 0.7 : 0;
+      return 0.4 + importance * 0.5;
       return 0;
     },
     [viewMode, nodeImportance],
@@ -645,7 +645,11 @@ export const Canvas: React.FC<CanvasProps> = ({
               if (!from || !to) return null;
 
               // In master view, hide connections if either node is not visible at current zoom
-              if (viewMode === "master") return null;
+              if (viewMode === "master") {
+                const fi = nodeImportance.get(from.node_ref) ?? 0;
+                const ti = nodeImportance.get(to.node_ref) ?? 0;
+                if (fi < 0.15 && ti < 0.15) return null;
+              }
 
               const globalIdx = allConnections.findIndex(
                 (c) =>
@@ -719,7 +723,11 @@ export const Canvas: React.FC<CanvasProps> = ({
               }
               if (isSelected) opacity = 1;
               if (isConnDimmed) opacity = 0.06;
-              if (viewMode === "master") opacity = 0;
+              if (viewMode === "master" && !isSelected) {
+                strokeWidth = 0.4;
+                opacity = Math.min(opacity, 0.07);
+                strokeDasharray = undefined;
+              }
 
               const { x: fromX, y: fromY } = getDisplayPos(from);
               const { x: toX, y: toY } = getDisplayPos(to);
