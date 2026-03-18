@@ -160,7 +160,7 @@ export const Canvas: React.FC<CanvasProps> = ({
       .force("x", forceX(0).strength(0.08))
       .force("y", forceY(0).strength(0.08))
       .force("link", links.length > 0
-        ? (await import("d3-force")).forceLink(links).id((d: any) => d.id).distance(20).strength(0.3)
+        ? forceLink(links).id((d: any) => d.id).distance(20).strength(0.3)
         : null
       )
       .stop();
