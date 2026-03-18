@@ -16,6 +16,7 @@ import { useForceSimulation } from '@/hooks/useForceSimulation';
 import { supabase } from '@/integrations/supabase/client';
 import { ParsedLinkedInData, LinkedInImportOptions, LinkedInEnrichedData, LinkedInFilterState } from '@/types/linkedin';
 import { makeRef, parseRef, getTableName } from '@/utils/nodeRef';
+import { getConsistentColor } from '@/data/groupColors';
 
 const CATEGORIES = {
   person: ['Pessoal', 'Profissional', 'Cliente', 'Fornecedor', 'Parceiro'],
@@ -23,12 +24,7 @@ const CATEGORIES = {
   project: ['P', 'M', 'G']
 };
 
-interface NetworkMatrixProps {
-  onOpenWhatsApp?: () => void;
-  onLogout?: () => void;
-}
-
-export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps = {}) => {
+export const NetworkMatrix = () => {
   const { user } = useAuth();
   
   // Data state
@@ -951,9 +947,9 @@ export const NetworkMatrix = ({ onOpenWhatsApp, onLogout }: NetworkMatrixProps =
           onMasterView={handleMasterView}
           onSingleView={handleSingleView}
           onOpenFlows={() => setShowFlowsManager(prev => !prev)}
-          onOpenWhatsApp={onOpenWhatsApp}
+          onOpenWhatsApp={() => {}}
           onOpenLinkedIn={() => setShowLinkedInImport(true)}
-          onLogout={onLogout}
+          onLogout={() => {}}
           onSearch={() => setShowOpportunities(true)}
           allNodes={allNodes}
           linkedInFilters={linkedInFilters}
