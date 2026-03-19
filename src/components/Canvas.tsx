@@ -985,7 +985,7 @@ export const Canvas: React.FC<CanvasProps> = ({
               const showLabel = !isMasterView;
 
               // Organic hover: scale nodes
-              const hoverScale = isMasterView && isHovered ? 2.5 : isMasterView && isNeighborOfHovered ? 1.5 : 1;
+              const hoverScale = isMasterView && isHovered ? 1.8 : isMasterView && isNeighborOfHovered ? 1.3 : 1;
               const displayRadius = nodeSize * hoverScale;
 
               return (
