@@ -254,15 +254,23 @@ export const Canvas: React.FC<CanvasProps> = ({
     [viewMode, nodeImportance],
   );
 
-  // Get node opacity based on zoom and importance (for fade-in effect)
+  // Get node opacity based on zoom and importance (fade-in at visibility threshold)
   const getNodeZoomOpacity = React.useCallback(
     (nodeRef: string, zoom: number) => {
       if (viewMode !== "master") return 1;
       const importance = nodeImportance.get(nodeRef) ?? 0;
-      if (importance >= 0.7) return 1;
-      if (zoom >= 0.6) return 0.5 + importance * 0.5;
-      return 0.4 + importance * 0.5;
-      return 0;
+      // Fade-in near visibility threshold
+      if (zoom < 0.5) {
+        const threshold = 0.6;
+        const margin = 0.1;
+        return importance >= threshold + margin ? 1 : Math.max(0.3, (importance - threshold + margin) / (margin * 2));
+      }
+      if (zoom < 1.5) {
+        const threshold = 0.2;
+        const margin = 0.1;
+        return importance >= threshold + margin ? 0.7 + importance * 0.3 : Math.max(0.3, (importance - threshold + margin) / (margin * 2));
+      }
+      return 0.5 + importance * 0.5;
     },
     [viewMode, nodeImportance],
   );
