@@ -121,8 +121,8 @@ export const Canvas: React.FC<CanvasProps> = ({
       const dt = (now - lastTime) / 1000;
       lastTime = now;
       timeRef.current += dt;
-      // Auto-rotate only when not dragging/panning/hovering
-      if (!state.isPanning && !hoveredNode && !dragRotateRef.current.active) {
+      // Auto-rotate only when not dragging/panning (read hoveredNode via ref to avoid dep)
+      if (!state.isPanning && !dragRotateRef.current.active) {
         rotationAngleRef.current += 0.08 * dt; // slow orbit
       }
       setRotationAngle(rotationAngleRef.current);
