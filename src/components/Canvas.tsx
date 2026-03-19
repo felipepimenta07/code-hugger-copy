@@ -785,11 +785,11 @@ export const Canvas: React.FC<CanvasProps> = ({
               if (viewMode === "master" && !isSelected) {
                 const isHoverConn = hoveredNode && (conn.from_ref === hoveredNode || conn.to_ref === hoveredNode);
                 if (isHoverConn) {
-                  strokeWidth = 1;
-                  opacity = 0.35;
+                  strokeWidth = 1.5;
+                  opacity = 0.5;
                 } else {
-                  strokeWidth = 0.3;
-                  opacity = hoveredNode ? 0.03 : Math.min(opacity, 0.05);
+                  strokeWidth = 0.8;
+                  opacity = hoveredNode ? 0.04 : 0.12;
                 }
                 strokeDasharray = undefined;
               }
