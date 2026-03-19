@@ -1,49 +1,75 @@
 
 
-## Plano: Refazer Visual do Master View — Galáxia 3D Limpa
+## Plano: Refazer Master View do Zero — Navegação 3D via Zoom
 
-### Problema Atual
-Os nós estão com glow excessivo (`r = displayRadius * 2.5` + `filter blur stdDeviation=8`) criando bolhas sobrepostas enormes. Combinado com tamanhos de 6-24px, o resultado é uma massa colorida ilegível.
+### Problema Central
+O layout atual comprime todos os nós num raio de ~30px (`spread = 30 * (1 - imp * 0.6)`), criando uma bolha ilegível. O zoom apenas escala essa bolha — não revela camadas nem dá sensação de "entrar" na rede.
+
+### Conceito: Semantic Zoom (Zoom Semântico)
+Inspirado em mapas (Google Maps): ao dar zoom, você **entra** na rede e descobre mais detalhes progressivamente.
+
+```text
+Zoom 0.3 (afastado)    Zoom 1.0 (médio)       Zoom 2.5+ (perto)
+┌─────────────┐      ┌─────────────┐       ┌─────────────┐
+│    ●  ●     │      │   ●──●      │       │  [Ana]──[João]│
+│  ●    ●     │      │  ●──●──●    │       │   │    │     │
+│    ●        │      │     ●──●    │       │  [Maria]     │
+│             │      │             │       │   labels +   │
+│ só hubs     │      │ + conexões  │       │   categorias │
+└─────────────┘      └─────────────┘       └─────────────┘
+```
 
 ### Mudanças — `src/components/Canvas.tsx`
 
-#### 1. Reduzir drasticamente o glow filter
-- `stdDeviation` do filtro `glow-node`: de `8` → `3`
-- Adicionar novo filtro `glow-soft` com `stdDeviation=6` para o halo ambiente (mais leve)
+#### 1. Layout expandido (não mais bolha comprimida)
+- Mudar `spread` de `30` → `400` no `masterLayoutMap`
+- Força de repulsão: `-25` → `-120` (nós se afastam mais)
+- Força central: `0.8` → `0.15` (menos compressão)
+- Resultado: nós distribuídos num espaço de ~800x800px em vez de ~60x60px
 
-#### 2. Nós menores e mais nítidos
-- Tamanho master view: de `6 + importance * 18` (6-24px) → `3 + importance * 10` (3-13px)
-- Nós ficam como pontos de estrela, não bolhas
+#### 2. Zoom semântico — 3 camadas de visibilidade
+No `isNodeVisibleAtZoom`:
+- **Zoom < 0.5**: Só nós com importance >= 0.6 (hubs principais)
+- **Zoom 0.5–1.5**: Nós com importance >= 0.2 (conectados relevantes)
+- **Zoom > 1.5**: Todos os nós visíveis
+- Nós aparecem com fade-in suave (opacity 0→1 na transição)
 
-#### 3. Glow halo muito mais sutil
-- Raio do halo: de `displayRadius * 2.5` → `displayRadius * 1.8`
-- Opacity do halo: de `0.15 + importance * 0.2` → `0.08 + importance * 0.12` (máx ~0.20)
-- Threshold: manter `importance >= 0.3`
+#### 3. Conexões aparecem progressivamente
+- **Zoom < 0.8**: Sem conexões visíveis
+- **Zoom 0.8–1.5**: Só conexões entre hubs (ambos importance >= 0.4)
+- **Zoom > 1.5**: Todas as conexões
+- StrokeWidth e opacity escalam com zoom
 
-#### 4. Parallax 3D baseado na importância
-- Criar 3 camadas de profundidade baseadas em `importance`:
-  - **Fundo** (importance < 0.3): escala 0.85, opacity reduzida, cor mais escura — se movem **menos** com a rotação
-  - **Meio** (0.3–0.6): escala 1.0, opacity normal — velocidade padrão
-  - **Frente** (> 0.6): escala 1.15, mais brilhantes — se movem **mais** com a rotação
-- Implementar no `getDisplayPos` do master view: aplicar offset de parallax multiplicando o ângulo de rotação por um fator de profundidade (`0.7`, `1.0`, `1.4`)
+#### 4. Tamanho dos nós escala com zoom
+- Em vez de tamanho fixo, usar: `nodeSize = (3 + importance * 10) / Math.sqrt(zoom)`
+- Nós mantêm tamanho visual consistente independente do zoom
+- No zoom alto, nós "próximos" mostram label + categoria
 
-#### 5. Pulse ring mais discreto
-- Raio do pulse: de `displayRadius + 4 + pulse * 6` → `displayRadius + 2 + pulse * 3`
-- StrokeWidth: de `0.6` → `0.4`
-- Opacity: de `0.2 + pulse * 0.15` → `0.1 + pulse * 0.1`
+#### 5. Labels aparecem no zoom alto
+- **Zoom < 2.0**: Sem labels (só dots)
+- **Zoom 2.0–3.0**: Nome aparece no hover
+- **Zoom > 3.0**: Nome sempre visível nos nós importantes
 
-#### 6. Hover glow contido
-- Hover extra glow: de `displayRadius + 10` → `displayRadius + 5`
-- Opacity: de `0.3` → `0.15`
-- Hover scale: manter `1.8`
+#### 6. Remover parallax/rotação
+- Remover auto-rotação e drag-to-rotate do master view
+- Manter pan + zoom como navegação principal
+- A sensação de 3D vem do semantic zoom, não de rotação
+
+#### 7. Zoom inicial ajustado
+- No `useNetworkState.ts`: zoom inicial de `2.3` → `0.4` (começa afastado, vendo a nuvem inteira)
+- Pan inicial centrado na nuvem
+
+### Mudanças — `src/hooks/useNetworkState.ts`
+- `zoom: 2.3` → `zoom: 0.4`
+- `pan: { x: 400, y: 300 }` → centrado no viewport
 
 ### Resultado Esperado
-- Nós como estrelas com profundidade 3D real via parallax
-- Hubs importantes "flutuam na frente", nós menores ficam "atrás"
-- Glow sutil e elegante, sem sobreposição de bolhas
-- Rotação do globo cria efeito de profundidade com camadas movendo em velocidades diferentes
+- Zoom out: vê a galáxia inteira como constelação de pontos
+- Zoom in gradual: conexões aparecem, nós crescem, labels surgem
+- Zoom profundo: como estar "dentro" da rede, vendo detalhes de cada nó
+- Sensação de navegação 3D via camadas de informação progressiva
 
-### Detalhes Técnicos
-- Arquivo único: `src/components/Canvas.tsx`
-- Seções: filtro SVG defs (~510-517), cálculo nodeSize (~966-968), renderização de nós master (~1014-1060), `getDisplayPos` para parallax offset
+### Arquivos
+1. `src/components/Canvas.tsx` — layout, visibilidade, renderização
+2. `src/hooks/useNetworkState.ts` — zoom inicial
 
