@@ -330,7 +330,6 @@ export const MasterCanvas: React.FC<MasterCanvasProps> = ({
     // Fit to screen after simulation stabilizes
     setTimeout(() => {
       simulation.alpha(0.05);
-      // Auto-fit zoom
       const bounds = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity };
       masterNodes.forEach(n => {
         if (n.x! < bounds.minX) bounds.minX = n.x!;
@@ -338,9 +337,9 @@ export const MasterCanvas: React.FC<MasterCanvasProps> = ({
         if (n.y! < bounds.minY) bounds.minY = n.y!;
         if (n.y! > bounds.maxY) bounds.maxY = n.y!;
       });
-      const bw = bounds.maxX - bounds.minX + 200;
-      const bh = bounds.maxY - bounds.minY + 200;
-      const scale = Math.min(width / bw, height / bh, 1.5) * 0.85;
+      const bw = bounds.maxX - bounds.minX + 100;
+      const bh = bounds.maxY - bounds.minY + 100;
+      const scale = Math.min(width / bw, height / bh, 2.0) * 0.9;
       const cx = (bounds.minX + bounds.maxX) / 2;
       const cy = (bounds.minY + bounds.maxY) / 2;
 
@@ -348,7 +347,7 @@ export const MasterCanvas: React.FC<MasterCanvasProps> = ({
         zoomBehavior.transform,
         zoomIdentity.translate(width / 2 - cx * scale, height / 2 - cy * scale).scale(scale)
       );
-    }, 2500);
+    }, 1500);
 
     return () => {
       simulation.stop();
