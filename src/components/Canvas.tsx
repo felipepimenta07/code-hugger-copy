@@ -970,7 +970,7 @@ export const Canvas: React.FC<CanvasProps> = ({
               const isMasterView = viewMode === "master";
               const importance = nodeImportance.get(node.node_ref) ?? 0;
               const baseSize = isMasterView
-                ? 6 + importance * 18 // range: 6-24px in master view
+                ? 3 + importance * 10 // range: 3-13px in master view
                 : 20 + Math.min(connectionCount * 4, 25);
               const isCenterNode = !isMasterView && viewMode === "single" && nodes[0]?.node_ref === node.node_ref;
               const nodeSize = isCenterNode ? Math.max(baseSize, 45) : baseSize;
