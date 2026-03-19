@@ -131,7 +131,7 @@ export const Canvas: React.FC<CanvasProps> = ({
     };
     animFrameRef.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(animFrameRef.current);
-  }, [viewMode, state.isPanning, hoveredNode]);
+  }, [viewMode, state.isPanning]);
 
   // BFS to calculate depth from center node using node_ref
   const calculateNodeDepths = () => {
