@@ -483,10 +483,6 @@ export const Canvas: React.FC<CanvasProps> = ({
         onWheel={onWheel}
         onMouseDown={(e) => {
           if (e.button === 0 && !e.shiftKey) {
-            if (viewMode === "master") {
-              // Drag-to-rotate in master view
-              dragRotateRef.current = { active: true, startX: e.clientX, startAngle: rotationAngleRef.current };
-            }
             setSelectedNodes([]);
             updateState({ isPanning: true, panStart: { x: e.clientX - state.pan.x, y: e.clientY - state.pan.y } });
           }
