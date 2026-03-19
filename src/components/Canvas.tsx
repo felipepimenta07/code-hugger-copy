@@ -121,8 +121,8 @@ export const Canvas: React.FC<CanvasProps> = ({
       const dt = (now - lastTime) / 1000;
       lastTime = now;
       timeRef.current += dt;
-      // Auto-rotate only when not dragging/panning/hovering
-      if (!state.isPanning && !hoveredNode && !dragRotateRef.current.active) {
+      // Auto-rotate only when not dragging/panning (read hoveredNode via ref to avoid dep)
+      if (!state.isPanning && !dragRotateRef.current.active) {
         rotationAngleRef.current += 0.08 * dt; // slow orbit
       }
       setRotationAngle(rotationAngleRef.current);
@@ -131,7 +131,7 @@ export const Canvas: React.FC<CanvasProps> = ({
     };
     animFrameRef.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(animFrameRef.current);
-  }, [viewMode, state.isPanning, hoveredNode]);
+  }, [viewMode, state.isPanning]);
 
   // BFS to calculate depth from center node using node_ref
   const calculateNodeDepths = () => {
@@ -785,11 +785,11 @@ export const Canvas: React.FC<CanvasProps> = ({
               if (viewMode === "master" && !isSelected) {
                 const isHoverConn = hoveredNode && (conn.from_ref === hoveredNode || conn.to_ref === hoveredNode);
                 if (isHoverConn) {
-                  strokeWidth = 1;
-                  opacity = 0.35;
+                  strokeWidth = 1.5;
+                  opacity = 0.5;
                 } else {
-                  strokeWidth = 0.3;
-                  opacity = hoveredNode ? 0.03 : Math.min(opacity, 0.05);
+                  strokeWidth = 0.8;
+                  opacity = hoveredNode ? 0.04 : 0.12;
                 }
                 strokeDasharray = undefined;
               }
@@ -964,7 +964,7 @@ export const Canvas: React.FC<CanvasProps> = ({
               const isMasterView = viewMode === "master";
               const importance = nodeImportance.get(node.node_ref) ?? 0;
               const baseSize = isMasterView
-                ? Math.min(3 + Math.min(importance * 3, 3), 6) // max 6px in master view
+                ? 6 + importance * 18 // range: 6-24px in master view
                 : 20 + Math.min(connectionCount * 4, 25);
               const isCenterNode = !isMasterView && viewMode === "single" && nodes[0]?.node_ref === node.node_ref;
               const nodeSize = isCenterNode ? Math.max(baseSize, 45) : baseSize;
@@ -985,7 +985,7 @@ export const Canvas: React.FC<CanvasProps> = ({
               const showLabel = !isMasterView;
 
               // Organic hover: scale nodes
-              const hoverScale = isMasterView && isHovered ? 2.5 : isMasterView && isNeighborOfHovered ? 1.5 : 1;
+              const hoverScale = isMasterView && isHovered ? 1.8 : isMasterView && isNeighborOfHovered ? 1.3 : 1;
               const displayRadius = nodeSize * hoverScale;
 
               return (
@@ -1013,25 +1013,36 @@ export const Canvas: React.FC<CanvasProps> = ({
                 >
                   {showAsSmallDot ? (
                     <>
+                      {/* Permanent glow halo for important nodes */}
+                      {importance >= 0.3 && (
+                        <circle
+                          r={displayRadius * 2.5}
+                          fill={nodeColor}
+                          opacity={0.15 + importance * 0.2}
+                          filter="url(#glow-node)"
+                          className="pointer-events-none"
+                          style={{ transition: "all 0.3s ease" }}
+                        />
+                      )}
                       {/* Pulse ring for important nodes */}
                       {importance >= 0.5 && !isHovered && (() => {
                         const pulse = Math.sin(animTime * 2 + (node.id || 0) * 0.7) * 0.5 + 0.5;
                         return (
                           <circle
-                            r={displayRadius + 2 + pulse * 4}
+                            r={displayRadius + 4 + pulse * 6}
                             fill="none"
                             stroke={nodeColor}
-                            strokeWidth={0.5}
-                            opacity={0.15 + pulse * 0.15}
+                            strokeWidth={0.6}
+                            opacity={0.2 + pulse * 0.15}
                             className="pointer-events-none"
                           />
                         );
                       })()}
-                      {/* Glow circle for hovered node */}
+                      {/* Extra glow on hover */}
                       {isHovered && (
-                        <circle r={displayRadius + 6} fill={nodeColor} opacity="0.25" filter="url(#glow-node)" style={{ transition: "all 0.3s ease" }} />
+                        <circle r={displayRadius + 10} fill={nodeColor} opacity="0.3" filter="url(#glow-node)" style={{ transition: "all 0.3s ease" }} />
                       )}
-                      <circle r={displayRadius} fill={nodeColor} opacity={isHovered ? "1" : "0.75"} style={{ transition: "all 0.3s ease" }} />
+                      <circle r={displayRadius} fill={nodeColor} opacity={isHovered ? "1" : "0.85"} style={{ transition: "all 0.3s ease" }} />
                       {/* Floating label on hover */}
                       {isHovered && (
                         <text
