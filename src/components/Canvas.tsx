@@ -690,11 +690,12 @@ export const Canvas: React.FC<CanvasProps> = ({
               const to = nodes.find((n) => n.node_ref === conn.to_ref);
               if (!from || !to) return null;
 
-              // In master view, hide connections if either node is not visible at current zoom
+              // Semantic zoom: connections appear progressively
               if (viewMode === "master") {
                 const fi = nodeImportance.get(from.node_ref) ?? 0;
                 const ti = nodeImportance.get(to.node_ref) ?? 0;
-                if (fi < 0.25 || ti < 0.25) return null;
+                if (state.zoom < 0.8) return null; // no connections at low zoom
+                if (state.zoom < 1.5 && (fi < 0.4 || ti < 0.4)) return null; // only hub connections at mid zoom
               }
 
               const globalIdx = allConnections.findIndex(
