@@ -103,13 +103,10 @@ export const Canvas: React.FC<CanvasProps> = ({
     position: { x: number; y: number };
   } | null>(null);
 
-  // Globe-like auto-rotation for master view
-  const rotationAngleRef = useRef(0);
+  // Animation time for subtle effects (no rotation)
   const timeRef = useRef(0);
   const animFrameRef = useRef(0);
-  const [rotationAngle, setRotationAngle] = useState(0);
   const [animTime, setAnimTime] = useState(0);
-  const dragRotateRef = useRef<{ active: boolean; startX: number; startAngle: number }>({ active: false, startX: 0, startAngle: 0 });
 
   useEffect(() => {
     if (viewMode !== "master") {
@@ -121,17 +118,12 @@ export const Canvas: React.FC<CanvasProps> = ({
       const dt = (now - lastTime) / 1000;
       lastTime = now;
       timeRef.current += dt;
-      // Auto-rotate only when not dragging/panning (read hoveredNode via ref to avoid dep)
-      if (!state.isPanning && !dragRotateRef.current.active) {
-        rotationAngleRef.current += 0.08 * dt; // slow orbit
-      }
-      setRotationAngle(rotationAngleRef.current);
       setAnimTime(timeRef.current);
       animFrameRef.current = requestAnimationFrame(tick);
     };
     animFrameRef.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(animFrameRef.current);
-  }, [viewMode, state.isPanning]);
+  }, [viewMode]);
 
   // BFS to calculate depth from center node using node_ref
   const calculateNodeDepths = () => {
@@ -198,10 +190,10 @@ export const Canvas: React.FC<CanvasProps> = ({
         return { source: c.from_ref, target: c.to_ref, affinity };
       });
 
-    // Scatter nodes — important nodes closer to center
+    // Scatter nodes — important nodes closer to center, wide spread
     const simNodes = nodes.map((n: any) => {
       const imp = importanceMap.get(n.node_ref) ?? 0.1;
-      const spread = 30 * (1 - imp * 0.6); // important nodes start closer to center
+      const spread = 400 * (1 - imp * 0.4); // wide distribution
       return {
         id: n.node_ref,
         nodeRef: n.node_ref,
@@ -214,12 +206,12 @@ export const Canvas: React.FC<CanvasProps> = ({
     });
 
     const sim = forceSimulation(simNodes as any)
-      .force("charge", forceManyBody().strength(-25))
-      .force("center", forceCenter(0, 0).strength(0.8))
-      .force("collision", forceCollide<any>().radius(5).strength(0.9))
-      .force("x", forceX(0).strength(0.3))
-      .force("y", forceY(0).strength(0.3))
-      .force("link", null)
+      .force("charge", forceManyBody().strength(-120))
+      .force("center", forceCenter(0, 0).strength(0.15))
+      .force("collision", forceCollide<any>().radius((d: any) => 8 + (d.importance ?? 0) * 12).strength(0.9))
+      .force("x", forceX(0).strength(0.05))
+      .force("y", forceY(0).strength(0.05))
+      .force("link", forceLink(links).id((d: any) => d.id).distance(80).strength(0.3))
       .stop();
 
     for (let i = 0; i < 300; i++) sim.tick();
@@ -250,48 +242,44 @@ export const Canvas: React.FC<CanvasProps> = ({
     return scores;
   }, [viewMode, nodes, connections, flows]);
 
-  // Determine if a node is visible at current zoom
+  // Determine if a node is visible at current zoom (semantic zoom)
   const isNodeVisibleAtZoom = React.useCallback(
     (nodeRef: string, zoom: number) => {
       if (viewMode !== "master") return true;
       const importance = nodeImportance.get(nodeRef) ?? 0;
+      if (zoom < 0.5) return importance >= 0.6;
+      if (zoom < 1.5) return importance >= 0.2;
       return true;
-      if (zoom >= 0.3) return importance >= 0.15;
-      return importance >= 0.7;
     },
     [viewMode, nodeImportance],
   );
 
-  // Get node opacity based on zoom and importance (for fade-in effect)
+  // Get node opacity based on zoom and importance (fade-in at visibility threshold)
   const getNodeZoomOpacity = React.useCallback(
     (nodeRef: string, zoom: number) => {
       if (viewMode !== "master") return 1;
       const importance = nodeImportance.get(nodeRef) ?? 0;
-      if (importance >= 0.7) return 1;
-      if (zoom >= 0.6) return 0.5 + importance * 0.5;
-      return 0.4 + importance * 0.5;
-      return 0;
+      // Fade-in near visibility threshold
+      if (zoom < 0.5) {
+        const threshold = 0.6;
+        const margin = 0.1;
+        return importance >= threshold + margin ? 1 : Math.max(0.3, (importance - threshold + margin) / (margin * 2));
+      }
+      if (zoom < 1.5) {
+        const threshold = 0.2;
+        const margin = 0.1;
+        return importance >= threshold + margin ? 0.7 + importance * 0.3 : Math.max(0.3, (importance - threshold + margin) / (margin * 2));
+      }
+      return 0.5 + importance * 0.5;
     },
     [viewMode, nodeImportance],
   );
 
-  // Position resolver with rotation for master view
+  // Position resolver — no rotation, just direct layout positions
   const getDisplayPos = (n: any) => {
     if (viewMode === "master") {
       const pos = masterLayoutMap.get(n.node_ref);
-      const p = pos ?? { x: n.x, y: n.y };
-      // Parallax 3D: importance determines depth layer and rotation speed
-      const imp = nodeImportance.get(n.node_ref) ?? 0.1;
-      const depthFactor = imp < 0.3 ? 0.7 : imp < 0.6 ? 1.0 : 1.4;
-      const parallaxAngle = rotationAngle * depthFactor;
-      const cos = Math.cos(parallaxAngle);
-      const sin = Math.sin(parallaxAngle);
-      // Scale by depth layer for visual separation
-      const depthScale = imp < 0.3 ? 0.85 : imp < 0.6 ? 1.0 : 1.15;
-      return {
-        x: p.x * cos * depthScale - p.y * sin * depthScale,
-        y: p.x * sin * depthScale + p.y * cos * depthScale,
-      };
+      return pos ?? { x: n.x, y: n.y };
     }
     if (useForceLayout && forcePositions && forcePositions[n.node_ref]) {
       return forcePositions[n.node_ref];
@@ -397,14 +385,7 @@ export const Canvas: React.FC<CanvasProps> = ({
         }
       }
     } else if (state.isPanning) {
-      if (viewMode === "master" && dragRotateRef.current.active) {
-        // Drag-to-rotate: horizontal drag controls rotation
-        const dx = e.clientX - dragRotateRef.current.startX;
-        rotationAngleRef.current = dragRotateRef.current.startAngle + dx * 0.005;
-        setRotationAngle(rotationAngleRef.current);
-      } else {
-        updateState({ pan: { x: e.clientX - state.panStart.x, y: e.clientY - state.panStart.y } });
-      }
+      updateState({ pan: { x: e.clientX - state.panStart.x, y: e.clientY - state.panStart.y } });
     } else if (state.isDraggingConnection) {
       updateState({ connectionEnd: { x, y } });
     }
@@ -469,7 +450,6 @@ export const Canvas: React.FC<CanvasProps> = ({
       }
       saveToHistory();
     }
-    dragRotateRef.current.active = false;
     updateState({ dragging: null, isPanning: false, isDraggingConnection: false, connectionStart: null });
   };
 
@@ -503,10 +483,6 @@ export const Canvas: React.FC<CanvasProps> = ({
         onWheel={onWheel}
         onMouseDown={(e) => {
           if (e.button === 0 && !e.shiftKey) {
-            if (viewMode === "master") {
-              // Drag-to-rotate in master view
-              dragRotateRef.current = { active: true, startX: e.clientX, startAngle: rotationAngleRef.current };
-            }
             setSelectedNodes([]);
             updateState({ isPanning: true, panStart: { x: e.clientX - state.pan.x, y: e.clientY - state.pan.y } });
           }
@@ -551,7 +527,7 @@ export const Canvas: React.FC<CanvasProps> = ({
           <rect x="-5000" y="-5000" width="15000" height="15000" fill="transparent" />
           {/* Ambient glow background for master view */}
           {viewMode === "master" && (
-            <ellipse cx="0" cy="0" rx="280" ry="280" fill="url(#ambientGlow)" className="pointer-events-none" />
+            <ellipse cx="0" cy="0" rx="600" ry="600" fill="url(#ambientGlow)" className="pointer-events-none" />
           )}
 
           {/* Subtle dotted rings (Single View only) */}
@@ -714,11 +690,12 @@ export const Canvas: React.FC<CanvasProps> = ({
               const to = nodes.find((n) => n.node_ref === conn.to_ref);
               if (!from || !to) return null;
 
-              // In master view, hide connections if either node is not visible at current zoom
+              // Semantic zoom: connections appear progressively
               if (viewMode === "master") {
                 const fi = nodeImportance.get(from.node_ref) ?? 0;
                 const ti = nodeImportance.get(to.node_ref) ?? 0;
-                if (fi < 0.25 || ti < 0.25) return null;
+                if (state.zoom < 0.8) return null; // no connections at low zoom
+                if (state.zoom < 1.5 && (fi < 0.4 || ti < 0.4)) return null; // only hub connections at mid zoom
               }
 
               const globalIdx = allConnections.findIndex(
@@ -787,8 +764,8 @@ export const Canvas: React.FC<CanvasProps> = ({
                       break;
                   }
                 } else {
-                  strokeWidth = 0.4;
-                  opacity = 0.08;
+                  strokeWidth = 0.4 + Math.min(state.zoom * 0.3, 1.2);
+                  opacity = Math.min(0.08 + state.zoom * 0.1, 0.4);
                 }
               }
               if (isSelected) opacity = 1;
@@ -867,14 +844,14 @@ export const Canvas: React.FC<CanvasProps> = ({
             });
           })()}
 
-          {/* Traveling dots on master view connections */}
-          {viewMode === "master" && connections.map((conn, idx) => {
+          {/* Traveling dots on master view connections (only at mid+ zoom) */}
+          {viewMode === "master" && state.zoom >= 1.0 && connections.map((conn, idx) => {
             const from = nodes.find((n) => n.node_ref === conn.from_ref);
             const to = nodes.find((n) => n.node_ref === conn.to_ref);
             if (!from || !to) return null;
             const fi = nodeImportance.get(from.node_ref) ?? 0;
             const ti = nodeImportance.get(to.node_ref) ?? 0;
-            if (fi < 0.25 || ti < 0.25) return null;
+            if (state.zoom < 1.5 && (fi < 0.4 || ti < 0.4)) return null;
             const { x: fromX, y: fromY } = getDisplayPos(from);
             const { x: toX, y: toY } = getDisplayPos(to);
             const midX = (fromX + toX) / 2;
@@ -887,7 +864,7 @@ export const Canvas: React.FC<CanvasProps> = ({
                 key={`tdot-${idx}`}
                 cx={tx}
                 cy={ty}
-                r={1.5}
+                r={1.5 / Math.sqrt(state.zoom)}
                 fill="hsl(var(--primary))"
                 opacity={0.6}
                 className="pointer-events-none"
@@ -971,11 +948,11 @@ export const Canvas: React.FC<CanvasProps> = ({
 
               const { x: displayX, y: displayY } = getDisplayPos(node);
 
-              // Smaller nodes in master view at low zoom
+              // Semantic zoom: node size scales inversely with zoom for consistent visual size
               const isMasterView = viewMode === "master";
               const importance = nodeImportance.get(node.node_ref) ?? 0;
               const baseSize = isMasterView
-                ? 3 + importance * 10 // range: 3-13px in master view
+                ? (3 + importance * 10) / Math.sqrt(Math.max(state.zoom, 0.2)) // consistent visual size
                 : 20 + Math.min(connectionCount * 4, 25);
               const isCenterNode = !isMasterView && viewMode === "single" && nodes[0]?.node_ref === node.node_ref;
               const nodeSize = isCenterNode ? Math.max(baseSize, 45) : baseSize;
@@ -991,9 +968,10 @@ export const Canvas: React.FC<CanvasProps> = ({
                 : zoomOpacity;
               const finalOpacity = isDimmed ? 0.15 : isMasterView ? masterHoverOpacity : 1;
 
-              // In master view, always small dots, never labels/text
-              const showAsSmallDot = isMasterView;
-              const showLabel = !isMasterView;
+              // Labels visible at high zoom in master view
+              const showAsSmallDot = isMasterView && state.zoom < 3.0;
+              const showLabel = !isMasterView || (isMasterView && state.zoom >= 3.0);
+              const showHoverLabel = isMasterView && state.zoom >= 1.5;
 
               // Organic hover: scale nodes
               const hoverScale = isMasterView && isHovered ? 1.8 : isMasterView && isNeighborOfHovered ? 1.3 : 1;
@@ -1054,21 +1032,21 @@ export const Canvas: React.FC<CanvasProps> = ({
                         <circle r={displayRadius + 5} fill={nodeColor} opacity="0.15" filter="url(#glow-node)" style={{ transition: "all 0.3s ease" }} />
                       )}
                       <circle r={displayRadius} fill={nodeColor} opacity={isHovered ? "1" : importance < 0.3 ? "0.6" : "0.85"} style={{ transition: "all 0.3s ease" }} />
-                      {/* Floating label on hover */}
-                      {isHovered && (
+                      {/* Floating label on hover (mid-zoom) or always (high-zoom) */}
+                      {(isHovered && showHoverLabel) || (showLabel && isMasterView && importance >= 0.3) ? (
                         <text
                           y={-displayRadius - 6}
                           textAnchor="middle"
                           fill="hsl(var(--foreground))"
-                          fontSize="10"
+                          fontSize={10 / Math.sqrt(Math.max(state.zoom, 0.5))}
                           fontWeight="500"
                           fontFamily="monospace"
-                          opacity="0.9"
+                          opacity={isHovered ? "0.9" : "0.7"}
                           style={{ pointerEvents: "none", transition: "opacity 0.3s ease" }}
                         >
                           {node.name.length > 22 ? node.name.substring(0, 22) + "…" : node.name}
                         </text>
-                      )}
+                      ) : null}
                     </>
                   ) : (
                     <>
