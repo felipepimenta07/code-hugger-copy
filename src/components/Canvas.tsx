@@ -242,14 +242,14 @@ export const Canvas: React.FC<CanvasProps> = ({
     return scores;
   }, [viewMode, nodes, connections, flows]);
 
-  // Determine if a node is visible at current zoom
+  // Determine if a node is visible at current zoom (semantic zoom)
   const isNodeVisibleAtZoom = React.useCallback(
     (nodeRef: string, zoom: number) => {
       if (viewMode !== "master") return true;
       const importance = nodeImportance.get(nodeRef) ?? 0;
+      if (zoom < 0.5) return importance >= 0.6;
+      if (zoom < 1.5) return importance >= 0.2;
       return true;
-      if (zoom >= 0.3) return importance >= 0.15;
-      return importance >= 0.7;
     },
     [viewMode, nodeImportance],
   );
