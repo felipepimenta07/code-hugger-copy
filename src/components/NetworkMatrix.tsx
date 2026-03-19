@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { ZoomIn, ZoomOut, Target } from 'lucide-react';
 import { toast } from 'sonner';
 import { Canvas } from './Canvas';
+import { MasterCanvas } from './MasterCanvas';
 import { NetworkToolbar } from './NetworkToolbar';
 import { NetworkModals } from './NetworkModals';
 import { NetworkSidebar } from './NetworkSidebar';
