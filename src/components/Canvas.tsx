@@ -385,14 +385,7 @@ export const Canvas: React.FC<CanvasProps> = ({
         }
       }
     } else if (state.isPanning) {
-      if (viewMode === "master" && dragRotateRef.current.active) {
-        // Drag-to-rotate: horizontal drag controls rotation
-        const dx = e.clientX - dragRotateRef.current.startX;
-        rotationAngleRef.current = dragRotateRef.current.startAngle + dx * 0.005;
-        setRotationAngle(rotationAngleRef.current);
-      } else {
-        updateState({ pan: { x: e.clientX - state.panStart.x, y: e.clientY - state.panStart.y } });
-      }
+      updateState({ pan: { x: e.clientX - state.panStart.x, y: e.clientY - state.panStart.y } });
     } else if (state.isDraggingConnection) {
       updateState({ connectionEnd: { x, y } });
     }
