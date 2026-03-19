@@ -948,11 +948,11 @@ export const Canvas: React.FC<CanvasProps> = ({
 
               const { x: displayX, y: displayY } = getDisplayPos(node);
 
-              // Smaller nodes in master view at low zoom
+              // Semantic zoom: node size scales inversely with zoom for consistent visual size
               const isMasterView = viewMode === "master";
               const importance = nodeImportance.get(node.node_ref) ?? 0;
               const baseSize = isMasterView
-                ? 3 + importance * 10 // range: 3-13px in master view
+                ? (3 + importance * 10) / Math.sqrt(Math.max(state.zoom, 0.2)) // consistent visual size
                 : 20 + Math.min(connectionCount * 4, 25);
               const isCenterNode = !isMasterView && viewMode === "single" && nodes[0]?.node_ref === node.node_ref;
               const nodeSize = isCenterNode ? Math.max(baseSize, 45) : baseSize;
