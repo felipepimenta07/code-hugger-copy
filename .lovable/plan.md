@@ -1,75 +1,44 @@
 
 
-## Plano: Refazer Master View do Zero — Navegação 3D via Zoom
+## Plano: Refazer Master View Igual ao Projeto de Referência
 
-### Problema Central
-O layout atual comprime todos os nós num raio de ~30px (`spread = 30 * (1 - imp * 0.6)`), criando uma bolha ilegível. O zoom apenas escala essa bolha — não revela camadas nem dá sensação de "entrar" na rede.
+### O que muda
 
-### Conceito: Semantic Zoom (Zoom Semântico)
-Inspirado em mapas (Google Maps): ao dar zoom, você **entra** na rede e descobre mais detalhes progressivamente.
+O Master View atual é instável (nós pulam, `Math.random()` no layout, animação 60fps desnecessária, semantic zoom complexo). O projeto de referência é limpo: D3 nativo gerencia zoom/pan/drag, simulação roda ao vivo, nós têm avatares com labels, links são linhas simples.
 
-```text
-Zoom 0.3 (afastado)    Zoom 1.0 (médio)       Zoom 2.5+ (perto)
-┌─────────────┐      ┌─────────────┐       ┌─────────────┐
-│    ●  ●     │      │   ●──●      │       │  [Ana]──[João]│
-│  ●    ●     │      │  ●──●──●    │       │   │    │     │
-│    ●        │      │     ●──●    │       │  [Maria]     │
-│             │      │             │       │   labels +   │
-│ só hubs     │      │ + conexões  │       │   categorias │
-└─────────────┘      └─────────────┘       └─────────────┘
-```
+### Abordagem
 
-### Mudanças — `src/components/Canvas.tsx`
+Criar um componente **dedicado** para o Master View (`MasterCanvas.tsx`) que replica o padrão do `RelationshipMap.tsx` de referência, usando D3 imperativo. O `Canvas.tsx` atual continua servindo apenas o Single View.
 
-#### 1. Layout expandido (não mais bolha comprimida)
-- Mudar `spread` de `30` → `400` no `masterLayoutMap`
-- Força de repulsão: `-25` → `-120` (nós se afastam mais)
-- Força central: `0.8` → `0.15` (menos compressão)
-- Resultado: nós distribuídos num espaço de ~800x800px em vez de ~60x60px
+### Arquivos e Mudanças
 
-#### 2. Zoom semântico — 3 camadas de visibilidade
-No `isNodeVisibleAtZoom`:
-- **Zoom < 0.5**: Só nós com importance >= 0.6 (hubs principais)
-- **Zoom 0.5–1.5**: Nós com importance >= 0.2 (conectados relevantes)
-- **Zoom > 1.5**: Todos os nós visíveis
-- Nós aparecem com fade-in suave (opacity 0→1 na transição)
+#### 1. Novo: `src/components/MasterCanvas.tsx`
+Componente D3 imperativo inspirado no `RelationshipMap.tsx`:
+- **D3 nativo** para zoom, pan e drag (não React state)
+- **Simulação ao vivo** com `forceSimulation`, `forceManyBody(-400)`, `forceCenter`, `forceCollide(50)`, `forceLink(distance: 120)`
+- **Nós com avatar**: círculo com `clipPath` + `image` para `profile_picture_url`, fallback com inicial
+- **Labels** abaixo de cada nó (nome + categoria)
+- **Links**: linhas simples coloridas por tipo de conexão
+- **Drag**: `d3.drag` com `fx/fy` (mesmo padrão do ref)
+- **Click**: single click → abre detail panel, double click → entra no Single View (navega ao flow)
+- **Hover**: highlight do nó e conexões (opacity dos outros diminui)
+- Fundo escuro `#0a0b14` com pattern sutil
 
-#### 3. Conexões aparecem progressivamente
-- **Zoom < 0.8**: Sem conexões visíveis
-- **Zoom 0.8–1.5**: Só conexões entre hubs (ambos importance >= 0.4)
-- **Zoom > 1.5**: Todas as conexões
-- StrokeWidth e opacity escalam com zoom
+#### 2. Alterar: `src/components/NetworkMatrix.tsx`
+- Quando `viewMode === 'master'`, renderizar `<MasterCanvas>` em vez de `<Canvas>`
+- Passar props: `allNodes`, `allConnections`, `flows`, `onNodeClick`, `onNodeDoubleClick`, `onGoToFlow`
 
-#### 4. Tamanho dos nós escala com zoom
-- Em vez de tamanho fixo, usar: `nodeSize = (3 + importance * 10) / Math.sqrt(zoom)`
-- Nós mantêm tamanho visual consistente independente do zoom
-- No zoom alto, nós "próximos" mostram label + categoria
+#### 3. Alterar: `src/components/Canvas.tsx`
+- Remover toda a lógica específica de master view (masterLayoutMap, nodeImportance, semantic zoom, animTime loop, traveling dots, cross-flow connections)
+- Canvas fica exclusivo para Single View → código muito mais simples e estável
 
-#### 5. Labels aparecem no zoom alto
-- **Zoom < 2.0**: Sem labels (só dots)
-- **Zoom 2.0–3.0**: Nome aparece no hover
-- **Zoom > 3.0**: Nome sempre visível nos nós importantes
+#### 4. Limpar: `src/hooks/useNetworkState.ts`
+- Manter zoom/pan iniciais como estão (o MasterCanvas gerencia seu próprio zoom via D3)
 
-#### 6. Remover parallax/rotação
-- Remover auto-rotação e drag-to-rotate do master view
-- Manter pan + zoom como navegação principal
-- A sensação de 3D vem do semantic zoom, não de rotação
-
-#### 7. Zoom inicial ajustado
-- No `useNetworkState.ts`: zoom inicial de `2.3` → `0.4` (começa afastado, vendo a nuvem inteira)
-- Pan inicial centrado na nuvem
-
-### Mudanças — `src/hooks/useNetworkState.ts`
-- `zoom: 2.3` → `zoom: 0.4`
-- `pan: { x: 400, y: 300 }` → centrado no viewport
-
-### Resultado Esperado
-- Zoom out: vê a galáxia inteira como constelação de pontos
-- Zoom in gradual: conexões aparecem, nós crescem, labels surgem
-- Zoom profundo: como estar "dentro" da rede, vendo detalhes de cada nó
-- Sensação de navegação 3D via camadas de informação progressiva
-
-### Arquivos
-1. `src/components/Canvas.tsx` — layout, visibilidade, renderização
-2. `src/hooks/useNetworkState.ts` — zoom inicial
+### Resultado
+- Master View estável, fluido, com avatares e labels visíveis
+- Drag funciona sem pulos
+- Zoom/pan nativo do D3 (suave)
+- Single View intocado — continua funcionando como antes
+- ~500 linhas removidas do Canvas.tsx
 
