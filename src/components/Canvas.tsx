@@ -844,14 +844,14 @@ export const Canvas: React.FC<CanvasProps> = ({
             });
           })()}
 
-          {/* Traveling dots on master view connections */}
-          {viewMode === "master" && connections.map((conn, idx) => {
+          {/* Traveling dots on master view connections (only at mid+ zoom) */}
+          {viewMode === "master" && state.zoom >= 1.0 && connections.map((conn, idx) => {
             const from = nodes.find((n) => n.node_ref === conn.from_ref);
             const to = nodes.find((n) => n.node_ref === conn.to_ref);
             if (!from || !to) return null;
             const fi = nodeImportance.get(from.node_ref) ?? 0;
             const ti = nodeImportance.get(to.node_ref) ?? 0;
-            if (fi < 0.25 || ti < 0.25) return null;
+            if (state.zoom < 1.5 && (fi < 0.4 || ti < 0.4)) return null;
             const { x: fromX, y: fromY } = getDisplayPos(from);
             const { x: toX, y: toY } = getDisplayPos(to);
             const midX = (fromX + toX) / 2;
@@ -864,7 +864,7 @@ export const Canvas: React.FC<CanvasProps> = ({
                 key={`tdot-${idx}`}
                 cx={tx}
                 cy={ty}
-                r={1.5}
+                r={1.5 / Math.sqrt(state.zoom)}
                 fill="hsl(var(--primary))"
                 opacity={0.6}
                 className="pointer-events-none"
