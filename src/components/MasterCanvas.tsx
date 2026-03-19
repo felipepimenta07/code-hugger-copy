@@ -223,8 +223,8 @@ export const MasterCanvas: React.FC<MasterCanvasProps> = ({
 
     labels.append('text')
       .attr('text-anchor', 'middle')
-      .attr('fill', 'hsl(0, 0%, 90%)')
-      .attr('font-size', '9px')
+      .attr('fill', 'hsl(0, 0%, 95%)')
+      .attr('font-size', '10px')
       .attr('font-weight', '500')
       .attr('pointer-events', 'none')
       .text(d => d.name.length > 14 ? d.name.substring(0, 12) + '…' : d.name);
