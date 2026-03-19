@@ -800,7 +800,7 @@ export const Canvas: React.FC<CanvasProps> = ({
               const { x: toX, y: toY } = getDisplayPos(to);
               const midX = (fromX + toX) / 2;
               const midY = (fromY + toY) / 2;
-              const controlY2 = midY - 60;
+              const controlY2 = viewMode === "master" ? midY - 3 : midY - 60;
               const pathData = `M ${fromX},${fromY} Q ${midX},${controlY2} ${toX},${toY}`;
 
               return (
