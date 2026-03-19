@@ -527,7 +527,7 @@ export const Canvas: React.FC<CanvasProps> = ({
           <rect x="-5000" y="-5000" width="15000" height="15000" fill="transparent" />
           {/* Ambient glow background for master view */}
           {viewMode === "master" && (
-            <ellipse cx="0" cy="0" rx="280" ry="280" fill="url(#ambientGlow)" className="pointer-events-none" />
+            <ellipse cx="0" cy="0" rx="600" ry="600" fill="url(#ambientGlow)" className="pointer-events-none" />
           )}
 
           {/* Subtle dotted rings (Single View only) */}
