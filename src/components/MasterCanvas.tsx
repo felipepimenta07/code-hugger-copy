@@ -183,10 +183,10 @@ export const MasterCanvas: React.FC<MasterCanvasProps> = ({
     // Outer circle (glow ring)
     node.append('circle')
       .attr('r', 24)
-      .attr('fill', 'hsl(220, 20%, 6%)')
+      .attr('fill', 'hsl(220, 20%, 12%)')
       .attr('stroke', d => TYPE_STROKE[d.type] || '#94a3b8')
       .attr('stroke-width', 1.5)
-      .style('filter', d => `drop-shadow(0 0 4px ${TYPE_COLORS[d.type] || '#94a3b8'}40)`);
+      .style('filter', d => `drop-shadow(0 0 6px ${TYPE_COLORS[d.type] || '#94a3b8'}80)`);
 
     // Avatar images for person nodes with profile_picture_url
     node.filter(d => d.type === 'person' && !!d.profilePictureUrl)
