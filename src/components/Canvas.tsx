@@ -540,7 +540,7 @@ export const Canvas: React.FC<CanvasProps> = ({
           <rect x="-5000" y="-5000" width="15000" height="15000" fill="transparent" />
           {/* Ambient glow background for master view */}
           {viewMode === "master" && (
-            <ellipse cx="0" cy="0" rx="120" ry="120" fill="url(#ambientGlow)" className="pointer-events-none" />
+            <ellipse cx="0" cy="0" rx="280" ry="280" fill="url(#ambientGlow)" className="pointer-events-none" />
           )}
 
           {/* Subtle dotted rings (Single View only) */}
@@ -671,11 +671,11 @@ export const Canvas: React.FC<CanvasProps> = ({
                   conn.type === "company"
                     ? {
                         stroke: "hsl(var(--connection-cross))",
-                        strokeWidth: conn.strength === 3 ? "2.5" : "2",
-                        dasharray: "6,4",
-                        opacity: "0.5",
+                        strokeWidth: "0.5",
+                        dasharray: undefined,
+                        opacity: "0.06",
                       }
-                    : { stroke: "hsl(var(--primary))", strokeWidth: "1.5", dasharray: "8,6", opacity: "0.35" };
+                    : { stroke: "hsl(var(--primary))", strokeWidth: "0.4", dasharray: undefined, opacity: "0.05" };
                 return (
                   <path
                     key={`xflow-${idx}`}
@@ -776,8 +776,8 @@ export const Canvas: React.FC<CanvasProps> = ({
                       break;
                   }
                 } else {
-                  strokeWidth = 2;
-                  opacity = 0.3;
+                  strokeWidth = 0.4;
+                  opacity = 0.08;
                 }
               }
               if (isSelected) opacity = 1;
@@ -800,7 +800,7 @@ export const Canvas: React.FC<CanvasProps> = ({
               const { x: toX, y: toY } = getDisplayPos(to);
               const midX = (fromX + toX) / 2;
               const midY = (fromY + toY) / 2;
-              const controlY2 = midY - 60;
+              const controlY2 = viewMode === "master" ? midY - 3 : midY - 60;
               const pathData = `M ${fromX},${fromY} Q ${midX},${controlY2} ${toX},${toY}`;
 
               return (
@@ -867,7 +867,7 @@ export const Canvas: React.FC<CanvasProps> = ({
             const { x: fromX, y: fromY } = getDisplayPos(from);
             const { x: toX, y: toY } = getDisplayPos(to);
             const midX = (fromX + toX) / 2;
-            const controlY2 = (fromY + toY) / 2 - 60;
+            const controlY2 = (fromY + toY) / 2 - 3;
             const t = (Math.sin(animTime * 1.2 + idx * 1.7) + 1) / 2;
             const tx = (1 - t) * (1 - t) * fromX + 2 * (1 - t) * t * midX + t * t * toX;
             const ty = (1 - t) * (1 - t) * fromY + 2 * (1 - t) * t * controlY2 + t * t * toY;
