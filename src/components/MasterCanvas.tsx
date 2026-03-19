@@ -303,7 +303,7 @@ export const MasterCanvas: React.FC<MasterCanvasProps> = ({
     const simulation = forceSimulation<MasterNode>(masterNodes)
       .force('link', forceLink<MasterNode, MasterLink>(masterLinks)
         .id(d => d.nodeRef)
-        .distance(120)
+        .distance(80)
         .strength(0.4)
       )
       .force('charge', forceManyBody<MasterNode>().strength(-150))
