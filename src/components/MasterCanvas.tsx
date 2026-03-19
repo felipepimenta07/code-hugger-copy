@@ -204,7 +204,7 @@ export const MasterCanvas: React.FC<MasterCanvasProps> = ({
       .attr('r', 18)
       .attr('fill', d => {
         const c = TYPE_COLORS[d.type] || '#94a3b8';
-        return c.replace(')', ', 0.15)').replace('hsl(', 'hsla(');
+        return c.replace(')', ', 0.3)').replace('hsl(', 'hsla(');
       });
 
     // Initials text for fallback
