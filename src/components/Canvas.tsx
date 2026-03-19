@@ -1032,21 +1032,21 @@ export const Canvas: React.FC<CanvasProps> = ({
                         <circle r={displayRadius + 5} fill={nodeColor} opacity="0.15" filter="url(#glow-node)" style={{ transition: "all 0.3s ease" }} />
                       )}
                       <circle r={displayRadius} fill={nodeColor} opacity={isHovered ? "1" : importance < 0.3 ? "0.6" : "0.85"} style={{ transition: "all 0.3s ease" }} />
-                      {/* Floating label on hover */}
-                      {isHovered && (
+                      {/* Floating label on hover (mid-zoom) or always (high-zoom) */}
+                      {(isHovered && showHoverLabel) || (showLabel && isMasterView && importance >= 0.3) ? (
                         <text
                           y={-displayRadius - 6}
                           textAnchor="middle"
                           fill="hsl(var(--foreground))"
-                          fontSize="10"
+                          fontSize={10 / Math.sqrt(Math.max(state.zoom, 0.5))}
                           fontWeight="500"
                           fontFamily="monospace"
-                          opacity="0.9"
+                          opacity={isHovered ? "0.9" : "0.7"}
                           style={{ pointerEvents: "none", transition: "opacity 0.3s ease" }}
                         >
                           {node.name.length > 22 ? node.name.substring(0, 22) + "…" : node.name}
                         </text>
-                      )}
+                      ) : null}
                     </>
                   ) : (
                     <>
