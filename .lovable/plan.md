@@ -1,35 +1,47 @@
 
 
-## Plano: Melhorar Visual do Master View
+## Plano: Master View como na Referência (Galáxia Vibrante)
 
-### Problemas atuais
-1. **Cross-flow connections (laranja dashed)** dominam a tela — opacity 0.5 e strokeWidth 2-2.5 são muito altos
-2. **Arcos curvados** (`controlY2 = midY - 60`) criam formas de "leque" poluindo a vista
-3. **Ambient glow** muito pequeno (rx/ry=120) — não cobre a nuvem
-4. **Traveling dots** seguem arcos curvados altos, amplificando a poluição
+### Diagnóstico dos Problemas
 
-### Correções — `src/components/Canvas.tsx`
+**Hover quebrando**: A animação de auto-rotação (linha 134) tem `hoveredNode` como dependência do `useEffect`, fazendo o loop de animação reiniciar a cada hover — causa flicker e instabilidade.
 
-#### 1. Cross-flow connections: quase invisíveis
-- Linhas 670-678: Reduzir opacity de 0.5→0.06, strokeWidth de 2-2.5→0.5, remover `strokeDasharray` (linhas sólidas finas)
+**Visual muito apagado**: Nós max 6px e conexões com opacity 0.08 são praticamente invisíveis. A referência mostra nós grandes, brilhantes, com glow forte.
 
-#### 2. Conexões normais no master view: mais sutis
-- Linhas 778-781: strokeWidth 2→0.4, opacity 0.3→0.08 (base)
-- Linhas 786-793: manter hover destacando (opacity 0.35), mas base ainda mais sutil
+### Mudanças — `src/components/Canvas.tsx`
 
-#### 3. Arcos achatados no master view
-- Linhas 803-804: No master view, usar `controlY2 = midY - 3` em vez de `midY - 60` (quase reto)
-- Linhas 870: Mesmo achatamento para traveling dots
+#### 1. Corrigir bug do hover (animação reiniciando)
+- Remover `hoveredNode` da lista de dependências do `useEffect` da animação (linha 134)
+- Usar `useRef` para `hoveredNode` dentro do loop de animação em vez de state direto
 
-#### 4. Ambient glow maior
-- Linha 543: `rx="120" ry="120"` → `rx="280" ry="280"`
+#### 2. Nós maiores e mais vibrantes (estilo referência)
+- Mudar tamanho base no master view de `3 + importance*3` (max 6px) para `6 + importance*18` (range: 6-24px)
+- Hubs (importance >= 0.5) ficam ainda maiores com glow forte
+- Glow circle permanente (não só no hover) para nós importantes — `opacity: 0.2 + importance*0.3`
 
-#### 5. Traveling dots: seguir linhas achatadas
-- Linha 870: `controlY2` deve usar o mesmo offset reduzido do master view
+#### 3. Conexões visíveis mas elegantes
+- Base opacity de 0.08 → 0.12
+- Hover opacity de 0.35 → 0.5
+- StrokeWidth base de 0.3 → 0.8
+- Cor das conexões: branco/cinza claro ao invés da cor do tema (mais parecido com a referência)
 
-### Resultado esperado
-- Nós coloridos como estrelas no espaço — protagonistas
-- Conexões quase invisíveis, emergindo sutilmente no hover
-- Glow ambiente envolvendo toda a nuvem
-- Visual limpo sem artefatos de linhas grossas
+#### 4. Halo/glow permanente nos hubs
+- Adicionar circle com `filter="url(#glow-node)"` para nós com importance >= 0.3
+- Raio do glow proporcional à importância
+- Opacity do glow: `0.15 + importance * 0.2`
+
+#### 5. Hover mais suave
+- Escala hover de 2.5 → 1.8 (menos agressivo)
+- Transição suave com CSS transition mantida
+- Conexões do nó hovered destacam com strokeWidth 1.5 e opacity 0.4
+
+### Resultado Esperado
+- Nós coloridos grandes e brilhantes como "estrelas" na galáxia
+- Conexões visíveis como fios de luz entre os nós
+- Hover suave sem flicker
+- Visual similar à imagem de referência
+
+### Detalhes Técnicos
+- Arquivo: `src/components/Canvas.tsx`
+- Seções afetadas: useEffect animação (~linha 114-134), cálculo de nodeSize (~linha 966-968), renderização de nós (~linha 1014-1050), renderização de conexões (~linha 785-794)
 
