@@ -280,12 +280,17 @@ export const Canvas: React.FC<CanvasProps> = ({
     if (viewMode === "master") {
       const pos = masterLayoutMap.get(n.node_ref);
       const p = pos ?? { x: n.x, y: n.y };
-      // Apply 2D rotation around center (0,0)
-      const cos = Math.cos(rotationAngle);
-      const sin = Math.sin(rotationAngle);
+      // Parallax 3D: importance determines depth layer and rotation speed
+      const imp = nodeImportance.get(n.node_ref) ?? 0.1;
+      const depthFactor = imp < 0.3 ? 0.7 : imp < 0.6 ? 1.0 : 1.4;
+      const parallaxAngle = rotationAngle * depthFactor;
+      const cos = Math.cos(parallaxAngle);
+      const sin = Math.sin(parallaxAngle);
+      // Scale by depth layer for visual separation
+      const depthScale = imp < 0.3 ? 0.85 : imp < 0.6 ? 1.0 : 1.15;
       return {
-        x: p.x * cos - p.y * sin,
-        y: p.x * sin + p.y * cos,
+        x: p.x * cos * depthScale - p.y * sin * depthScale,
+        y: p.x * sin * depthScale + p.y * cos * depthScale,
       };
     }
     if (useForceLayout && forcePositions && forcePositions[n.node_ref]) {
@@ -509,10 +514,16 @@ export const Canvas: React.FC<CanvasProps> = ({
       >
         <defs>
           <filter id="glow-node" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur stdDeviation="8" result="coloredBlur" />
+            <feGaussianBlur stdDeviation="3" result="coloredBlur" />
             <feMerge>
               <feMergeNode in="coloredBlur" />
               <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+          <filter id="glow-soft" x="-100%" y="-100%" width="300%" height="300%">
+            <feGaussianBlur stdDeviation="6" result="softBlur" />
+            <feMerge>
+              <feMergeNode in="softBlur" />
             </feMerge>
           </filter>
           <filter id="connectionGlow" x="-50%" y="-50%" width="200%" height="200%">
@@ -964,7 +975,7 @@ export const Canvas: React.FC<CanvasProps> = ({
               const isMasterView = viewMode === "master";
               const importance = nodeImportance.get(node.node_ref) ?? 0;
               const baseSize = isMasterView
-                ? 6 + importance * 18 // range: 6-24px in master view
+                ? 3 + importance * 10 // range: 3-13px in master view
                 : 20 + Math.min(connectionCount * 4, 25);
               const isCenterNode = !isMasterView && viewMode === "single" && nodes[0]?.node_ref === node.node_ref;
               const nodeSize = isCenterNode ? Math.max(baseSize, 45) : baseSize;
@@ -1013,40 +1024,40 @@ export const Canvas: React.FC<CanvasProps> = ({
                 >
                   {showAsSmallDot ? (
                     <>
-                      {/* Permanent glow halo for important nodes */}
+                      {/* Subtle glow halo for important nodes */}
                       {importance >= 0.3 && (
                         <circle
-                          r={displayRadius * 2.5}
+                          r={displayRadius * 1.8}
                           fill={nodeColor}
-                          opacity={0.15 + importance * 0.2}
-                          filter="url(#glow-node)"
+                          opacity={0.08 + importance * 0.12}
+                          filter="url(#glow-soft)"
                           className="pointer-events-none"
                           style={{ transition: "all 0.3s ease" }}
                         />
                       )}
-                      {/* Pulse ring for important nodes */}
+                      {/* Pulse ring — subtle */}
                       {importance >= 0.5 && !isHovered && (() => {
                         const pulse = Math.sin(animTime * 2 + (node.id || 0) * 0.7) * 0.5 + 0.5;
                         return (
                           <circle
-                            r={displayRadius + 4 + pulse * 6}
+                            r={displayRadius + 2 + pulse * 3}
                             fill="none"
                             stroke={nodeColor}
-                            strokeWidth={0.6}
-                            opacity={0.2 + pulse * 0.15}
+                            strokeWidth={0.4}
+                            opacity={0.1 + pulse * 0.1}
                             className="pointer-events-none"
                           />
                         );
                       })()}
-                      {/* Extra glow on hover */}
+                      {/* Contained hover glow */}
                       {isHovered && (
-                        <circle r={displayRadius + 10} fill={nodeColor} opacity="0.3" filter="url(#glow-node)" style={{ transition: "all 0.3s ease" }} />
+                        <circle r={displayRadius + 5} fill={nodeColor} opacity="0.15" filter="url(#glow-node)" style={{ transition: "all 0.3s ease" }} />
                       )}
-                      <circle r={displayRadius} fill={nodeColor} opacity={isHovered ? "1" : "0.85"} style={{ transition: "all 0.3s ease" }} />
+                      <circle r={displayRadius} fill={nodeColor} opacity={isHovered ? "1" : importance < 0.3 ? "0.6" : "0.85"} style={{ transition: "all 0.3s ease" }} />
                       {/* Floating label on hover */}
                       {isHovered && (
                         <text
-                          y={-displayRadius - 8}
+                          y={-displayRadius - 6}
                           textAnchor="middle"
                           fill="hsl(var(--foreground))"
                           fontSize="10"
