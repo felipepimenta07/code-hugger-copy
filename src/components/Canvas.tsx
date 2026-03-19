@@ -1013,25 +1013,36 @@ export const Canvas: React.FC<CanvasProps> = ({
                 >
                   {showAsSmallDot ? (
                     <>
+                      {/* Permanent glow halo for important nodes */}
+                      {importance >= 0.3 && (
+                        <circle
+                          r={displayRadius * 2.5}
+                          fill={nodeColor}
+                          opacity={0.15 + importance * 0.2}
+                          filter="url(#glow-node)"
+                          className="pointer-events-none"
+                          style={{ transition: "all 0.3s ease" }}
+                        />
+                      )}
                       {/* Pulse ring for important nodes */}
                       {importance >= 0.5 && !isHovered && (() => {
                         const pulse = Math.sin(animTime * 2 + (node.id || 0) * 0.7) * 0.5 + 0.5;
                         return (
                           <circle
-                            r={displayRadius + 2 + pulse * 4}
+                            r={displayRadius + 4 + pulse * 6}
                             fill="none"
                             stroke={nodeColor}
-                            strokeWidth={0.5}
-                            opacity={0.15 + pulse * 0.15}
+                            strokeWidth={0.6}
+                            opacity={0.2 + pulse * 0.15}
                             className="pointer-events-none"
                           />
                         );
                       })()}
-                      {/* Glow circle for hovered node */}
+                      {/* Extra glow on hover */}
                       {isHovered && (
-                        <circle r={displayRadius + 6} fill={nodeColor} opacity="0.25" filter="url(#glow-node)" style={{ transition: "all 0.3s ease" }} />
+                        <circle r={displayRadius + 10} fill={nodeColor} opacity="0.3" filter="url(#glow-node)" style={{ transition: "all 0.3s ease" }} />
                       )}
-                      <circle r={displayRadius} fill={nodeColor} opacity={isHovered ? "1" : "0.75"} style={{ transition: "all 0.3s ease" }} />
+                      <circle r={displayRadius} fill={nodeColor} opacity={isHovered ? "1" : "0.85"} style={{ transition: "all 0.3s ease" }} />
                       {/* Floating label on hover */}
                       {isHovered && (
                         <text
