@@ -344,7 +344,7 @@ export const MasterCanvas: React.FC<MasterCanvasProps> = ({
       const cx = (bounds.minX + bounds.maxX) / 2;
       const cy = (bounds.minY + bounds.maxY) / 2;
 
-      svg.transition().duration(800).call(
+      svg.call(
         zoomBehavior.transform,
         zoomIdentity.translate(width / 2 - cx * scale, height / 2 - cy * scale).scale(scale)
       );
