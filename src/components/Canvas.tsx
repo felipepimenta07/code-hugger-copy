@@ -968,9 +968,10 @@ export const Canvas: React.FC<CanvasProps> = ({
                 : zoomOpacity;
               const finalOpacity = isDimmed ? 0.15 : isMasterView ? masterHoverOpacity : 1;
 
-              // In master view, always small dots, never labels/text
-              const showAsSmallDot = isMasterView;
-              const showLabel = !isMasterView;
+              // Labels visible at high zoom in master view
+              const showAsSmallDot = isMasterView && state.zoom < 3.0;
+              const showLabel = !isMasterView || (isMasterView && state.zoom >= 3.0);
+              const showHoverLabel = isMasterView && state.zoom >= 1.5;
 
               // Organic hover: scale nodes
               const hoverScale = isMasterView && isHovered ? 1.8 : isMasterView && isNeighborOfHovered ? 1.3 : 1;
