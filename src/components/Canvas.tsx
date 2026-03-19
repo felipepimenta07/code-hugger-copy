@@ -1069,7 +1069,7 @@ export const Canvas: React.FC<CanvasProps> = ({
                           {node.name.length > 22 ? node.name.substring(0, 22) + "…" : node.name}
                         </text>
                       )}
-                    <>
+                    </>
                   ) : (
                     <>
                       {isHovered && (
