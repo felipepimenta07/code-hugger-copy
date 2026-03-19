@@ -190,10 +190,10 @@ export const Canvas: React.FC<CanvasProps> = ({
         return { source: c.from_ref, target: c.to_ref, affinity };
       });
 
-    // Scatter nodes — important nodes closer to center
+    // Scatter nodes — important nodes closer to center, wide spread
     const simNodes = nodes.map((n: any) => {
       const imp = importanceMap.get(n.node_ref) ?? 0.1;
-      const spread = 30 * (1 - imp * 0.6); // important nodes start closer to center
+      const spread = 400 * (1 - imp * 0.4); // wide distribution
       return {
         id: n.node_ref,
         nodeRef: n.node_ref,
@@ -206,12 +206,12 @@ export const Canvas: React.FC<CanvasProps> = ({
     });
 
     const sim = forceSimulation(simNodes as any)
-      .force("charge", forceManyBody().strength(-25))
-      .force("center", forceCenter(0, 0).strength(0.8))
-      .force("collision", forceCollide<any>().radius(5).strength(0.9))
-      .force("x", forceX(0).strength(0.3))
-      .force("y", forceY(0).strength(0.3))
-      .force("link", null)
+      .force("charge", forceManyBody().strength(-120))
+      .force("center", forceCenter(0, 0).strength(0.15))
+      .force("collision", forceCollide<any>().radius((d: any) => 8 + (d.importance ?? 0) * 12).strength(0.9))
+      .force("x", forceX(0).strength(0.05))
+      .force("y", forceY(0).strength(0.05))
+      .force("link", forceLink(links).id((d: any) => d.id).distance(80).strength(0.3))
       .stop();
 
     for (let i = 0; i < 300; i++) sim.tick();
