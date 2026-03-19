@@ -1,44 +1,33 @@
 
 
-## Plano: Refazer Master View Igual ao Projeto de Referência
+## Plano: Corrigir Escuridão e Espaçamento do Master View
 
-### O que muda
+### Problemas Identificados
+1. **Escuro demais**: Links com opacidade 0.2, nós com fill quase preto, fallback circles com 15% de opacidade
+2. **Afastado demais**: Repulsão de -400, colisão raio 50, link distance 120 → auto-fit calcula scale(0.05) = nós invisíveis
 
-O Master View atual é instável (nós pulam, `Math.random()` no layout, animação 60fps desnecessária, semantic zoom complexo). O projeto de referência é limpo: D3 nativo gerencia zoom/pan/drag, simulação roda ao vivo, nós têm avatares com labels, links são linhas simples.
+### Correções em `src/components/MasterCanvas.tsx`
 
-### Abordagem
+#### 1. Reduzir forças de dispersão
+- `forceManyBody`: -400 → **-150**
+- `forceCollide`: radius 50 → **30**
+- `forceLink distance`: 120 → **80**
+- `forceX/forceY strength`: 0.03 → **0.08** (puxa mais ao centro)
 
-Criar um componente **dedicado** para o Master View (`MasterCanvas.tsx`) que replica o padrão do `RelationshipMap.tsx` de referência, usando D3 imperativo. O `Canvas.tsx` atual continua servindo apenas o Single View.
+#### 2. Aumentar brilho visual
+- Links `stroke-opacity`: 0.2 → **0.4**
+- Links `stroke-width`: 1 → **1.5**
+- Outer circle fill: `hsl(220, 20%, 6%)` → **`hsl(220, 20%, 12%)`**
+- Fallback circle opacity: 0.15 → **0.3**
+- Glow drop-shadow: `4px` com `40` hex → **`6px`** com **`80`** hex
+- Labels name fill: 90% → **95%**, font-size 9px → **10px**
 
-### Arquivos e Mudanças
-
-#### 1. Novo: `src/components/MasterCanvas.tsx`
-Componente D3 imperativo inspirado no `RelationshipMap.tsx`:
-- **D3 nativo** para zoom, pan e drag (não React state)
-- **Simulação ao vivo** com `forceSimulation`, `forceManyBody(-400)`, `forceCenter`, `forceCollide(50)`, `forceLink(distance: 120)`
-- **Nós com avatar**: círculo com `clipPath` + `image` para `profile_picture_url`, fallback com inicial
-- **Labels** abaixo de cada nó (nome + categoria)
-- **Links**: linhas simples coloridas por tipo de conexão
-- **Drag**: `d3.drag` com `fx/fy` (mesmo padrão do ref)
-- **Click**: single click → abre detail panel, double click → entra no Single View (navega ao flow)
-- **Hover**: highlight do nó e conexões (opacity dos outros diminui)
-- Fundo escuro `#0a0b14` com pattern sutil
-
-#### 2. Alterar: `src/components/NetworkMatrix.tsx`
-- Quando `viewMode === 'master'`, renderizar `<MasterCanvas>` em vez de `<Canvas>`
-- Passar props: `allNodes`, `allConnections`, `flows`, `onNodeClick`, `onNodeDoubleClick`, `onGoToFlow`
-
-#### 3. Alterar: `src/components/Canvas.tsx`
-- Remover toda a lógica específica de master view (masterLayoutMap, nodeImportance, semantic zoom, animTime loop, traveling dots, cross-flow connections)
-- Canvas fica exclusivo para Single View → código muito mais simples e estável
-
-#### 4. Limpar: `src/hooks/useNetworkState.ts`
-- Manter zoom/pan iniciais como estão (o MasterCanvas gerencia seu próprio zoom via D3)
+#### 3. Melhorar auto-fit
+- Padding bounds: 200 → **100** (menos margem desperdiçada)
+- Scale multiplier: 0.85 → **0.9**
+- Scale max: 1.5 → **2.0** (permite zoom mais próximo se rede for pequena)
+- Timeout: 2500ms → **1500ms** (simulação estabiliza mais rápido com forças menores)
 
 ### Resultado
-- Master View estável, fluido, com avatares e labels visíveis
-- Drag funciona sem pulos
-- Zoom/pan nativo do D3 (suave)
-- Single View intocado — continua funcionando como antes
-- ~500 linhas removidas do Canvas.tsx
+Nós maiores, mais próximos, mais brilhantes. Auto-fit zoom adequado em vez de 0.05.
 
