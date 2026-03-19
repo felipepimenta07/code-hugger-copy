@@ -450,7 +450,6 @@ export const Canvas: React.FC<CanvasProps> = ({
       }
       saveToHistory();
     }
-    dragRotateRef.current.active = false;
     updateState({ dragging: null, isPanning: false, isDraggingConnection: false, connectionStart: null });
   };
 
