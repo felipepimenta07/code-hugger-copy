@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { ZoomIn, ZoomOut, Target } from 'lucide-react';
 import { toast } from 'sonner';
 import { Canvas } from './Canvas';
+import { MasterCanvas } from './MasterCanvas';
 import { NetworkToolbar } from './NetworkToolbar';
 import { NetworkModals } from './NetworkModals';
 import { NetworkSidebar } from './NetworkSidebar';
@@ -958,45 +959,64 @@ export const NetworkMatrix = () => {
 
         {/* Canvas */}
         <div className="flex-1 relative overflow-hidden">
-          <Canvas
-            svgRef={svgRef}
-            state={state}
-            updateState={updateState}
-            viewMode={viewMode}
-            workflows={workflows}
-            nodes={nodes}
-            connections={connections}
-            selectedNodes={selectedNodes}
-            setSelectedNodes={setSelectedNodes}
-            onWheel={handleWheel}
-            selectedConnection={selectedConnection}
-            setSelectedConnection={setSelectedConnection}
-            highlightedPath={highlightedPath}
-            hoveredNode={hoveredNode}
-            setHoveredNode={setHoveredNode}
-            updateNodePosition={updateNodePosition}
-            setConnections={setConnections}
-            saveToHistory={saveToHistory}
-            projects={projects}
-            flows={flows}
-            allConnections={allConnections}
-            showLabels={showLabels}
-            onOpenEditModal={(node) => { setEditingNodeInModal(node); setNodeCreationType(node.type); setShowNodeCreationModal(true); }}
-            onSingleClick={(node) => { setDetailPanelNode(node); }}
-            onGoToFlow={(flowId) => { 
-              setDetailPanelNode(null); 
-              const flow = flows.find(f => f.id === flowId);
-              if (flow) {
-                setActiveNodeRef(makeRef(flow.center_type, flow.center_id)); 
-                setViewMode('single'); 
-              }
-            }}
-            forcePositions={forcePositions}
-            onForceDragStart={onForceDragStart}
-            onForceDrag={onForceDrag}
-            onForceDragEnd={onForceDragEnd}
-            useForceLayout={viewMode === 'single'}
-          />
+          {viewMode === 'master' ? (
+            <MasterCanvas
+              allNodes={allNodes}
+              allConnections={allConnections}
+              flows={flows}
+              onNodeClick={(node) => { setDetailPanelNode(node); }}
+              onNodeDoubleClick={(node) => {
+                if (node.flow_id) {
+                  const flow = flows.find(f => f.id === node.flow_id);
+                  if (flow) {
+                    setDetailPanelNode(null);
+                    setActiveNodeRef(makeRef(flow.center_type, flow.center_id));
+                    setViewMode('single');
+                  }
+                }
+              }}
+            />
+          ) : (
+            <Canvas
+              svgRef={svgRef}
+              state={state}
+              updateState={updateState}
+              viewMode={viewMode}
+              workflows={workflows}
+              nodes={nodes}
+              connections={connections}
+              selectedNodes={selectedNodes}
+              setSelectedNodes={setSelectedNodes}
+              onWheel={handleWheel}
+              selectedConnection={selectedConnection}
+              setSelectedConnection={setSelectedConnection}
+              highlightedPath={highlightedPath}
+              hoveredNode={hoveredNode}
+              setHoveredNode={setHoveredNode}
+              updateNodePosition={updateNodePosition}
+              setConnections={setConnections}
+              saveToHistory={saveToHistory}
+              projects={projects}
+              flows={flows}
+              allConnections={allConnections}
+              showLabels={showLabels}
+              onOpenEditModal={(node) => { setEditingNodeInModal(node); setNodeCreationType(node.type); setShowNodeCreationModal(true); }}
+              onSingleClick={(node) => { setDetailPanelNode(node); }}
+              onGoToFlow={(flowId) => { 
+                setDetailPanelNode(null); 
+                const flow = flows.find(f => f.id === flowId);
+                if (flow) {
+                  setActiveNodeRef(makeRef(flow.center_type, flow.center_id)); 
+                  setViewMode('single'); 
+                }
+              }}
+              forcePositions={forcePositions}
+              onForceDragStart={onForceDragStart}
+              onForceDrag={onForceDrag}
+              onForceDragEnd={onForceDragEnd}
+              useForceLayout={viewMode === 'single'}
+            />
+          )}
 
           {/* Compact zoom - bottom right */}
           <div className="absolute bottom-4 right-4 flex items-center gap-1.5 z-30">
