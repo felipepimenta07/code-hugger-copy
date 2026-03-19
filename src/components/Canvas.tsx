@@ -776,8 +776,8 @@ export const Canvas: React.FC<CanvasProps> = ({
                       break;
                   }
                 } else {
-                  strokeWidth = 2;
-                  opacity = 0.3;
+                  strokeWidth = 0.4;
+                  opacity = 0.08;
                 }
               }
               if (isSelected) opacity = 1;
