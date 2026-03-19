@@ -168,8 +168,8 @@ export const MasterCanvas: React.FC<MasterCanvasProps> = ({
       .data(masterLinks)
       .join('line')
       .attr('stroke', d => CONNECTION_COLORS[d.connectionType] || 'hsl(220, 10%, 30%)')
-      .attr('stroke-opacity', 0.2)
-      .attr('stroke-width', 1);
+      .attr('stroke-opacity', 0.4)
+      .attr('stroke-width', 1.5);
 
     // Nodes group
     const nodeGroup = g.append('g').attr('class', 'nodes');
