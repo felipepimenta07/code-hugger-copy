@@ -275,23 +275,11 @@ export const Canvas: React.FC<CanvasProps> = ({
     [viewMode, nodeImportance],
   );
 
-  // Position resolver with rotation for master view
+  // Position resolver — no rotation, just direct layout positions
   const getDisplayPos = (n: any) => {
     if (viewMode === "master") {
       const pos = masterLayoutMap.get(n.node_ref);
-      const p = pos ?? { x: n.x, y: n.y };
-      // Parallax 3D: importance determines depth layer and rotation speed
-      const imp = nodeImportance.get(n.node_ref) ?? 0.1;
-      const depthFactor = imp < 0.3 ? 0.7 : imp < 0.6 ? 1.0 : 1.4;
-      const parallaxAngle = rotationAngle * depthFactor;
-      const cos = Math.cos(parallaxAngle);
-      const sin = Math.sin(parallaxAngle);
-      // Scale by depth layer for visual separation
-      const depthScale = imp < 0.3 ? 0.85 : imp < 0.6 ? 1.0 : 1.15;
-      return {
-        x: p.x * cos * depthScale - p.y * sin * depthScale,
-        y: p.x * sin * depthScale + p.y * cos * depthScale,
-      };
+      return pos ?? { x: n.x, y: n.y };
     }
     if (useForceLayout && forcePositions && forcePositions[n.node_ref]) {
       return forcePositions[n.node_ref];
