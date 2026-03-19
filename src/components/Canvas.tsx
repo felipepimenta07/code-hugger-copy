@@ -671,11 +671,11 @@ export const Canvas: React.FC<CanvasProps> = ({
                   conn.type === "company"
                     ? {
                         stroke: "hsl(var(--connection-cross))",
-                        strokeWidth: conn.strength === 3 ? "2.5" : "2",
-                        dasharray: "6,4",
-                        opacity: "0.5",
+                        strokeWidth: "0.5",
+                        dasharray: undefined,
+                        opacity: "0.06",
                       }
-                    : { stroke: "hsl(var(--primary))", strokeWidth: "1.5", dasharray: "8,6", opacity: "0.35" };
+                    : { stroke: "hsl(var(--primary))", strokeWidth: "0.4", dasharray: undefined, opacity: "0.05" };
                 return (
                   <path
                     key={`xflow-${idx}`}
