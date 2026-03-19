@@ -1,47 +1,49 @@
 
 
-## Plano: Master View como na Referência (Galáxia Vibrante)
+## Plano: Refazer Visual do Master View — Galáxia 3D Limpa
 
-### Diagnóstico dos Problemas
-
-**Hover quebrando**: A animação de auto-rotação (linha 134) tem `hoveredNode` como dependência do `useEffect`, fazendo o loop de animação reiniciar a cada hover — causa flicker e instabilidade.
-
-**Visual muito apagado**: Nós max 6px e conexões com opacity 0.08 são praticamente invisíveis. A referência mostra nós grandes, brilhantes, com glow forte.
+### Problema Atual
+Os nós estão com glow excessivo (`r = displayRadius * 2.5` + `filter blur stdDeviation=8`) criando bolhas sobrepostas enormes. Combinado com tamanhos de 6-24px, o resultado é uma massa colorida ilegível.
 
 ### Mudanças — `src/components/Canvas.tsx`
 
-#### 1. Corrigir bug do hover (animação reiniciando)
-- Remover `hoveredNode` da lista de dependências do `useEffect` da animação (linha 134)
-- Usar `useRef` para `hoveredNode` dentro do loop de animação em vez de state direto
+#### 1. Reduzir drasticamente o glow filter
+- `stdDeviation` do filtro `glow-node`: de `8` → `3`
+- Adicionar novo filtro `glow-soft` com `stdDeviation=6` para o halo ambiente (mais leve)
 
-#### 2. Nós maiores e mais vibrantes (estilo referência)
-- Mudar tamanho base no master view de `3 + importance*3` (max 6px) para `6 + importance*18` (range: 6-24px)
-- Hubs (importance >= 0.5) ficam ainda maiores com glow forte
-- Glow circle permanente (não só no hover) para nós importantes — `opacity: 0.2 + importance*0.3`
+#### 2. Nós menores e mais nítidos
+- Tamanho master view: de `6 + importance * 18` (6-24px) → `3 + importance * 10` (3-13px)
+- Nós ficam como pontos de estrela, não bolhas
 
-#### 3. Conexões visíveis mas elegantes
-- Base opacity de 0.08 → 0.12
-- Hover opacity de 0.35 → 0.5
-- StrokeWidth base de 0.3 → 0.8
-- Cor das conexões: branco/cinza claro ao invés da cor do tema (mais parecido com a referência)
+#### 3. Glow halo muito mais sutil
+- Raio do halo: de `displayRadius * 2.5` → `displayRadius * 1.8`
+- Opacity do halo: de `0.15 + importance * 0.2` → `0.08 + importance * 0.12` (máx ~0.20)
+- Threshold: manter `importance >= 0.3`
 
-#### 4. Halo/glow permanente nos hubs
-- Adicionar circle com `filter="url(#glow-node)"` para nós com importance >= 0.3
-- Raio do glow proporcional à importância
-- Opacity do glow: `0.15 + importance * 0.2`
+#### 4. Parallax 3D baseado na importância
+- Criar 3 camadas de profundidade baseadas em `importance`:
+  - **Fundo** (importance < 0.3): escala 0.85, opacity reduzida, cor mais escura — se movem **menos** com a rotação
+  - **Meio** (0.3–0.6): escala 1.0, opacity normal — velocidade padrão
+  - **Frente** (> 0.6): escala 1.15, mais brilhantes — se movem **mais** com a rotação
+- Implementar no `getDisplayPos` do master view: aplicar offset de parallax multiplicando o ângulo de rotação por um fator de profundidade (`0.7`, `1.0`, `1.4`)
 
-#### 5. Hover mais suave
-- Escala hover de 2.5 → 1.8 (menos agressivo)
-- Transição suave com CSS transition mantida
-- Conexões do nó hovered destacam com strokeWidth 1.5 e opacity 0.4
+#### 5. Pulse ring mais discreto
+- Raio do pulse: de `displayRadius + 4 + pulse * 6` → `displayRadius + 2 + pulse * 3`
+- StrokeWidth: de `0.6` → `0.4`
+- Opacity: de `0.2 + pulse * 0.15` → `0.1 + pulse * 0.1`
+
+#### 6. Hover glow contido
+- Hover extra glow: de `displayRadius + 10` → `displayRadius + 5`
+- Opacity: de `0.3` → `0.15`
+- Hover scale: manter `1.8`
 
 ### Resultado Esperado
-- Nós coloridos grandes e brilhantes como "estrelas" na galáxia
-- Conexões visíveis como fios de luz entre os nós
-- Hover suave sem flicker
-- Visual similar à imagem de referência
+- Nós como estrelas com profundidade 3D real via parallax
+- Hubs importantes "flutuam na frente", nós menores ficam "atrás"
+- Glow sutil e elegante, sem sobreposição de bolhas
+- Rotação do globo cria efeito de profundidade com camadas movendo em velocidades diferentes
 
 ### Detalhes Técnicos
-- Arquivo: `src/components/Canvas.tsx`
-- Seções afetadas: useEffect animação (~linha 114-134), cálculo de nodeSize (~linha 966-968), renderização de nós (~linha 1014-1050), renderização de conexões (~linha 785-794)
+- Arquivo único: `src/components/Canvas.tsx`
+- Seções: filtro SVG defs (~510-517), cálculo nodeSize (~966-968), renderização de nós master (~1014-1060), `getDisplayPos` para parallax offset
 
