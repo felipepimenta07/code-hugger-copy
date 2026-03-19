@@ -168,8 +168,8 @@ export const MasterCanvas: React.FC<MasterCanvasProps> = ({
       .data(masterLinks)
       .join('line')
       .attr('stroke', d => CONNECTION_COLORS[d.connectionType] || 'hsl(220, 10%, 30%)')
-      .attr('stroke-opacity', 0.2)
-      .attr('stroke-width', 1);
+      .attr('stroke-opacity', 0.4)
+      .attr('stroke-width', 1.5);
 
     // Nodes group
     const nodeGroup = g.append('g').attr('class', 'nodes');
@@ -183,10 +183,10 @@ export const MasterCanvas: React.FC<MasterCanvasProps> = ({
     // Outer circle (glow ring)
     node.append('circle')
       .attr('r', 24)
-      .attr('fill', 'hsl(220, 20%, 6%)')
+      .attr('fill', 'hsl(220, 20%, 12%)')
       .attr('stroke', d => TYPE_STROKE[d.type] || '#94a3b8')
       .attr('stroke-width', 1.5)
-      .style('filter', d => `drop-shadow(0 0 4px ${TYPE_COLORS[d.type] || '#94a3b8'}40)`);
+      .style('filter', d => `drop-shadow(0 0 6px ${TYPE_COLORS[d.type] || '#94a3b8'}80)`);
 
     // Avatar images for person nodes with profile_picture_url
     node.filter(d => d.type === 'person' && !!d.profilePictureUrl)
@@ -204,7 +204,7 @@ export const MasterCanvas: React.FC<MasterCanvasProps> = ({
       .attr('r', 18)
       .attr('fill', d => {
         const c = TYPE_COLORS[d.type] || '#94a3b8';
-        return c.replace(')', ', 0.15)').replace('hsl(', 'hsla(');
+        return c.replace(')', ', 0.3)').replace('hsl(', 'hsla(');
       });
 
     // Initials text for fallback
@@ -223,8 +223,8 @@ export const MasterCanvas: React.FC<MasterCanvasProps> = ({
 
     labels.append('text')
       .attr('text-anchor', 'middle')
-      .attr('fill', 'hsl(0, 0%, 90%)')
-      .attr('font-size', '9px')
+      .attr('fill', 'hsl(0, 0%, 95%)')
+      .attr('font-size', '10px')
       .attr('font-weight', '500')
       .attr('pointer-events', 'none')
       .text(d => d.name.length > 14 ? d.name.substring(0, 12) + '…' : d.name);
@@ -303,14 +303,14 @@ export const MasterCanvas: React.FC<MasterCanvasProps> = ({
     const simulation = forceSimulation<MasterNode>(masterNodes)
       .force('link', forceLink<MasterNode, MasterLink>(masterLinks)
         .id(d => d.nodeRef)
-        .distance(120)
+        .distance(80)
         .strength(0.4)
       )
-      .force('charge', forceManyBody<MasterNode>().strength(-400))
+      .force('charge', forceManyBody<MasterNode>().strength(-150))
       .force('center', forceCenter(width / 2, height / 2))
-      .force('collision', forceCollide<MasterNode>().radius(50))
-      .force('x', forceX<MasterNode>(width / 2).strength(0.03))
-      .force('y', forceY<MasterNode>(height / 2).strength(0.03))
+      .force('collision', forceCollide<MasterNode>().radius(30))
+      .force('x', forceX<MasterNode>(width / 2).strength(0.08))
+      .force('y', forceY<MasterNode>(height / 2).strength(0.08))
       .alpha(0.8)
       .alphaDecay(0.02)
       .velocityDecay(0.4);
@@ -330,7 +330,6 @@ export const MasterCanvas: React.FC<MasterCanvasProps> = ({
     // Fit to screen after simulation stabilizes
     setTimeout(() => {
       simulation.alpha(0.05);
-      // Auto-fit zoom
       const bounds = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity };
       masterNodes.forEach(n => {
         if (n.x! < bounds.minX) bounds.minX = n.x!;
@@ -338,9 +337,9 @@ export const MasterCanvas: React.FC<MasterCanvasProps> = ({
         if (n.y! < bounds.minY) bounds.minY = n.y!;
         if (n.y! > bounds.maxY) bounds.maxY = n.y!;
       });
-      const bw = bounds.maxX - bounds.minX + 200;
-      const bh = bounds.maxY - bounds.minY + 200;
-      const scale = Math.min(width / bw, height / bh, 1.5) * 0.85;
+      const bw = bounds.maxX - bounds.minX + 100;
+      const bh = bounds.maxY - bounds.minY + 100;
+      const scale = Math.min(width / bw, height / bh, 2.0) * 0.9;
       const cx = (bounds.minX + bounds.maxX) / 2;
       const cy = (bounds.minY + bounds.maxY) / 2;
 
@@ -348,7 +347,7 @@ export const MasterCanvas: React.FC<MasterCanvasProps> = ({
         zoomBehavior.transform,
         zoomIdentity.translate(width / 2 - cx * scale, height / 2 - cy * scale).scale(scale)
       );
-    }, 2500);
+    }, 1500);
 
     return () => {
       simulation.stop();
