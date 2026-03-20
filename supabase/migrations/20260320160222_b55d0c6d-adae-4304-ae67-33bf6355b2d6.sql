@@ -1,0 +1,1 @@
+ALTER TABLE public.linkedin_contacts ADD CONSTRAINT linkedin_contacts_user_profile_unique UNIQUE (user_id, profile_url);
