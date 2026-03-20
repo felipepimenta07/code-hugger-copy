@@ -1,33 +1,26 @@
 
 
-## Plano: Corrigir Escuridão e Espaçamento do Master View
+## Plano: Edge Function `import-contacts`
 
-### Problemas Identificados
-1. **Escuro demais**: Links com opacidade 0.2, nós com fill quase preto, fallback circles com 15% de opacidade
-2. **Afastado demais**: Repulsão de -400, colisão raio 50, link distance 120 → auto-fit calcula scale(0.05) = nós invisíveis
+### Arquivo: `supabase/functions/import-contacts/index.ts`
 
-### Correções em `src/components/MasterCanvas.tsx`
+Nova edge function que:
+1. Valida CORS (OPTIONS handler)
+2. Autentica via Bearer token usando `createClient` + `auth.getUser()`
+3. Mapeia os campos do payload para as colunas da tabela `linkedin_contacts` (`name`, `headline` → `headline`, `profileUrl` → `profile_url`, `photoUrl` → `photo_url`, `connectedDate` → `connected_date`)
+4. Faz upsert com `ignoreDuplicates` usando `user_id` + `profile_url` como critério de unicidade (ou insert simples com `onConflict`)
+5. Retorna `{ imported: count }`
 
-#### 1. Reduzir forças de dispersão
-- `forceManyBody`: -400 → **-150**
-- `forceCollide`: radius 50 → **30**
-- `forceLink distance`: 120 → **80**
-- `forceX/forceY strength`: 0.03 → **0.08** (puxa mais ao centro)
+### Arquivo: `supabase/config.toml`
+- Adicionar `[functions.import-contacts]` com `verify_jwt = false` (validação no código)
 
-#### 2. Aumentar brilho visual
-- Links `stroke-opacity`: 0.2 → **0.4**
-- Links `stroke-width`: 1 → **1.5**
-- Outer circle fill: `hsl(220, 20%, 6%)` → **`hsl(220, 20%, 12%)`**
-- Fallback circle opacity: 0.15 → **0.3**
-- Glow drop-shadow: `4px` com `40` hex → **`6px`** com **`80`** hex
-- Labels name fill: 90% → **95%**, font-size 9px → **10px**
+### Nota sobre duplicatas
+A tabela `linkedin_contacts` não tem constraint unique em `(user_id, profile_url)`. Será necessária uma migration para adicionar `UNIQUE(user_id, profile_url)` para que o upsert com `onConflict` funcione. Alternativamente, usar insert simples com `ON CONFLICT DO NOTHING` via SQL direto.
 
-#### 3. Melhorar auto-fit
-- Padding bounds: 200 → **100** (menos margem desperdiçada)
-- Scale multiplier: 0.85 → **0.9**
-- Scale max: 1.5 → **2.0** (permite zoom mais próximo se rede for pequena)
-- Timeout: 2500ms → **1500ms** (simulação estabiliza mais rápido com forças menores)
+**Abordagem escolhida**: Criar migration com unique constraint em `(user_id, profile_url)`, depois usar `.upsert()` com `onConflict: 'user_id,profile_url'` e `ignoreDuplicates: true`.
 
-### Resultado
-Nós maiores, mais próximos, mais brilhantes. Auto-fit zoom adequado em vez de 0.05.
+### Arquivos
+1. Migration SQL: `ALTER TABLE linkedin_contacts ADD CONSTRAINT ... UNIQUE(user_id, profile_url)`
+2. `supabase/functions/import-contacts/index.ts` — a edge function
+3. `supabase/config.toml` — registrar a function
 
