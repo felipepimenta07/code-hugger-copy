@@ -175,6 +175,48 @@ export type Database = {
         }
         Relationships: []
       }
+      linkedin_contacts: {
+        Row: {
+          connected_date: string | null
+          empresa: string | null
+          headline: string | null
+          id: string
+          imported_at: string | null
+          name: string
+          nicho: string | null
+          photo_url: string | null
+          profile_url: string | null
+          source: string | null
+          user_id: string | null
+        }
+        Insert: {
+          connected_date?: string | null
+          empresa?: string | null
+          headline?: string | null
+          id?: string
+          imported_at?: string | null
+          name: string
+          nicho?: string | null
+          photo_url?: string | null
+          profile_url?: string | null
+          source?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          connected_date?: string | null
+          empresa?: string | null
+          headline?: string | null
+          id?: string
+          imported_at?: string | null
+          name?: string
+          nicho?: string | null
+          photo_url?: string | null
+          profile_url?: string | null
+          source?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       people: {
         Row: {
           address: string | null
