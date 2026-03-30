@@ -356,9 +356,12 @@ const Scene: React.FC<SceneProps> = ({ allNodes, allConnections, onNodeClick, on
       <OrbitControls
         enableDamping
         dampingFactor={0.1}
-        minDistance={10}
-        maxDistance={500}
+        enableZoom
+        zoomSpeed={1.2}
+        minDistance={5}
+        maxDistance={800}
         enablePan
+        enableRotate
         makeDefault
       />
       <Links3D nodes={simNodes} links={simLinks} />
