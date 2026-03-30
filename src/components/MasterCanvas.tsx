@@ -303,10 +303,10 @@ const Scene: React.FC<SceneProps> = ({ allNodes, allConnections, onNodeClick, on
     const masterNodes: MasterNode[] = allNodes
       .filter(n => n.flow_id != null)
       .map((n, idx) => {
-        // Spherical initial distribution
+        // Spherical initial distribution — ignore master_x/master_y (2D coords don't belong in 3D)
         const phi = Math.acos(2 * Math.random() - 1);
         const theta = Math.random() * Math.PI * 2;
-        const r = 5 + Math.random() * 4;
+        const r = 2 + Math.random() * 2;
         return {
           nodeRef: n.node_ref,
           name: n.name,
@@ -314,8 +314,8 @@ const Scene: React.FC<SceneProps> = ({ allNodes, allConnections, onNodeClick, on
           category: n.category || null,
           flowId: n.flow_id,
           profilePictureUrl: n.profile_picture_url || null,
-          x: n.master_x ?? (r * Math.sin(phi) * Math.cos(theta)),
-          y: n.master_y ?? (r * Math.sin(phi) * Math.sin(theta)),
+          x: r * Math.sin(phi) * Math.cos(theta),
+          y: r * Math.sin(phi) * Math.sin(theta),
           z: r * Math.cos(phi),
         } as MasterNode;
       });
