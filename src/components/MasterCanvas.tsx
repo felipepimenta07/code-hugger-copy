@@ -190,7 +190,7 @@ const Nodes3D: React.FC<Nodes3DProps> = ({
       onPointerOver={handlePointerOver}
       onPointerOut={handlePointerOut}
     >
-      <sphereGeometry args={[2.5, 16, 16]} />
+      <sphereGeometry args={[0.6, 12, 12]} />
       <meshBasicMaterial toneMapped={false} />
     </instancedMesh>
   );
