@@ -205,7 +205,7 @@ const NodeLabels: React.FC<{ nodes: MasterNode[]; hoveredRef: string | null; con
       {nodes.map(n => {
         const dimmed = hoveredRef && n.nodeRef !== hoveredRef && !connectedToHovered.has(n.nodeRef);
         return (
-          <group key={n.nodeRef} position={[n.x ?? 0, (n.y ?? 0) - 4, n.z ?? 0]}>
+          <group key={n.nodeRef} position={[n.x ?? 0, (n.y ?? 0) - 1.2, n.z ?? 0]}>
             <Html
               center
               distanceFactor={80}
