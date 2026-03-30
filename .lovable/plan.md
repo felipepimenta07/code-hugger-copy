@@ -1,34 +1,33 @@
 
 
-## Plano: Rede mais compacta + navegação livre (pan + zoom)
+## Plano: Nós compactos de verdade no Master View 3D
 
-### Problemas
-1. Flows muito espalhados — força de repulsão ainda forte demais para 336 nós
-2. Zoom com scroll existe mas não é suficiente para percorrer distâncias grandes
-3. Pan (deslocamento lateral) precisa funcionar com **click direito** ou **dois dedos**, não apenas rotação
+### Causa raiz
 
-### Mudanças em `src/components/MasterCanvas.tsx`
+O código usa `n.master_x` e `n.master_y` do banco de dados como posição inicial dos nós (linha 317-318). Esses valores são coordenadas do canvas 2D — na faixa de **200-600 pixels**. Resultado: nós começam a centenas de unidades de distância, e as forças fracas do d3-force-3d não conseguem puxar tudo para perto.
 
-#### 1. Forças ainda mais compactas
-- `forceManyBody().strength(-20)` → `strength(-8)` (repulsão mínima, rede bem densa)
-- `forceLink.distance(8)` → `distance(4)` e `strength(0.6)` (links mais curtos e fortes)
-- `forceCollide().radius(2)` → `radius(1.5)`
-- Raio inicial esférico: `10 + random * 8` → `5 + random * 4`
-- Adicionar `velocityDecay(0.5)` para estabilizar mais rápido
+### Correções em `src/components/MasterCanvas.tsx`
 
-#### 2. OrbitControls — pan habilitado com tecla
-- Adicionar `panSpeed={1.5}` para deslocamento mais rápido
-- Usar `mouseButtons` para mapear: botão esquerdo = rotação, botão direito = pan, scroll = zoom
-- Adicionar `touches` para mobile: um dedo = rotação, dois dedos = pan/zoom
+#### 1. Ignorar `master_x`/`master_y` na inicialização 3D
+- Sempre usar distribuição esférica com raio pequeno (`2 + random * 2`)
+- Essas coordenadas 2D não fazem sentido no espaço 3D
 
-#### 3. Câmera e auto-fit
-- Câmera inicial: `z=60` → `z=40` (ainda mais perto)
-- `CameraAutoFit`: multiplicador `1.8` → `1.4`, mínimo `40` → `25`
+#### 2. Forças mais agressivas para compactar
+- `forceManyBody().strength(-8)` → `strength(-3)` (repulsão mínima)
+- `forceLink.distance(4)` → `distance(2)` e `strength(0.8)`
+- `forceCollide().radius(1.5)` → `radius(0.8)`
+- `forceCenter` com `strength(0.15)` para puxar tudo ao centro
+
+#### 3. Nós menores visualmente
+- `sphereGeometry args={[2.5, 16, 16]}` → `args={[0.6, 12, 12]}` (esferas menores = mais espaço visual entre eles)
+
+#### 4. Câmera e auto-fit
+- Câmera inicial: `z=40` → `z=30`
+- Auto-fit multiplicador: `1.4` → `2.0` (garante que tudo caiba)
+- Mínimo: `25` → `15`
 
 ### Resultado
-- Rede aparece como uma nuvem densa e compacta
-- Scroll = zoom fluido
-- Click-drag esquerdo = rotação
-- Click-drag direito = pan (deslocar pelo mapa, ir de um lado pro outro)
-- Dois dedos no mobile = pan + pinch zoom
+- Todos os nós ficam numa nuvem esférica compacta de raio ~5-10 unidades
+- Conexões/links claramente visíveis entre nós próximos
+- Visual similar ao arquivo PLY de referência (pontos densos numa esfera)
 
