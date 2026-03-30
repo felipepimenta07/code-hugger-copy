@@ -213,9 +213,10 @@ const Nodes3D: React.FC<Nodes3DProps> = ({
     }
     clickTimerRef.current = setTimeout(() => {
       clickTimerRef.current = null;
+      setSelectedRef(node.nodeRef);
       onNodeClick(original);
     }, 280);
-  }, [nodes, allNodesRaw, onNodeClick, onNodeDoubleClick]);
+  }, [nodes, allNodesRaw, onNodeClick, onNodeDoubleClick, setSelectedRef]);
 
   const handlePointerOver = useCallback((e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation();
