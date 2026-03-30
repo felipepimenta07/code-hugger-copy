@@ -374,7 +374,17 @@ const Scene: React.FC<SceneProps> = ({ allNodes, allConnections, onNodeClick, on
         minDistance={2}
         maxDistance={500}
         enablePan
+        panSpeed={1.5}
         enableRotate
+        mouseButtons={{
+          LEFT: THREE.MOUSE.ROTATE,
+          MIDDLE: THREE.MOUSE.DOLLY,
+          RIGHT: THREE.MOUSE.PAN,
+        }}
+        touches={{
+          ONE: THREE.TOUCH.ROTATE,
+          TWO: THREE.TOUCH.DOLLY_PAN,
+        }}
         makeDefault
       />
       <CameraAutoFit nodes={simNodes} />
