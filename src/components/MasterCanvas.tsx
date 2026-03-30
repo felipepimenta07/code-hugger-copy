@@ -1,6 +1,7 @@
 import React, { useRef, useMemo, useEffect, useCallback, useState } from 'react';
 import { Canvas, useFrame, useThree, ThreeEvent } from '@react-three/fiber';
 import { OrbitControls, Stars, Html } from '@react-three/drei';
+import { EffectComposer, Bloom } from '@react-three/postprocessing';
 import * as THREE from 'three';
 import {
   forceSimulation,
@@ -8,24 +9,26 @@ import {
   forceCenter,
   forceCollide,
   forceLink,
-  forceX,
-  forceY,
-  type SimulationNodeDatum,
-  type SimulationLinkDatum,
-} from 'd3-force';
+} from 'd3-force-3d';
 
 // ---------- types ----------
-interface MasterNode extends SimulationNodeDatum {
+interface MasterNode {
   nodeRef: string;
   name: string;
   type: string;
   category: string | null;
   flowId: number | null;
   profilePictureUrl: string | null;
+  x?: number;
+  y?: number;
   z?: number;
+  vx?: number;
+  vy?: number;
+  vz?: number;
+  index?: number;
 }
 
-interface MasterLink extends SimulationLinkDatum<MasterNode> {
+interface MasterLink {
   source: string | MasterNode;
   target: string | MasterNode;
   connectionType: string;
@@ -56,13 +59,8 @@ const CONNECTION_COLORS: Record<string, THREE.Color> = {
 };
 const DEFAULT_LINK_COLOR = new THREE.Color('hsl(220, 10%, 30%)');
 
-function getInitials(name: string): string {
-  return name.split(' ').slice(0, 2).map(w => w[0] || '').join('').toUpperCase();
-}
-
 // ---------- Links3D ----------
 const Links3D: React.FC<{ nodes: MasterNode[]; links: MasterLink[] }> = ({ nodes, links }) => {
-  const lineRef = useRef<THREE.LineSegments>(null);
   const geomRef = useRef<THREE.BufferGeometry>(null);
 
   useFrame(() => {
@@ -94,7 +92,7 @@ const Links3D: React.FC<{ nodes: MasterNode[]; links: MasterLink[] }> = ({ nodes
   if (links.length === 0) return null;
 
   return (
-    <lineSegments ref={lineRef}>
+    <lineSegments>
       <bufferGeometry ref={geomRef}>
         <bufferAttribute attach="attributes-position" args={[posArray, 3]} count={links.length * 2} itemSize={3} />
         <bufferAttribute attach="attributes-color" args={[colorArray, 3]} count={links.length * 2} itemSize={3} />
@@ -131,7 +129,6 @@ const Nodes3D: React.FC<Nodes3DProps> = ({
       const n = nodes[i];
       _dummy.position.set(n.x ?? 0, n.y ?? 0, n.z ?? 0);
 
-      // Scale up hovered node
       const isHovered = n.nodeRef === hoveredRef;
       const isConnected = connectedToHovered.has(n.nodeRef);
       const dimmed = hoveredRef && !isHovered && !isConnected;
@@ -140,7 +137,6 @@ const Nodes3D: React.FC<Nodes3DProps> = ({
       _dummy.updateMatrix();
       meshRef.current.setMatrixAt(i, _dummy.matrix);
 
-      // Color
       const baseColor = TYPE_COLORS[n.type] || DEFAULT_COLOR;
       if (dimmed) {
         _color.copy(baseColor).multiplyScalar(0.15);
@@ -195,13 +191,7 @@ const Nodes3D: React.FC<Nodes3DProps> = ({
       onPointerOut={handlePointerOut}
     >
       <sphereGeometry args={[2.5, 16, 16]} />
-      <meshStandardMaterial
-        roughness={0.3}
-        metalness={0.1}
-        emissive="#ffffff"
-        emissiveIntensity={0.6}
-        toneMapped={false}
-      />
+      <meshBasicMaterial toneMapped={false} />
     </instancedMesh>
   );
 };
@@ -267,7 +257,7 @@ const CameraAutoFit: React.FC<{ nodes: MasterNode[] }> = ({ nodes }) => {
       if (d > maxDist) maxDist = d;
     }
     if (maxDist > 0) {
-      const z = Math.max(maxDist * 2.2, 60);
+      const z = Math.max(maxDist * 2.5, 80);
       camera.position.set(0, 0, z);
       camera.lookAt(0, 0, 0);
       fitted.current = true;
@@ -277,7 +267,7 @@ const CameraAutoFit: React.FC<{ nodes: MasterNode[] }> = ({ nodes }) => {
   return null;
 };
 
-// ---------- Scene (simulation + rendering) ----------
+// ---------- Scene ----------
 interface SceneProps {
   allNodes: any[];
   allConnections: any[];
@@ -293,7 +283,6 @@ const Scene: React.FC<SceneProps> = ({ allNodes, allConnections, onNodeClick, on
   const simulationRef = useRef<any>(null);
   const tickRef = useRef(0);
 
-  // Connected set for hover highlight
   const connectedToHovered = useMemo(() => {
     const s = new Set<string>();
     if (!hoveredRef) return s;
@@ -307,23 +296,29 @@ const Scene: React.FC<SceneProps> = ({ allNodes, allConnections, onNodeClick, on
     return s;
   }, [hoveredRef, simLinks]);
 
-  // Build and run simulation
+  // Build and run 3D simulation
   useEffect(() => {
     if (allNodes.length === 0) return;
 
     const masterNodes: MasterNode[] = allNodes
       .filter(n => n.flow_id != null)
-      .map((n, idx) => ({
-        nodeRef: n.node_ref,
-        name: n.name,
-        type: n.type,
-        category: n.category || null,
-        flowId: n.flow_id,
-        profilePictureUrl: n.profile_picture_url || null,
-        x: n.master_x ?? (Math.cos(idx * 2.399) * 40),
-        y: n.master_y ?? (Math.sin(idx * 2.399) * 40),
-        z: (Math.random() - 0.5) * 20,
-      } as MasterNode));
+      .map((n, idx) => {
+        // Spherical initial distribution
+        const phi = Math.acos(2 * Math.random() - 1);
+        const theta = Math.random() * Math.PI * 2;
+        const r = 30 + Math.random() * 20;
+        return {
+          nodeRef: n.node_ref,
+          name: n.name,
+          type: n.type,
+          category: n.category || null,
+          flowId: n.flow_id,
+          profilePictureUrl: n.profile_picture_url || null,
+          x: n.master_x ?? (r * Math.sin(phi) * Math.cos(theta)),
+          y: n.master_y ?? (r * Math.sin(phi) * Math.sin(theta)),
+          z: r * Math.cos(phi),
+        } as MasterNode;
+      });
 
     const nodeRefSet = new Set(masterNodes.map(n => n.nodeRef));
     const masterLinks: MasterLink[] = allConnections
@@ -337,14 +332,12 @@ const Scene: React.FC<SceneProps> = ({ allNodes, allConnections, onNodeClick, on
 
     if (simulationRef.current) simulationRef.current.stop();
 
-    const sim = forceSimulation<MasterNode>(masterNodes)
-      .force('link', forceLink<MasterNode, MasterLink>(masterLinks)
-        .id(d => d.nodeRef).distance(15).strength(0.4))
-      .force('charge', forceManyBody<MasterNode>().strength(-40))
-      .force('center', forceCenter(0, 0))
-      .force('collision', forceCollide<MasterNode>().radius(3))
-      .force('x', forceX<MasterNode>(0).strength(0.08))
-      .force('y', forceY<MasterNode>(0).strength(0.08))
+    const sim = forceSimulation(masterNodes, 3)
+      .force('link', forceLink(masterLinks)
+        .id((d: any) => d.nodeRef).distance(15).strength(0.4))
+      .force('charge', forceManyBody().strength(-40))
+      .force('center', forceCenter(0, 0, 0))
+      .force('collision', forceCollide().radius(3))
       .alpha(0.8)
       .alphaDecay(0.02)
       .velocityDecay(0.4);
@@ -371,10 +364,7 @@ const Scene: React.FC<SceneProps> = ({ allNodes, allConnections, onNodeClick, on
 
   return (
     <>
-      <ambientLight intensity={0.3} />
-      <pointLight position={[0, 0, 50]} intensity={1.5} color="#ffffff" />
-      <pointLight position={[50, -30, -20]} intensity={0.6} color="hsl(328, 86%, 61%)" />
-      <pointLight position={[-50, 30, -20]} intensity={0.6} color="hsl(258, 90%, 66%)" />
+      <ambientLight intensity={0.15} />
       <Stars radius={300} depth={100} count={3000} factor={4} saturation={0.2} fade speed={0.5} />
       <OrbitControls
         enableDamping
@@ -399,6 +389,14 @@ const Scene: React.FC<SceneProps> = ({ allNodes, allConnections, onNodeClick, on
         connectedToHovered={connectedToHovered}
       />
       <NodeLabels nodes={simNodes} hoveredRef={hoveredRef} connectedToHovered={connectedToHovered} />
+      <EffectComposer>
+        <Bloom
+          intensity={1.5}
+          luminanceThreshold={0}
+          luminanceSmoothing={0.4}
+          mipmapBlur
+        />
+      </EffectComposer>
     </>
   );
 };
