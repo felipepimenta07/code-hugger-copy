@@ -254,6 +254,29 @@ const NodeLabels: React.FC<{ nodes: MasterNode[]; hoveredRef: string | null; con
   );
 };
 
+// ---------- CameraAutoFit ----------
+const CameraAutoFit: React.FC<{ nodes: MasterNode[] }> = ({ nodes }) => {
+  const { camera } = useThree();
+  const fitted = useRef(false);
+
+  useEffect(() => {
+    if (nodes.length === 0 || fitted.current) return;
+    let maxDist = 0;
+    for (const n of nodes) {
+      const d = Math.sqrt((n.x ?? 0) ** 2 + (n.y ?? 0) ** 2 + (n.z ?? 0) ** 2);
+      if (d > maxDist) maxDist = d;
+    }
+    if (maxDist > 0) {
+      const z = Math.max(maxDist * 2.2, 60);
+      camera.position.set(0, 0, z);
+      camera.lookAt(0, 0, 0);
+      fitted.current = true;
+    }
+  }, [nodes, camera]);
+
+  return null;
+};
+
 // ---------- Scene (simulation + rendering) ----------
 interface SceneProps {
   allNodes: any[];
@@ -299,7 +322,7 @@ const Scene: React.FC<SceneProps> = ({ allNodes, allConnections, onNodeClick, on
         profilePictureUrl: n.profile_picture_url || null,
         x: n.master_x ?? (Math.cos(idx * 2.399) * 40),
         y: n.master_y ?? (Math.sin(idx * 2.399) * 40),
-        z: (Math.random() - 0.5) * 30,
+        z: (Math.random() - 0.5) * 20,
       } as MasterNode));
 
     const nodeRefSet = new Set(masterNodes.map(n => n.nodeRef));
@@ -316,12 +339,12 @@ const Scene: React.FC<SceneProps> = ({ allNodes, allConnections, onNodeClick, on
 
     const sim = forceSimulation<MasterNode>(masterNodes)
       .force('link', forceLink<MasterNode, MasterLink>(masterLinks)
-        .id(d => d.nodeRef).distance(25).strength(0.4))
-      .force('charge', forceManyBody<MasterNode>().strength(-80))
+        .id(d => d.nodeRef).distance(15).strength(0.4))
+      .force('charge', forceManyBody<MasterNode>().strength(-40))
       .force('center', forceCenter(0, 0))
-      .force('collision', forceCollide<MasterNode>().radius(5))
-      .force('x', forceX<MasterNode>(0).strength(0.05))
-      .force('y', forceY<MasterNode>(0).strength(0.05))
+      .force('collision', forceCollide<MasterNode>().radius(3))
+      .force('x', forceX<MasterNode>(0).strength(0.08))
+      .force('y', forceY<MasterNode>(0).strength(0.08))
       .alpha(0.8)
       .alphaDecay(0.02)
       .velocityDecay(0.4);
@@ -364,6 +387,7 @@ const Scene: React.FC<SceneProps> = ({ allNodes, allConnections, onNodeClick, on
         enableRotate
         makeDefault
       />
+      <CameraAutoFit nodes={simNodes} />
       <Links3D nodes={simNodes} links={simLinks} />
       <Nodes3D
         nodes={simNodes}
@@ -391,10 +415,9 @@ export const MasterCanvas: React.FC<MasterCanvasProps> = ({
     <div
       className="relative w-full h-full overflow-hidden"
       style={{ background: '#0a0b14', touchAction: 'none' }}
-      onWheel={(e) => e.stopPropagation()}
     >
       <Canvas
-        camera={{ position: [0, 0, 80], fov: 60, near: 0.1, far: 2000 }}
+        camera={{ position: [0, 0, 120], fov: 60, near: 0.1, far: 2000 }}
         gl={{ antialias: true, alpha: false }}
         style={{ width: '100%', height: '100%', touchAction: 'none' }}
         onCreated={({ gl }) => {
