@@ -257,7 +257,7 @@ const CameraAutoFit: React.FC<{ nodes: MasterNode[] }> = ({ nodes }) => {
       if (d > maxDist) maxDist = d;
     }
     if (maxDist > 0) {
-      const z = Math.max(maxDist * 1.8, 40);
+      const z = Math.max(maxDist * 1.4, 25);
       camera.position.set(0, 0, z);
       camera.lookAt(0, 0, 0);
       fitted.current = true;
@@ -306,7 +306,7 @@ const Scene: React.FC<SceneProps> = ({ allNodes, allConnections, onNodeClick, on
         // Spherical initial distribution
         const phi = Math.acos(2 * Math.random() - 1);
         const theta = Math.random() * Math.PI * 2;
-        const r = 10 + Math.random() * 8;
+        const r = 5 + Math.random() * 4;
         return {
           nodeRef: n.node_ref,
           name: n.name,
@@ -334,13 +334,13 @@ const Scene: React.FC<SceneProps> = ({ allNodes, allConnections, onNodeClick, on
 
     const sim = forceSimulation(masterNodes, 3)
       .force('link', forceLink(masterLinks)
-        .id((d: any) => d.nodeRef).distance(8).strength(0.4))
-      .force('charge', forceManyBody().strength(-20))
+        .id((d: any) => d.nodeRef).distance(4).strength(0.6))
+      .force('charge', forceManyBody().strength(-8))
       .force('center', forceCenter(0, 0, 0))
-      .force('collision', forceCollide().radius(2))
+      .force('collision', forceCollide().radius(1.5))
       .alpha(0.8)
       .alphaDecay(0.02)
-      .velocityDecay(0.4);
+      .velocityDecay(0.5);
 
     tickRef.current = 0;
 
@@ -374,7 +374,17 @@ const Scene: React.FC<SceneProps> = ({ allNodes, allConnections, onNodeClick, on
         minDistance={2}
         maxDistance={500}
         enablePan
+        panSpeed={1.5}
         enableRotate
+        mouseButtons={{
+          LEFT: THREE.MOUSE.ROTATE,
+          MIDDLE: THREE.MOUSE.DOLLY,
+          RIGHT: THREE.MOUSE.PAN,
+        }}
+        touches={{
+          ONE: THREE.TOUCH.ROTATE,
+          TWO: THREE.TOUCH.DOLLY_PAN,
+        }}
         makeDefault
       />
       <CameraAutoFit nodes={simNodes} />
@@ -415,7 +425,7 @@ export const MasterCanvas: React.FC<MasterCanvasProps> = ({
       style={{ background: '#0a0b14', touchAction: 'none' }}
     >
       <Canvas
-        camera={{ position: [0, 0, 60], fov: 60, near: 0.1, far: 2000 }}
+        camera={{ position: [0, 0, 40], fov: 60, near: 0.1, far: 2000 }}
         gl={{ antialias: true, alpha: false }}
         style={{ width: '100%', height: '100%', touchAction: 'none' }}
         onCreated={({ gl }) => {
