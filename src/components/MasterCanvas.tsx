@@ -253,7 +253,7 @@ const CameraAutoFit: React.FC<{ nodes: MasterNode[] }> = ({ nodes }) => {
       if (d > maxDist) maxDist = d;
     }
     if (maxDist > 0) {
-      const z = Math.max(maxDist * 2.4, 10);
+      const z = Math.max(maxDist * 2.0, 8);
       camera.position.set(0, 0, z);
       camera.lookAt(0, 0, 0);
       fitted.current = true;
@@ -330,10 +330,11 @@ const Scene: React.FC<SceneProps> = ({ allNodes, allConnections, onNodeClick, on
 
     const sim = forceSimulation(masterNodes, 3)
       .force('link', forceLink(masterLinks)
-        .id((d: any) => d.nodeRef).distance(2).strength(0.8))
-      .force('charge', forceManyBody().strength(-3))
-      .force('center', forceCenter(0, 0, 0).strength(0.15))
-      .force('collision', forceCollide().radius(0.8))
+        .id((d: any) => d.nodeRef).distance(1.2).strength(1))
+      .force('charge', forceManyBody().strength(-1.5).distanceMax(8))
+      .force('center', forceCenter(0, 0, 0).strength(0.4))
+      .force('radial', forceRadial(4, 0, 0, 0).strength(0.3))
+      .force('collision', forceCollide().radius(0.35).strength(0.9))
       .alpha(0.8)
       .alphaDecay(0.02)
       .velocityDecay(0.5);
@@ -421,7 +422,7 @@ export const MasterCanvas: React.FC<MasterCanvasProps> = ({
       style={{ background: '#0a0b14', touchAction: 'none' }}
     >
       <Canvas
-        camera={{ position: [0, 0, 18], fov: 55, near: 0.1, far: 2000 }}
+        camera={{ position: [0, 0, 14], fov: 55, near: 0.1, far: 2000 }}
         gl={{ antialias: true, alpha: false }}
         style={{ width: '100%', height: '100%', touchAction: 'none' }}
         onCreated={({ gl }) => {
