@@ -150,6 +150,7 @@ const _color = new THREE.Color();
 const Nodes3D: React.FC<Nodes3DProps> = ({
   nodes, allNodesRaw, onNodeClick, onNodeDoubleClick,
   hoveredRef, setHoveredRef, connectedToHovered,
+  selectedRef, setSelectedRef, connectedToSelected,
 }) => {
   const meshRef = useRef<THREE.InstancedMesh>(null);
   const clickTimerRef = useRef<any>(null);
@@ -161,19 +162,35 @@ const Nodes3D: React.FC<Nodes3DProps> = ({
       _dummy.position.set(n.x ?? 0, n.y ?? 0, n.z ?? 0);
 
       const isHovered = n.nodeRef === hoveredRef;
-      const isConnected = connectedToHovered.has(n.nodeRef);
-      const dimmed = hoveredRef && !isHovered && !isConnected;
-      const scale = isHovered ? 1.35 : 0.92;
+      const isSelected = n.nodeRef === selectedRef;
+      const isConnectedHover = connectedToHovered.has(n.nodeRef);
+      const isConnectedSelect = connectedToSelected.has(n.nodeRef);
+
+      const scale = isHovered || isSelected ? 1.35 : 0.92;
       _dummy.scale.setScalar(scale);
       _dummy.updateMatrix();
       meshRef.current.setMatrixAt(i, _dummy.matrix);
 
       const baseColor = TYPE_COLORS[n.type] || DEFAULT_COLOR;
-      if (dimmed) {
-        _color.copy(baseColor).multiplyScalar(0.15);
+
+      if (selectedRef) {
+        if (isSelected || isConnectedSelect) {
+          _color.copy(baseColor);
+        } else {
+          _color.copy(baseColor).multiplyScalar(0.12);
+        }
+      } else if (hoveredRef) {
+        if (isHovered) {
+          _color.copy(baseColor);
+        } else if (isConnectedHover) {
+          _color.copy(baseColor).multiplyScalar(0.8);
+        } else {
+          _color.copy(baseColor).multiplyScalar(0.15);
+        }
       } else {
-        _color.copy(baseColor);
+        _color.copy(baseColor).multiplyScalar(0.5);
       }
+
       meshRef.current.setColorAt(i, _color);
     }
     meshRef.current.instanceMatrix.needsUpdate = true;
