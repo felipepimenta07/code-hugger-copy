@@ -1,7 +1,7 @@
-import React, { useEffect, useRef, useCallback } from 'react';
-import { select, selectAll } from 'd3-selection';
-import { zoom as d3Zoom, zoomIdentity } from 'd3-zoom';
-import { drag as d3Drag } from 'd3-drag';
+import React, { useRef, useMemo, useEffect, useCallback, useState } from 'react';
+import { Canvas, useFrame, useThree, ThreeEvent } from '@react-three/fiber';
+import { OrbitControls, Stars, Html } from '@react-three/drei';
+import * as THREE from 'three';
 import {
   forceSimulation,
   forceManyBody,
@@ -14,6 +14,7 @@ import {
   type SimulationLinkDatum,
 } from 'd3-force';
 
+// ---------- types ----------
 interface MasterNode extends SimulationNodeDatum {
   nodeRef: string;
   name: string;
@@ -21,8 +22,7 @@ interface MasterNode extends SimulationNodeDatum {
   category: string | null;
   flowId: number | null;
   profilePictureUrl: string | null;
-  masterX: number | null;
-  masterY: number | null;
+  z?: number;
 }
 
 interface MasterLink extends SimulationLinkDatum<MasterNode> {
@@ -40,68 +40,267 @@ interface MasterCanvasProps {
   onNodeDoubleClick: (node: any) => void;
 }
 
-const TYPE_COLORS: Record<string, string> = {
-  person: 'hsl(328, 86%, 61%)',
-  project: 'hsl(158, 64%, 52%)',
-  brand: 'hsl(258, 90%, 66%)',
+// ---------- color maps ----------
+const TYPE_COLORS: Record<string, THREE.Color> = {
+  person: new THREE.Color('hsl(328, 86%, 61%)'),
+  project: new THREE.Color('hsl(158, 64%, 52%)'),
+  brand: new THREE.Color('hsl(258, 90%, 66%)'),
 };
+const DEFAULT_COLOR = new THREE.Color('#94a3b8');
 
-const TYPE_STROKE: Record<string, string> = {
-  person: 'hsl(328, 86%, 61%)',
-  project: 'hsl(158, 64%, 52%)',
-  brand: 'hsl(258, 90%, 66%)',
+const CONNECTION_COLORS: Record<string, THREE.Color> = {
+  strong: new THREE.Color('hsl(210, 100%, 56%)'),
+  weak: new THREE.Color('hsl(215, 16%, 47%)'),
+  'works-at': new THREE.Color('hsl(158, 64%, 52%)'),
+  related: new THREE.Color('hsl(220, 10%, 40%)'),
 };
-
-const CONNECTION_COLORS: Record<string, string> = {
-  strong: 'hsl(210, 100%, 56%)',
-  weak: 'hsl(215, 16%, 47%)',
-  'works-at': 'hsl(158, 64%, 52%)',
-  related: 'hsl(220, 10%, 40%)',
-};
+const DEFAULT_LINK_COLOR = new THREE.Color('hsl(220, 10%, 30%)');
 
 function getInitials(name: string): string {
-  return name
-    .split(' ')
-    .slice(0, 2)
-    .map(w => w[0] || '')
-    .join('')
-    .toUpperCase();
+  return name.split(' ').slice(0, 2).map(w => w[0] || '').join('').toUpperCase();
 }
 
-export const MasterCanvas: React.FC<MasterCanvasProps> = ({
-  allNodes,
-  allConnections,
-  flows,
-  onNodeClick,
-  onNodeDoubleClick,
-}) => {
-  const svgRef = useRef<SVGSVGElement>(null);
-  const simulationRef = useRef<any>(null);
-  const nodesDataRef = useRef<MasterNode[]>([]);
-  const linksDataRef = useRef<MasterLink[]>([]);
+// ---------- Links3D ----------
+const Links3D: React.FC<{ nodes: MasterNode[]; links: MasterLink[] }> = ({ nodes, links }) => {
+  const lineRef = useRef<THREE.LineSegments>(null);
+  const geomRef = useRef<THREE.BufferGeometry>(null);
 
-  // Map raw data to simulation-friendly format
-  const buildData = useCallback(() => {
+  useFrame(() => {
+    if (!geomRef.current || links.length === 0) return;
+    const positions = geomRef.current.getAttribute('position') as THREE.BufferAttribute;
+    if (!positions) return;
+
+    for (let i = 0; i < links.length; i++) {
+      const s = links[i].source as MasterNode;
+      const t = links[i].target as MasterNode;
+      positions.setXYZ(i * 2, s.x ?? 0, s.y ?? 0, s.z ?? 0);
+      positions.setXYZ(i * 2 + 1, t.x ?? 0, t.y ?? 0, t.z ?? 0);
+    }
+    positions.needsUpdate = true;
+    geomRef.current.computeBoundingSphere();
+  });
+
+  const { posArray, colorArray } = useMemo(() => {
+    const pos = new Float32Array(links.length * 6);
+    const col = new Float32Array(links.length * 6);
+    for (let i = 0; i < links.length; i++) {
+      const c = CONNECTION_COLORS[links[i].connectionType] || DEFAULT_LINK_COLOR;
+      col[i * 6] = c.r; col[i * 6 + 1] = c.g; col[i * 6 + 2] = c.b;
+      col[i * 6 + 3] = c.r; col[i * 6 + 4] = c.g; col[i * 6 + 5] = c.b;
+    }
+    return { posArray: pos, colorArray: col };
+  }, [links.length]);
+
+  if (links.length === 0) return null;
+
+  return (
+    <lineSegments ref={lineRef}>
+      <bufferGeometry ref={geomRef}>
+        <bufferAttribute attach="attributes-position" args={[posArray, 3]} count={links.length * 2} itemSize={3} />
+        <bufferAttribute attach="attributes-color" args={[colorArray, 3]} count={links.length * 2} itemSize={3} />
+      </bufferGeometry>
+      <lineBasicMaterial vertexColors transparent opacity={0.35} />
+    </lineSegments>
+  );
+};
+
+// ---------- Nodes3D (instanced) ----------
+interface Nodes3DProps {
+  nodes: MasterNode[];
+  allNodesRaw: any[];
+  onNodeClick: (node: any) => void;
+  onNodeDoubleClick: (node: any) => void;
+  hoveredRef: string | null;
+  setHoveredRef: (ref: string | null) => void;
+  connectedToHovered: Set<string>;
+}
+
+const _dummy = new THREE.Object3D();
+const _color = new THREE.Color();
+
+const Nodes3D: React.FC<Nodes3DProps> = ({
+  nodes, allNodesRaw, onNodeClick, onNodeDoubleClick,
+  hoveredRef, setHoveredRef, connectedToHovered,
+}) => {
+  const meshRef = useRef<THREE.InstancedMesh>(null);
+  const clickTimerRef = useRef<any>(null);
+
+  useFrame(() => {
+    if (!meshRef.current) return;
+    for (let i = 0; i < nodes.length; i++) {
+      const n = nodes[i];
+      _dummy.position.set(n.x ?? 0, n.y ?? 0, n.z ?? 0);
+
+      // Scale up hovered node
+      const isHovered = n.nodeRef === hoveredRef;
+      const isConnected = connectedToHovered.has(n.nodeRef);
+      const dimmed = hoveredRef && !isHovered && !isConnected;
+      const scale = isHovered ? 1.4 : 1.0;
+      _dummy.scale.setScalar(scale);
+      _dummy.updateMatrix();
+      meshRef.current.setMatrixAt(i, _dummy.matrix);
+
+      // Color
+      const baseColor = TYPE_COLORS[n.type] || DEFAULT_COLOR;
+      if (dimmed) {
+        _color.copy(baseColor).multiplyScalar(0.15);
+      } else {
+        _color.copy(baseColor);
+      }
+      meshRef.current.setColorAt(i, _color);
+    }
+    meshRef.current.instanceMatrix.needsUpdate = true;
+    if (meshRef.current.instanceColor) meshRef.current.instanceColor.needsUpdate = true;
+  });
+
+  const handlePointerDown = useCallback((e: ThreeEvent<PointerEvent>) => {
+    e.stopPropagation();
+    const idx = e.instanceId;
+    if (idx === undefined || idx >= nodes.length) return;
+    const node = nodes[idx];
+    const original = allNodesRaw.find((n: any) => n.node_ref === node.nodeRef);
+    if (!original) return;
+
+    if (clickTimerRef.current) {
+      clearTimeout(clickTimerRef.current);
+      clickTimerRef.current = null;
+      onNodeDoubleClick(original);
+      return;
+    }
+    clickTimerRef.current = setTimeout(() => {
+      clickTimerRef.current = null;
+      onNodeClick(original);
+    }, 280);
+  }, [nodes, allNodesRaw, onNodeClick, onNodeDoubleClick]);
+
+  const handlePointerOver = useCallback((e: ThreeEvent<PointerEvent>) => {
+    e.stopPropagation();
+    const idx = e.instanceId;
+    if (idx === undefined || idx >= nodes.length) return;
+    setHoveredRef(nodes[idx].nodeRef);
+  }, [nodes, setHoveredRef]);
+
+  const handlePointerOut = useCallback(() => {
+    setHoveredRef(null);
+  }, [setHoveredRef]);
+
+  if (nodes.length === 0) return null;
+
+  return (
+    <instancedMesh
+      ref={meshRef}
+      args={[undefined, undefined, nodes.length]}
+      onPointerDown={handlePointerDown}
+      onPointerOver={handlePointerOver}
+      onPointerOut={handlePointerOut}
+    >
+      <sphereGeometry args={[2.5, 16, 16]} />
+      <meshStandardMaterial
+        roughness={0.3}
+        metalness={0.1}
+        emissive="#ffffff"
+        emissiveIntensity={0.6}
+        toneMapped={false}
+      />
+    </instancedMesh>
+  );
+};
+
+// ---------- NodeLabels ----------
+const NodeLabels: React.FC<{ nodes: MasterNode[]; hoveredRef: string | null; connectedToHovered: Set<string> }> = ({
+  nodes, hoveredRef, connectedToHovered,
+}) => {
+  return (
+    <>
+      {nodes.map(n => {
+        const dimmed = hoveredRef && n.nodeRef !== hoveredRef && !connectedToHovered.has(n.nodeRef);
+        return (
+          <group key={n.nodeRef} position={[n.x ?? 0, (n.y ?? 0) - 4, n.z ?? 0]}>
+            <Html
+              center
+              distanceFactor={80}
+              style={{
+                pointerEvents: 'none',
+                opacity: dimmed ? 0.1 : 1,
+                transition: 'opacity 0.2s',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              <div style={{ textAlign: 'center', userSelect: 'none' }}>
+                <div style={{
+                  color: 'hsl(0, 0%, 95%)',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  textShadow: '0 1px 4px rgba(0,0,0,0.8)',
+                }}>
+                  {n.name.length > 16 ? n.name.substring(0, 14) + '…' : n.name}
+                </div>
+                {n.category && (
+                  <div style={{
+                    color: 'hsl(220, 10%, 55%)',
+                    fontSize: '9px',
+                    marginTop: '1px',
+                    textShadow: '0 1px 3px rgba(0,0,0,0.6)',
+                  }}>
+                    {n.category}
+                  </div>
+                )}
+              </div>
+            </Html>
+          </group>
+        );
+      })}
+    </>
+  );
+};
+
+// ---------- Scene (simulation + rendering) ----------
+interface SceneProps {
+  allNodes: any[];
+  allConnections: any[];
+  flows: any[];
+  onNodeClick: (node: any) => void;
+  onNodeDoubleClick: (node: any) => void;
+}
+
+const Scene: React.FC<SceneProps> = ({ allNodes, allConnections, onNodeClick, onNodeDoubleClick }) => {
+  const [simNodes, setSimNodes] = useState<MasterNode[]>([]);
+  const [simLinks, setSimLinks] = useState<MasterLink[]>([]);
+  const [hoveredRef, setHoveredRef] = useState<string | null>(null);
+  const simulationRef = useRef<any>(null);
+  const tickRef = useRef(0);
+
+  // Connected set for hover highlight
+  const connectedToHovered = useMemo(() => {
+    const s = new Set<string>();
+    if (!hoveredRef) return s;
+    s.add(hoveredRef);
+    simLinks.forEach(l => {
+      const sRef = typeof l.source === 'string' ? l.source : l.source.nodeRef;
+      const tRef = typeof l.target === 'string' ? l.target : l.target.nodeRef;
+      if (sRef === hoveredRef) s.add(tRef);
+      if (tRef === hoveredRef) s.add(sRef);
+    });
+    return s;
+  }, [hoveredRef, simLinks]);
+
+  // Build and run simulation
+  useEffect(() => {
+    if (allNodes.length === 0) return;
+
     const masterNodes: MasterNode[] = allNodes
       .filter(n => n.flow_id != null)
-      .map(n => {
-        // Preserve existing positions from prior simulation
-        const existing = nodesDataRef.current.find(e => e.nodeRef === n.node_ref);
-        return {
-          nodeRef: n.node_ref,
-          name: n.name,
-          type: n.type,
-          category: n.category || null,
-          flowId: n.flow_id,
-          profilePictureUrl: n.profile_picture_url || null,
-          masterX: n.master_x,
-          masterY: n.master_y,
-          x: existing?.x ?? n.master_x ?? n.x ?? 0,
-          y: existing?.y ?? n.master_y ?? n.y ?? 0,
-          vx: existing?.vx ?? 0,
-          vy: existing?.vy ?? 0,
-        } as MasterNode;
-      });
+      .map((n, idx) => ({
+        nodeRef: n.node_ref,
+        name: n.name,
+        type: n.type,
+        category: n.category || null,
+        flowId: n.flow_id,
+        profilePictureUrl: n.profile_picture_url || null,
+        x: n.master_x ?? (Math.cos(idx * 2.399) * 40),
+        y: n.master_y ?? (Math.sin(idx * 2.399) * 40),
+        z: (Math.random() - 0.5) * 30,
+      } as MasterNode));
 
     const nodeRefSet = new Set(masterNodes.map(n => n.nodeRef));
     const masterLinks: MasterLink[] = allConnections
@@ -113,269 +312,98 @@ export const MasterCanvas: React.FC<MasterCanvasProps> = ({
         id: c.id,
       }));
 
-    return { masterNodes, masterLinks };
-  }, [allNodes, allConnections]);
+    if (simulationRef.current) simulationRef.current.stop();
 
-  useEffect(() => {
-    if (!svgRef.current || allNodes.length === 0) return;
-
-    const width = svgRef.current.clientWidth || window.innerWidth;
-    const height = svgRef.current.clientHeight || window.innerHeight;
-
-    const svg = select(svgRef.current);
-    svg.selectAll('*').remove();
-
-    // Defs for clip paths and filters
-    const defs = svg.append('defs');
-
-    // Container for zoom/pan
-    const g = svg.append('g');
-
-    // Background rect for pan
-    g.append('rect')
-      .attr('width', 20000)
-      .attr('height', 20000)
-      .attr('x', -10000)
-      .attr('y', -10000)
-      .attr('fill', 'transparent');
-
-    // Zoom behavior
-    const zoomBehavior = d3Zoom<SVGSVGElement, unknown>()
-      .scaleExtent([0.05, 4])
-      .on('zoom', (event) => {
-        g.attr('transform', event.transform);
-      });
-
-    svg.call(zoomBehavior);
-
-    // Build data
-    const { masterNodes, masterLinks } = buildData();
-    nodesDataRef.current = masterNodes;
-    linksDataRef.current = masterLinks;
-
-    // Create clip paths for each node
-    masterNodes.forEach(n => {
-      defs.append('clipPath')
-        .attr('id', `master-clip-${n.nodeRef.replace(/:/g, '-')}`)
-        .append('circle')
-        .attr('r', 20);
-    });
-
-    // Links group
-    const linkGroup = g.append('g').attr('class', 'links');
-    const link = linkGroup
-      .selectAll('line')
-      .data(masterLinks)
-      .join('line')
-      .attr('stroke', d => CONNECTION_COLORS[d.connectionType] || 'hsl(220, 10%, 30%)')
-      .attr('stroke-opacity', 0.4)
-      .attr('stroke-width', 1.5);
-
-    // Nodes group
-    const nodeGroup = g.append('g').attr('class', 'nodes');
-    const node = nodeGroup
-      .selectAll<SVGGElement, MasterNode>('g')
-      .data(masterNodes, d => d.nodeRef)
-      .join('g')
-      .attr('class', 'master-node')
-      .style('cursor', 'pointer');
-
-    // Outer circle (glow ring)
-    node.append('circle')
-      .attr('r', 24)
-      .attr('fill', 'hsl(220, 20%, 12%)')
-      .attr('stroke', d => TYPE_STROKE[d.type] || '#94a3b8')
-      .attr('stroke-width', 1.5)
-      .style('filter', d => `drop-shadow(0 0 6px ${TYPE_COLORS[d.type] || '#94a3b8'}80)`);
-
-    // Avatar images for person nodes with profile_picture_url
-    node.filter(d => d.type === 'person' && !!d.profilePictureUrl)
-      .append('image')
-      .attr('xlink:href', d => d.profilePictureUrl!)
-      .attr('x', -20)
-      .attr('y', -20)
-      .attr('width', 40)
-      .attr('height', 40)
-      .attr('clip-path', d => `url(#master-clip-${d.nodeRef.replace(/:/g, '-')})`);
-
-    // Fallback circles for nodes without avatar
-    node.filter(d => d.type !== 'person' || !d.profilePictureUrl)
-      .append('circle')
-      .attr('r', 18)
-      .attr('fill', d => {
-        const c = TYPE_COLORS[d.type] || '#94a3b8';
-        return c.replace(')', ', 0.3)').replace('hsl(', 'hsla(');
-      });
-
-    // Initials text for fallback
-    node.filter(d => d.type !== 'person' || !d.profilePictureUrl)
-      .append('text')
-      .attr('text-anchor', 'middle')
-      .attr('dominant-baseline', 'central')
-      .attr('fill', d => TYPE_COLORS[d.type] || '#94a3b8')
-      .attr('font-size', '11px')
-      .attr('font-weight', '600')
-      .attr('pointer-events', 'none')
-      .text(d => getInitials(d.name));
-
-    // Labels
-    const labels = node.append('g').attr('transform', 'translate(0, 34)');
-
-    labels.append('text')
-      .attr('text-anchor', 'middle')
-      .attr('fill', 'hsl(0, 0%, 95%)')
-      .attr('font-size', '10px')
-      .attr('font-weight', '500')
-      .attr('pointer-events', 'none')
-      .text(d => d.name.length > 14 ? d.name.substring(0, 12) + '…' : d.name);
-
-    labels.append('text')
-      .attr('text-anchor', 'middle')
-      .attr('fill', 'hsl(220, 10%, 45%)')
-      .attr('font-size', '8px')
-      .attr('dy', '12px')
-      .attr('pointer-events', 'none')
-      .text(d => d.category || '');
-
-    // Click handlers
-    let clickTimer: any = null;
-    node.on('click', (event, d) => {
-      event.stopPropagation();
-      if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; return; }
-      clickTimer = setTimeout(() => {
-        clickTimer = null;
-        const originalNode = allNodes.find(n => n.node_ref === d.nodeRef);
-        if (originalNode) onNodeClick(originalNode);
-      }, 250);
-    });
-
-    node.on('dblclick', (event, d) => {
-      event.stopPropagation();
-      if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; }
-      const originalNode = allNodes.find(n => n.node_ref === d.nodeRef);
-      if (originalNode) onNodeDoubleClick(originalNode);
-    });
-
-    // Hover highlight
-    node.on('mouseenter', (event, d) => {
-      const connectedRefs = new Set<string>();
-      connectedRefs.add(d.nodeRef);
-      masterLinks.forEach(l => {
-        const sRef = typeof l.source === 'string' ? l.source : l.source.nodeRef;
-        const tRef = typeof l.target === 'string' ? l.target : l.target.nodeRef;
-        if (sRef === d.nodeRef) connectedRefs.add(tRef);
-        if (tRef === d.nodeRef) connectedRefs.add(sRef);
-      });
-
-      node.style('opacity', n => connectedRefs.has(n.nodeRef) ? 1 : 0.15);
-      link.style('opacity', l => {
-        const sRef = typeof l.source === 'string' ? l.source : (l.source as MasterNode).nodeRef;
-        const tRef = typeof l.target === 'string' ? l.target : (l.target as MasterNode).nodeRef;
-        return sRef === d.nodeRef || tRef === d.nodeRef ? 0.6 : 0.03;
-      });
-    });
-
-    node.on('mouseleave', () => {
-      node.style('opacity', 1);
-      link.style('opacity', null).attr('stroke-opacity', 0.2);
-    });
-
-    // Drag behavior
-    const dragBehavior = d3Drag<SVGGElement, MasterNode>()
-      .on('start', (event) => {
-        if (!event.active) simulation.alphaTarget(0.3).restart();
-        event.subject.fx = event.subject.x;
-        event.subject.fy = event.subject.y;
-      })
-      .on('drag', (event) => {
-        event.subject.fx = event.x;
-        event.subject.fy = event.y;
-      })
-      .on('end', (event) => {
-        if (!event.active) simulation.alphaTarget(0);
-        event.subject.fx = null;
-        event.subject.fy = null;
-      });
-
-    node.call(dragBehavior as any);
-
-    // Force simulation
-    const simulation = forceSimulation<MasterNode>(masterNodes)
+    const sim = forceSimulation<MasterNode>(masterNodes)
       .force('link', forceLink<MasterNode, MasterLink>(masterLinks)
-        .id(d => d.nodeRef)
-        .distance(80)
-        .strength(0.4)
-      )
-      .force('charge', forceManyBody<MasterNode>().strength(-150))
-      .force('center', forceCenter(width / 2, height / 2))
-      .force('collision', forceCollide<MasterNode>().radius(30))
-      .force('x', forceX<MasterNode>(width / 2).strength(0.08))
-      .force('y', forceY<MasterNode>(height / 2).strength(0.08))
+        .id(d => d.nodeRef).distance(25).strength(0.4))
+      .force('charge', forceManyBody<MasterNode>().strength(-80))
+      .force('center', forceCenter(0, 0))
+      .force('collision', forceCollide<MasterNode>().radius(5))
+      .force('x', forceX<MasterNode>(0).strength(0.05))
+      .force('y', forceY<MasterNode>(0).strength(0.05))
       .alpha(0.8)
       .alphaDecay(0.02)
       .velocityDecay(0.4);
 
-    simulation.on('tick', () => {
-      link
-        .attr('x1', d => (d.source as MasterNode).x!)
-        .attr('y1', d => (d.source as MasterNode).y!)
-        .attr('x2', d => (d.target as MasterNode).x!)
-        .attr('y2', d => (d.target as MasterNode).y!);
+    tickRef.current = 0;
 
-      node.attr('transform', d => `translate(${d.x},${d.y})`);
+    sim.on('tick', () => {
+      tickRef.current++;
+      if (tickRef.current % 3 === 0 || tickRef.current < 15) {
+        setSimNodes([...masterNodes]);
+        setSimLinks([...masterLinks]);
+      }
     });
 
-    simulationRef.current = simulation;
+    sim.on('end', () => {
+      setSimNodes([...masterNodes]);
+      setSimLinks([...masterLinks]);
+    });
 
-    // Fit to screen after simulation stabilizes
-    setTimeout(() => {
-      simulation.alpha(0.05);
-      const bounds = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity };
-      masterNodes.forEach(n => {
-        if (n.x! < bounds.minX) bounds.minX = n.x!;
-        if (n.x! > bounds.maxX) bounds.maxX = n.x!;
-        if (n.y! < bounds.minY) bounds.minY = n.y!;
-        if (n.y! > bounds.maxY) bounds.maxY = n.y!;
-      });
-      const bw = bounds.maxX - bounds.minX + 100;
-      const bh = bounds.maxY - bounds.minY + 100;
-      const scale = Math.min(width / bw, height / bh, 2.0) * 0.9;
-      const cx = (bounds.minX + bounds.maxX) / 2;
-      const cy = (bounds.minY + bounds.maxY) / 2;
+    simulationRef.current = sim;
 
-      svg.call(
-        zoomBehavior.transform,
-        zoomIdentity.translate(width / 2 - cx * scale, height / 2 - cy * scale).scale(scale)
-      );
-    }, 1500);
-
-    return () => {
-      simulation.stop();
-    };
-  }, [allNodes.length, allConnections.length, flows.length]);
+    return () => { sim.stop(); };
+  }, [allNodes.length, allConnections.length]);
 
   return (
-    <div className="relative w-full h-full overflow-hidden" style={{ background: 'hsl(220, 20%, 4%)' }}>
-      {/* Subtle grid pattern */}
-      <div
-        className="absolute inset-0 opacity-[0.03] pointer-events-none"
-        style={{
-          backgroundImage: `
-            linear-gradient(hsl(220, 10%, 40%) 1px, transparent 1px),
-            linear-gradient(90deg, hsl(220, 10%, 40%) 1px, transparent 1px)
-          `,
-          backgroundSize: '60px 60px',
-        }}
+    <>
+      <ambientLight intensity={0.3} />
+      <pointLight position={[0, 0, 50]} intensity={1.5} color="#ffffff" />
+      <pointLight position={[50, -30, -20]} intensity={0.6} color="hsl(328, 86%, 61%)" />
+      <pointLight position={[-50, 30, -20]} intensity={0.6} color="hsl(258, 90%, 66%)" />
+      <Stars radius={300} depth={100} count={3000} factor={4} saturation={0.2} fade speed={0.5} />
+      <OrbitControls
+        enableDamping
+        dampingFactor={0.1}
+        minDistance={10}
+        maxDistance={500}
+        enablePan
+        makeDefault
       />
-      <svg ref={svgRef} className="w-full h-full" />
-      {/* Node hover CSS */}
-      <style>{`
-        .master-node:hover circle:first-child {
-          stroke-width: 3px;
-          filter: drop-shadow(0 0 10px currentColor) !important;
-          transition: all 0.15s ease;
-        }
-      `}</style>
+      <Links3D nodes={simNodes} links={simLinks} />
+      <Nodes3D
+        nodes={simNodes}
+        allNodesRaw={allNodes}
+        onNodeClick={onNodeClick}
+        onNodeDoubleClick={onNodeDoubleClick}
+        hoveredRef={hoveredRef}
+        setHoveredRef={setHoveredRef}
+        connectedToHovered={connectedToHovered}
+      />
+      <NodeLabels nodes={simNodes} hoveredRef={hoveredRef} connectedToHovered={connectedToHovered} />
+    </>
+  );
+};
+
+// ---------- Main component ----------
+export const MasterCanvas: React.FC<MasterCanvasProps> = ({
+  allNodes,
+  allConnections,
+  flows,
+  onNodeClick,
+  onNodeDoubleClick,
+}) => {
+  return (
+    <div className="relative w-full h-full overflow-hidden" style={{ background: '#0a0b14' }}>
+      <Canvas
+        camera={{ position: [0, 0, 80], fov: 60, near: 0.1, far: 2000 }}
+        gl={{ antialias: true, alpha: false }}
+        style={{ width: '100%', height: '100%' }}
+        onCreated={({ gl }) => {
+          gl.setClearColor('#0a0b14');
+          gl.toneMapping = THREE.ACESFilmicToneMapping;
+          gl.toneMappingExposure = 1.2;
+        }}
+      >
+        <Scene
+          allNodes={allNodes}
+          allConnections={allConnections}
+          flows={flows}
+          onNodeClick={onNodeClick}
+          onNodeDoubleClick={onNodeDoubleClick}
+        />
+      </Canvas>
     </div>
   );
 };
