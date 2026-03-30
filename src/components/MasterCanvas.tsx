@@ -61,22 +61,49 @@ const CONNECTION_COLORS: Record<string, THREE.Color> = {
 const DEFAULT_LINK_COLOR = new THREE.Color('hsl(220, 10%, 30%)');
 
 // ---------- Links3D ----------
-const Links3D: React.FC<{ nodes: MasterNode[]; links: MasterLink[] }> = ({ nodes, links }) => {
+interface Links3DProps {
+  nodes: MasterNode[];
+  links: MasterLink[];
+  selectedRef: string | null;
+  connectedToSelected: Set<string>;
+}
+
+const Links3D: React.FC<Links3DProps> = ({ nodes, links, selectedRef, connectedToSelected }) => {
   const geomRef = useRef<THREE.BufferGeometry>(null);
+  const matRef = useRef<THREE.LineBasicMaterial>(null);
 
   useFrame(() => {
     if (!geomRef.current || links.length === 0) return;
     const positions = geomRef.current.getAttribute('position') as THREE.BufferAttribute;
-    if (!positions) return;
+    const colors = geomRef.current.getAttribute('color') as THREE.BufferAttribute;
+    if (!positions || !colors) return;
 
     for (let i = 0; i < links.length; i++) {
       const s = links[i].source as MasterNode;
       const t = links[i].target as MasterNode;
       positions.setXYZ(i * 2, s.x ?? 0, s.y ?? 0, s.z ?? 0);
       positions.setXYZ(i * 2 + 1, t.x ?? 0, t.y ?? 0, t.z ?? 0);
+
+      const baseC = CONNECTION_COLORS[links[i].connectionType] || DEFAULT_LINK_COLOR;
+      if (selectedRef) {
+        const sRef = s.nodeRef;
+        const tRef = t.nodeRef;
+        const isSelected = connectedToSelected.has(sRef) && connectedToSelected.has(tRef);
+        const mult = isSelected ? 1.0 : 0.06;
+        colors.setXYZ(i * 2, baseC.r * mult, baseC.g * mult, baseC.b * mult);
+        colors.setXYZ(i * 2 + 1, baseC.r * mult, baseC.g * mult, baseC.b * mult);
+      } else {
+        colors.setXYZ(i * 2, baseC.r * 0.5, baseC.g * 0.5, baseC.b * 0.5);
+        colors.setXYZ(i * 2 + 1, baseC.r * 0.5, baseC.g * 0.5, baseC.b * 0.5);
+      }
     }
     positions.needsUpdate = true;
+    colors.needsUpdate = true;
     geomRef.current.computeBoundingSphere();
+
+    if (matRef.current) {
+      matRef.current.opacity = selectedRef ? 0.7 : 0.3;
+    }
   });
 
   const { posArray, colorArray } = useMemo(() => {
@@ -84,8 +111,8 @@ const Links3D: React.FC<{ nodes: MasterNode[]; links: MasterLink[] }> = ({ nodes
     const col = new Float32Array(links.length * 6);
     for (let i = 0; i < links.length; i++) {
       const c = CONNECTION_COLORS[links[i].connectionType] || DEFAULT_LINK_COLOR;
-      col[i * 6] = c.r; col[i * 6 + 1] = c.g; col[i * 6 + 2] = c.b;
-      col[i * 6 + 3] = c.r; col[i * 6 + 4] = c.g; col[i * 6 + 5] = c.b;
+      col[i * 6] = c.r * 0.5; col[i * 6 + 1] = c.g * 0.5; col[i * 6 + 2] = c.b * 0.5;
+      col[i * 6 + 3] = c.r * 0.5; col[i * 6 + 4] = c.g * 0.5; col[i * 6 + 5] = c.b * 0.5;
     }
     return { posArray: pos, colorArray: col };
   }, [links.length]);
@@ -98,7 +125,7 @@ const Links3D: React.FC<{ nodes: MasterNode[]; links: MasterLink[] }> = ({ nodes
         <bufferAttribute attach="attributes-position" args={[posArray, 3]} count={links.length * 2} itemSize={3} />
         <bufferAttribute attach="attributes-color" args={[colorArray, 3]} count={links.length * 2} itemSize={3} />
       </bufferGeometry>
-      <lineBasicMaterial vertexColors transparent opacity={0.35} />
+      <lineBasicMaterial ref={matRef} vertexColors transparent opacity={0.3} />
     </lineSegments>
   );
 };
@@ -112,6 +139,9 @@ interface Nodes3DProps {
   hoveredRef: string | null;
   setHoveredRef: (ref: string | null) => void;
   connectedToHovered: Set<string>;
+  selectedRef: string | null;
+  setSelectedRef: (ref: string | null) => void;
+  connectedToSelected: Set<string>;
 }
 
 const _dummy = new THREE.Object3D();
@@ -120,6 +150,7 @@ const _color = new THREE.Color();
 const Nodes3D: React.FC<Nodes3DProps> = ({
   nodes, allNodesRaw, onNodeClick, onNodeDoubleClick,
   hoveredRef, setHoveredRef, connectedToHovered,
+  selectedRef, setSelectedRef, connectedToSelected,
 }) => {
   const meshRef = useRef<THREE.InstancedMesh>(null);
   const clickTimerRef = useRef<any>(null);
@@ -131,19 +162,35 @@ const Nodes3D: React.FC<Nodes3DProps> = ({
       _dummy.position.set(n.x ?? 0, n.y ?? 0, n.z ?? 0);
 
       const isHovered = n.nodeRef === hoveredRef;
-      const isConnected = connectedToHovered.has(n.nodeRef);
-      const dimmed = hoveredRef && !isHovered && !isConnected;
-      const scale = isHovered ? 1.35 : 0.92;
+      const isSelected = n.nodeRef === selectedRef;
+      const isConnectedHover = connectedToHovered.has(n.nodeRef);
+      const isConnectedSelect = connectedToSelected.has(n.nodeRef);
+
+      const scale = isHovered || isSelected ? 1.35 : 0.92;
       _dummy.scale.setScalar(scale);
       _dummy.updateMatrix();
       meshRef.current.setMatrixAt(i, _dummy.matrix);
 
       const baseColor = TYPE_COLORS[n.type] || DEFAULT_COLOR;
-      if (dimmed) {
-        _color.copy(baseColor).multiplyScalar(0.15);
+
+      if (selectedRef) {
+        if (isSelected || isConnectedSelect) {
+          _color.copy(baseColor);
+        } else {
+          _color.copy(baseColor).multiplyScalar(0.12);
+        }
+      } else if (hoveredRef) {
+        if (isHovered) {
+          _color.copy(baseColor);
+        } else if (isConnectedHover) {
+          _color.copy(baseColor).multiplyScalar(0.8);
+        } else {
+          _color.copy(baseColor).multiplyScalar(0.15);
+        }
       } else {
-        _color.copy(baseColor);
+        _color.copy(baseColor).multiplyScalar(0.5);
       }
+
       meshRef.current.setColorAt(i, _color);
     }
     meshRef.current.instanceMatrix.needsUpdate = true;
@@ -166,9 +213,10 @@ const Nodes3D: React.FC<Nodes3DProps> = ({
     }
     clickTimerRef.current = setTimeout(() => {
       clickTimerRef.current = null;
+      setSelectedRef(node.nodeRef);
       onNodeClick(original);
     }, 280);
-  }, [nodes, allNodesRaw, onNodeClick, onNodeDoubleClick]);
+  }, [nodes, allNodesRaw, onNodeClick, onNodeDoubleClick, setSelectedRef]);
 
   const handlePointerOver = useCallback((e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation();
@@ -276,21 +324,29 @@ const Scene: React.FC<SceneProps> = ({ allNodes, allConnections, onNodeClick, on
   const [simNodes, setSimNodes] = useState<MasterNode[]>([]);
   const [simLinks, setSimLinks] = useState<MasterLink[]>([]);
   const [hoveredRef, setHoveredRef] = useState<string | null>(null);
+  const [selectedRef, setSelectedRef] = useState<string | null>(null);
   const simulationRef = useRef<any>(null);
   const tickRef = useRef(0);
 
-  const connectedToHovered = useMemo(() => {
+  const buildConnectedSet = useCallback((ref: string | null) => {
     const s = new Set<string>();
-    if (!hoveredRef) return s;
-    s.add(hoveredRef);
+    if (!ref) return s;
+    s.add(ref);
     simLinks.forEach(l => {
       const sRef = typeof l.source === 'string' ? l.source : l.source.nodeRef;
       const tRef = typeof l.target === 'string' ? l.target : l.target.nodeRef;
-      if (sRef === hoveredRef) s.add(tRef);
-      if (tRef === hoveredRef) s.add(sRef);
+      if (sRef === ref) s.add(tRef);
+      if (tRef === ref) s.add(sRef);
     });
     return s;
-  }, [hoveredRef, simLinks]);
+  }, [simLinks]);
+
+  const connectedToHovered = useMemo(() => buildConnectedSet(hoveredRef), [hoveredRef, buildConnectedSet]);
+  const connectedToSelected = useMemo(() => buildConnectedSet(selectedRef), [selectedRef, buildConnectedSet]);
+
+  const handleCanvasPointerMissed = useCallback(() => {
+    setSelectedRef(null);
+  }, []);
 
   // Build and run 3D simulation
   useEffect(() => {
@@ -335,9 +391,9 @@ const Scene: React.FC<SceneProps> = ({ allNodes, allConnections, onNodeClick, on
       .force('center', forceCenter(0, 0, 0).strength(0.4))
       .force('radial', forceRadial(4, 0, 0, 0).strength(0.3))
       .force('collision', forceCollide().radius(0.35).strength(0.9))
-      .alpha(0.8)
-      .alphaDecay(0.02)
-      .velocityDecay(0.5);
+      .alpha(0.6)
+      .alphaDecay(0.04)
+      .velocityDecay(0.7);
 
     tickRef.current = 0;
 
@@ -360,7 +416,7 @@ const Scene: React.FC<SceneProps> = ({ allNodes, allConnections, onNodeClick, on
   }, [allNodes.length, allConnections.length]);
 
   return (
-    <>
+    <group onPointerMissed={handleCanvasPointerMissed}>
       <ambientLight intensity={0.22} />
       <Stars radius={220} depth={80} count={2200} factor={3} saturation={0.2} fade speed={0.35} />
       <OrbitControls
@@ -385,7 +441,7 @@ const Scene: React.FC<SceneProps> = ({ allNodes, allConnections, onNodeClick, on
         makeDefault
       />
       <CameraAutoFit nodes={simNodes} />
-      <Links3D nodes={simNodes} links={simLinks} />
+      <Links3D nodes={simNodes} links={simLinks} selectedRef={selectedRef} connectedToSelected={connectedToSelected} />
       <Nodes3D
         nodes={simNodes}
         allNodesRaw={allNodes}
@@ -394,17 +450,20 @@ const Scene: React.FC<SceneProps> = ({ allNodes, allConnections, onNodeClick, on
         hoveredRef={hoveredRef}
         setHoveredRef={setHoveredRef}
         connectedToHovered={connectedToHovered}
+        selectedRef={selectedRef}
+        setSelectedRef={setSelectedRef}
+        connectedToSelected={connectedToSelected}
       />
       <NodeLabels nodes={simNodes} hoveredRef={hoveredRef} />
       <EffectComposer>
         <Bloom
-          intensity={1.5}
-          luminanceThreshold={0}
+          intensity={0.4}
+          luminanceThreshold={0.6}
           luminanceSmoothing={0.4}
           mipmapBlur
         />
       </EffectComposer>
-    </>
+    </group>
   );
 };
 
