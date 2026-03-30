@@ -385,11 +385,15 @@ export const MasterCanvas: React.FC<MasterCanvasProps> = ({
   onNodeDoubleClick,
 }) => {
   return (
-    <div className="relative w-full h-full overflow-hidden" style={{ background: '#0a0b14' }}>
+    <div
+      className="relative w-full h-full overflow-hidden"
+      style={{ background: '#0a0b14', touchAction: 'none' }}
+      onWheel={(e) => e.stopPropagation()}
+    >
       <Canvas
         camera={{ position: [0, 0, 80], fov: 60, near: 0.1, far: 2000 }}
         gl={{ antialias: true, alpha: false }}
-        style={{ width: '100%', height: '100%' }}
+        style={{ width: '100%', height: '100%', touchAction: 'none' }}
         onCreated={({ gl }) => {
           gl.setClearColor('#0a0b14');
           gl.toneMapping = THREE.ACESFilmicToneMapping;
