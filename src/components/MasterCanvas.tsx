@@ -61,22 +61,49 @@ const CONNECTION_COLORS: Record<string, THREE.Color> = {
 const DEFAULT_LINK_COLOR = new THREE.Color('hsl(220, 10%, 30%)');
 
 // ---------- Links3D ----------
-const Links3D: React.FC<{ nodes: MasterNode[]; links: MasterLink[] }> = ({ nodes, links }) => {
+interface Links3DProps {
+  nodes: MasterNode[];
+  links: MasterLink[];
+  selectedRef: string | null;
+  connectedToSelected: Set<string>;
+}
+
+const Links3D: React.FC<Links3DProps> = ({ nodes, links, selectedRef, connectedToSelected }) => {
   const geomRef = useRef<THREE.BufferGeometry>(null);
+  const matRef = useRef<THREE.LineBasicMaterial>(null);
 
   useFrame(() => {
     if (!geomRef.current || links.length === 0) return;
     const positions = geomRef.current.getAttribute('position') as THREE.BufferAttribute;
-    if (!positions) return;
+    const colors = geomRef.current.getAttribute('color') as THREE.BufferAttribute;
+    if (!positions || !colors) return;
 
     for (let i = 0; i < links.length; i++) {
       const s = links[i].source as MasterNode;
       const t = links[i].target as MasterNode;
       positions.setXYZ(i * 2, s.x ?? 0, s.y ?? 0, s.z ?? 0);
       positions.setXYZ(i * 2 + 1, t.x ?? 0, t.y ?? 0, t.z ?? 0);
+
+      const baseC = CONNECTION_COLORS[links[i].connectionType] || DEFAULT_LINK_COLOR;
+      if (selectedRef) {
+        const sRef = s.nodeRef;
+        const tRef = t.nodeRef;
+        const isSelected = connectedToSelected.has(sRef) && connectedToSelected.has(tRef);
+        const mult = isSelected ? 1.0 : 0.06;
+        colors.setXYZ(i * 2, baseC.r * mult, baseC.g * mult, baseC.b * mult);
+        colors.setXYZ(i * 2 + 1, baseC.r * mult, baseC.g * mult, baseC.b * mult);
+      } else {
+        colors.setXYZ(i * 2, baseC.r * 0.5, baseC.g * 0.5, baseC.b * 0.5);
+        colors.setXYZ(i * 2 + 1, baseC.r * 0.5, baseC.g * 0.5, baseC.b * 0.5);
+      }
     }
     positions.needsUpdate = true;
+    colors.needsUpdate = true;
     geomRef.current.computeBoundingSphere();
+
+    if (matRef.current) {
+      matRef.current.opacity = selectedRef ? 0.7 : 0.3;
+    }
   });
 
   const { posArray, colorArray } = useMemo(() => {
@@ -84,8 +111,8 @@ const Links3D: React.FC<{ nodes: MasterNode[]; links: MasterLink[] }> = ({ nodes
     const col = new Float32Array(links.length * 6);
     for (let i = 0; i < links.length; i++) {
       const c = CONNECTION_COLORS[links[i].connectionType] || DEFAULT_LINK_COLOR;
-      col[i * 6] = c.r; col[i * 6 + 1] = c.g; col[i * 6 + 2] = c.b;
-      col[i * 6 + 3] = c.r; col[i * 6 + 4] = c.g; col[i * 6 + 5] = c.b;
+      col[i * 6] = c.r * 0.5; col[i * 6 + 1] = c.g * 0.5; col[i * 6 + 2] = c.b * 0.5;
+      col[i * 6 + 3] = c.r * 0.5; col[i * 6 + 4] = c.g * 0.5; col[i * 6 + 5] = c.b * 0.5;
     }
     return { posArray: pos, colorArray: col };
   }, [links.length]);
@@ -98,7 +125,7 @@ const Links3D: React.FC<{ nodes: MasterNode[]; links: MasterLink[] }> = ({ nodes
         <bufferAttribute attach="attributes-position" args={[posArray, 3]} count={links.length * 2} itemSize={3} />
         <bufferAttribute attach="attributes-color" args={[colorArray, 3]} count={links.length * 2} itemSize={3} />
       </bufferGeometry>
-      <lineBasicMaterial vertexColors transparent opacity={0.35} />
+      <lineBasicMaterial ref={matRef} vertexColors transparent opacity={0.3} />
     </lineSegments>
   );
 };
