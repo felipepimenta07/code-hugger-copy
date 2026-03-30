@@ -9,6 +9,7 @@ import {
   forceCenter,
   forceCollide,
   forceLink,
+  forceRadial,
 } from 'd3-force-3d';
 
 // ---------- types ----------
@@ -132,7 +133,7 @@ const Nodes3D: React.FC<Nodes3DProps> = ({
       const isHovered = n.nodeRef === hoveredRef;
       const isConnected = connectedToHovered.has(n.nodeRef);
       const dimmed = hoveredRef && !isHovered && !isConnected;
-      const scale = isHovered ? 1.4 : 1.0;
+      const scale = isHovered ? 1.35 : 0.92;
       _dummy.scale.setScalar(scale);
       _dummy.updateMatrix();
       meshRef.current.setMatrixAt(i, _dummy.matrix);
@@ -197,50 +198,45 @@ const Nodes3D: React.FC<Nodes3DProps> = ({
 };
 
 // ---------- NodeLabels ----------
-const NodeLabels: React.FC<{ nodes: MasterNode[]; hoveredRef: string | null; connectedToHovered: Set<string> }> = ({
-  nodes, hoveredRef, connectedToHovered,
+const NodeLabels: React.FC<{ nodes: MasterNode[]; hoveredRef: string | null }> = ({
+  nodes, hoveredRef,
 }) => {
+  const hoveredNode = hoveredRef ? nodes.find((node) => node.nodeRef === hoveredRef) : null;
+
+  if (!hoveredNode) return null;
+
   return (
-    <>
-      {nodes.map(n => {
-        const dimmed = hoveredRef && n.nodeRef !== hoveredRef && !connectedToHovered.has(n.nodeRef);
-        return (
-          <group key={n.nodeRef} position={[n.x ?? 0, (n.y ?? 0) - 1.2, n.z ?? 0]}>
-            <Html
-              center
-              distanceFactor={80}
-              style={{
-                pointerEvents: 'none',
-                opacity: dimmed ? 0.1 : 1,
-                transition: 'opacity 0.2s',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              <div style={{ textAlign: 'center', userSelect: 'none' }}>
-                <div style={{
-                  color: 'hsl(0, 0%, 95%)',
-                  fontSize: '11px',
-                  fontWeight: 600,
-                  textShadow: '0 1px 4px rgba(0,0,0,0.8)',
-                }}>
-                  {n.name.length > 16 ? n.name.substring(0, 14) + '…' : n.name}
-                </div>
-                {n.category && (
-                  <div style={{
-                    color: 'hsl(220, 10%, 55%)',
-                    fontSize: '9px',
-                    marginTop: '1px',
-                    textShadow: '0 1px 3px rgba(0,0,0,0.6)',
-                  }}>
-                    {n.category}
-                  </div>
-                )}
-              </div>
-            </Html>
-          </group>
-        );
-      })}
-    </>
+    <group position={[hoveredNode.x ?? 0, (hoveredNode.y ?? 0) - 1.5, hoveredNode.z ?? 0]}>
+      <Html
+        center
+        distanceFactor={70}
+        style={{
+          pointerEvents: 'none',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        <div style={{ textAlign: 'center', userSelect: 'none' }}>
+          <div style={{
+            color: 'hsl(0 0% 95%)',
+            fontSize: '11px',
+            fontWeight: 600,
+            textShadow: '0 1px 4px rgba(0,0,0,0.8)',
+          }}>
+            {hoveredNode.name.length > 18 ? hoveredNode.name.substring(0, 16) + '…' : hoveredNode.name}
+          </div>
+          {hoveredNode.category && (
+            <div style={{
+              color: 'hsl(220 10% 70%)',
+              fontSize: '9px',
+              marginTop: '1px',
+              textShadow: '0 1px 3px rgba(0,0,0,0.6)',
+            }}>
+              {hoveredNode.category}
+            </div>
+          )}
+        </div>
+      </Html>
+    </group>
   );
 };
 
@@ -257,7 +253,7 @@ const CameraAutoFit: React.FC<{ nodes: MasterNode[] }> = ({ nodes }) => {
       if (d > maxDist) maxDist = d;
     }
     if (maxDist > 0) {
-      const z = Math.max(maxDist * 2.0, 15);
+      const z = Math.max(maxDist * 2.4, 10);
       camera.position.set(0, 0, z);
       camera.lookAt(0, 0, 0);
       fitted.current = true;
@@ -306,7 +302,7 @@ const Scene: React.FC<SceneProps> = ({ allNodes, allConnections, onNodeClick, on
         // Spherical initial distribution — ignore master_x/master_y (2D coords don't belong in 3D)
         const phi = Math.acos(2 * Math.random() - 1);
         const theta = Math.random() * Math.PI * 2;
-        const r = 2 + Math.random() * 2;
+        const r = 1.2 + Math.random() * 0.8;
         return {
           nodeRef: n.node_ref,
           name: n.name,
@@ -364,15 +360,15 @@ const Scene: React.FC<SceneProps> = ({ allNodes, allConnections, onNodeClick, on
 
   return (
     <>
-      <ambientLight intensity={0.15} />
-      <Stars radius={300} depth={100} count={3000} factor={4} saturation={0.2} fade speed={0.5} />
+      <ambientLight intensity={0.22} />
+      <Stars radius={220} depth={80} count={2200} factor={3} saturation={0.2} fade speed={0.35} />
       <OrbitControls
         enableDamping
         dampingFactor={0.1}
         enableZoom
         zoomSpeed={2.0}
-        minDistance={2}
-        maxDistance={500}
+        minDistance={1.2}
+        maxDistance={120}
         enablePan
         panSpeed={1.5}
         enableRotate
@@ -398,7 +394,7 @@ const Scene: React.FC<SceneProps> = ({ allNodes, allConnections, onNodeClick, on
         setHoveredRef={setHoveredRef}
         connectedToHovered={connectedToHovered}
       />
-      <NodeLabels nodes={simNodes} hoveredRef={hoveredRef} connectedToHovered={connectedToHovered} />
+      <NodeLabels nodes={simNodes} hoveredRef={hoveredRef} />
       <EffectComposer>
         <Bloom
           intensity={1.5}
@@ -425,7 +421,7 @@ export const MasterCanvas: React.FC<MasterCanvasProps> = ({
       style={{ background: '#0a0b14', touchAction: 'none' }}
     >
       <Canvas
-        camera={{ position: [0, 0, 30], fov: 60, near: 0.1, far: 2000 }}
+        camera={{ position: [0, 0, 18], fov: 55, near: 0.1, far: 2000 }}
         gl={{ antialias: true, alpha: false }}
         style={{ width: '100%', height: '100%', touchAction: 'none' }}
         onCreated={({ gl }) => {
