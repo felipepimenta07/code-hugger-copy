@@ -1,73 +1,39 @@
 
 
-## Plano: Master View 3D com Three.js
+## Plano: Corrigir Zoom e Visibilidade do Master View 3D
 
-### O que muda
+### Problemas
+1. **336 nós** se espalham muito no espaço 3D — câmera em z=80 não alcança a rede toda
+2. `onWheel stopPropagation` no div container **bloqueia** o evento de scroll antes de chegar ao Canvas/OrbitControls
+3. Sem auto-fit: a câmera não se ajusta ao tamanho da rede
 
-Substituir o MasterCanvas atual (D3 SVG 2D) por um canvas 3D completo usando **React Three Fiber** + **Three.js**. Os nós viram esferas luminosas flutuando no espaço 3D com câmera orbital, links viram linhas 3D, e o fundo ganha profundidade com estrelas/partículas decorativas.
+### Correções em `src/components/MasterCanvas.tsx`
 
-### Dependências a instalar
+#### 1. Remover `onWheel stopPropagation` do container
+O `e.stopPropagation()` impede o scroll de chegar ao R3F Canvas. Remover essa linha resolve o zoom com scroll.
 
-- `three@>=0.133`
-- `@react-three/fiber@^8.18`
-- `@react-three/drei@^9.122.0`
+#### 2. Adicionar auto-fit da câmera após simulação estabilizar
+Criar um componente `CameraAutoFit` que:
+- Após a simulação terminar (ou após N ticks), calcula o bounding box dos nós
+- Usa `camera.position.set(0, 0, maxExtent * 1.5)` para enquadrar toda a rede
+- Permite que o OrbitControls continue funcionando normalmente depois
 
-### Arquivos
+#### 3. Ajustar forças para rede mais compacta
+- `charge`: `-80` → `-40` (menos repulsão, rede mais densa)
+- `link.distance`: `25` → `15`
+- `forceCollide.radius`: `5` → `3`
+- Camera inicial: `z=80` → `z=120` (mais distante para capturar rede maior)
 
-#### 1. Reescrever: `src/components/MasterCanvas.tsx`
-
-Componente React Three Fiber que substitui o D3 SVG:
-
-- **`<Canvas>`** do R3F com câmera perspectiva e fundo escuro `#0a0b14`
-- **`<OrbitControls>`** do drei para rotação/zoom/pan (substitui d3-zoom)
-- **Simulação de forças** usando `d3-force` em loop `useFrame` — mesmos parâmetros atuais (`forceManyBody(-150)`, `forceLink(80)`, `forceCollide(30)`) mas mapeados para coordenadas 3D (x, y, z)
-- **Nós como esferas brilhantes**:
-  - `<instancedMesh>` com `<sphereGeometry>` para performance (centenas de nós)
-  - Cor por tipo: person=rosa, project=verde, brand=roxo (mesmas cores HSL atuais)
-  - Efeito glow via `<meshStandardMaterial emissive={...} emissiveIntensity={1.5}>`
-  - Labels flutuantes com `<Html>` do drei (nome + categoria)
-- **Links como linhas 3D**:
-  - `<Line>` do drei ou `<lineSegments>` com `BufferGeometry`
-  - Cor por tipo de conexão (mesmas cores atuais)
-  - Opacidade 0.3, semi-transparentes
-- **Interações**:
-  - Click no nó → `onNodeClick` (abre detail panel)
-  - Double click → `onNodeDoubleClick` (entra no flow)
-  - Hover → highlight com bloom/emissive increase
-  - Drag de nós via `useDrag` do drei ou `onPointerDown/Move/Up`
-- **Efeitos visuais**:
-  - `<Stars>` do drei no fundo para profundidade
-  - Bloom post-processing via `<EffectComposer>` + `<Bloom>` (opcional, se performance permitir)
-  - Iluminação ambiente + point light no centro
-
-#### 2. Sem mudanças em `NetworkMatrix.tsx`
-
-A interface do `MasterCanvas` (props) permanece idêntica — `allNodes`, `allConnections`, `flows`, `onNodeClick`, `onNodeDoubleClick`. O NetworkMatrix não precisa mudar.
-
-### Arquitetura interna do componente
-
-```text
-MasterCanvas
-├── <Canvas> (R3F)
-│   ├── <ambientLight>
-│   ├── <pointLight>
-│   ├── <Stars> (background)
-│   ├── <OrbitControls>
-│   ├── <Links3D> (linhas entre nós)
-│   ├── <Nodes3D> (esferas instanciadas)
-│   │   └── hover/click handlers por nó
-│   └── <NodeLabels> (Html overlays)
-└── Force simulation (d3-force em useFrame)
+#### 4. Implementar auto-fit com `useThree`
+Dentro do Scene, após simulação estabilizar:
+```
+const { camera } = useThree();
+// calcular bounds dos nós e ajustar camera.position.z
 ```
 
-### Performance
-
-- `InstancedMesh` para nós (1 draw call para todas as esferas)
-- `BufferGeometry` para links (1 draw call para todas as linhas)
-- Labels HTML renderizados apenas para nós visíveis (frustum culling)
-- Simulação d3-force roda por ~100 ticks e para (não roda infinitamente)
-
 ### Resultado
-
-Visualização 3D imersiva com esferas luminosas, câmera orbital livre, links semi-transparentes e fundo estrelado. Mesma funcionalidade (click, double-click, hover) mas em 3D.
+- Scroll do mouse faz zoom
+- Click-drag rotaciona
+- Câmera se ajusta automaticamente ao tamanho da rede
+- Nós mais próximos e visíveis
 
