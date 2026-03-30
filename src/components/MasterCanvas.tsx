@@ -306,7 +306,7 @@ const Scene: React.FC<SceneProps> = ({ allNodes, allConnections, onNodeClick, on
         // Spherical initial distribution
         const phi = Math.acos(2 * Math.random() - 1);
         const theta = Math.random() * Math.PI * 2;
-        const r = 10 + Math.random() * 8;
+        const r = 5 + Math.random() * 4;
         return {
           nodeRef: n.node_ref,
           name: n.name,
