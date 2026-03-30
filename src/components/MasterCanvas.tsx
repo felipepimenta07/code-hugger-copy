@@ -370,9 +370,9 @@ const Scene: React.FC<SceneProps> = ({ allNodes, allConnections, onNodeClick, on
         enableDamping
         dampingFactor={0.1}
         enableZoom
-        zoomSpeed={1.2}
-        minDistance={5}
-        maxDistance={800}
+        zoomSpeed={2.0}
+        minDistance={2}
+        maxDistance={500}
         enablePan
         enableRotate
         makeDefault
