@@ -415,7 +415,7 @@ export const MasterCanvas: React.FC<MasterCanvasProps> = ({
       style={{ background: '#0a0b14', touchAction: 'none' }}
     >
       <Canvas
-        camera={{ position: [0, 0, 120], fov: 60, near: 0.1, far: 2000 }}
+        camera={{ position: [0, 0, 60], fov: 60, near: 0.1, far: 2000 }}
         gl={{ antialias: true, alpha: false }}
         style={{ width: '100%', height: '100%', touchAction: 'none' }}
         onCreated={({ gl }) => {
