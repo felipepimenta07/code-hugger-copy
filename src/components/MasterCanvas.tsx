@@ -190,7 +190,7 @@ const Nodes3D: React.FC<Nodes3DProps> = ({
       onPointerOver={handlePointerOver}
       onPointerOut={handlePointerOut}
     >
-      <sphereGeometry args={[2.5, 16, 16]} />
+      <sphereGeometry args={[0.6, 12, 12]} />
       <meshBasicMaterial toneMapped={false} />
     </instancedMesh>
   );
@@ -205,7 +205,7 @@ const NodeLabels: React.FC<{ nodes: MasterNode[]; hoveredRef: string | null; con
       {nodes.map(n => {
         const dimmed = hoveredRef && n.nodeRef !== hoveredRef && !connectedToHovered.has(n.nodeRef);
         return (
-          <group key={n.nodeRef} position={[n.x ?? 0, (n.y ?? 0) - 4, n.z ?? 0]}>
+          <group key={n.nodeRef} position={[n.x ?? 0, (n.y ?? 0) - 1.2, n.z ?? 0]}>
             <Html
               center
               distanceFactor={80}
@@ -257,7 +257,7 @@ const CameraAutoFit: React.FC<{ nodes: MasterNode[] }> = ({ nodes }) => {
       if (d > maxDist) maxDist = d;
     }
     if (maxDist > 0) {
-      const z = Math.max(maxDist * 1.4, 25);
+      const z = Math.max(maxDist * 2.0, 15);
       camera.position.set(0, 0, z);
       camera.lookAt(0, 0, 0);
       fitted.current = true;
@@ -303,10 +303,10 @@ const Scene: React.FC<SceneProps> = ({ allNodes, allConnections, onNodeClick, on
     const masterNodes: MasterNode[] = allNodes
       .filter(n => n.flow_id != null)
       .map((n, idx) => {
-        // Spherical initial distribution
+        // Spherical initial distribution — ignore master_x/master_y (2D coords don't belong in 3D)
         const phi = Math.acos(2 * Math.random() - 1);
         const theta = Math.random() * Math.PI * 2;
-        const r = 5 + Math.random() * 4;
+        const r = 2 + Math.random() * 2;
         return {
           nodeRef: n.node_ref,
           name: n.name,
@@ -314,8 +314,8 @@ const Scene: React.FC<SceneProps> = ({ allNodes, allConnections, onNodeClick, on
           category: n.category || null,
           flowId: n.flow_id,
           profilePictureUrl: n.profile_picture_url || null,
-          x: n.master_x ?? (r * Math.sin(phi) * Math.cos(theta)),
-          y: n.master_y ?? (r * Math.sin(phi) * Math.sin(theta)),
+          x: r * Math.sin(phi) * Math.cos(theta),
+          y: r * Math.sin(phi) * Math.sin(theta),
           z: r * Math.cos(phi),
         } as MasterNode;
       });
@@ -334,10 +334,10 @@ const Scene: React.FC<SceneProps> = ({ allNodes, allConnections, onNodeClick, on
 
     const sim = forceSimulation(masterNodes, 3)
       .force('link', forceLink(masterLinks)
-        .id((d: any) => d.nodeRef).distance(4).strength(0.6))
-      .force('charge', forceManyBody().strength(-8))
-      .force('center', forceCenter(0, 0, 0))
-      .force('collision', forceCollide().radius(1.5))
+        .id((d: any) => d.nodeRef).distance(2).strength(0.8))
+      .force('charge', forceManyBody().strength(-3))
+      .force('center', forceCenter(0, 0, 0).strength(0.15))
+      .force('collision', forceCollide().radius(0.8))
       .alpha(0.8)
       .alphaDecay(0.02)
       .velocityDecay(0.5);
@@ -425,7 +425,7 @@ export const MasterCanvas: React.FC<MasterCanvasProps> = ({
       style={{ background: '#0a0b14', touchAction: 'none' }}
     >
       <Canvas
-        camera={{ position: [0, 0, 40], fov: 60, near: 0.1, far: 2000 }}
+        camera={{ position: [0, 0, 30], fov: 60, near: 0.1, far: 2000 }}
         gl={{ antialias: true, alpha: false }}
         style={{ width: '100%', height: '100%', touchAction: 'none' }}
         onCreated={({ gl }) => {
