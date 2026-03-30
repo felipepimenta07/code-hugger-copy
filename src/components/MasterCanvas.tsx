@@ -324,21 +324,29 @@ const Scene: React.FC<SceneProps> = ({ allNodes, allConnections, onNodeClick, on
   const [simNodes, setSimNodes] = useState<MasterNode[]>([]);
   const [simLinks, setSimLinks] = useState<MasterLink[]>([]);
   const [hoveredRef, setHoveredRef] = useState<string | null>(null);
+  const [selectedRef, setSelectedRef] = useState<string | null>(null);
   const simulationRef = useRef<any>(null);
   const tickRef = useRef(0);
 
-  const connectedToHovered = useMemo(() => {
+  const buildConnectedSet = useCallback((ref: string | null) => {
     const s = new Set<string>();
-    if (!hoveredRef) return s;
-    s.add(hoveredRef);
+    if (!ref) return s;
+    s.add(ref);
     simLinks.forEach(l => {
       const sRef = typeof l.source === 'string' ? l.source : l.source.nodeRef;
       const tRef = typeof l.target === 'string' ? l.target : l.target.nodeRef;
-      if (sRef === hoveredRef) s.add(tRef);
-      if (tRef === hoveredRef) s.add(sRef);
+      if (sRef === ref) s.add(tRef);
+      if (tRef === ref) s.add(sRef);
     });
     return s;
-  }, [hoveredRef, simLinks]);
+  }, [simLinks]);
+
+  const connectedToHovered = useMemo(() => buildConnectedSet(hoveredRef), [hoveredRef, buildConnectedSet]);
+  const connectedToSelected = useMemo(() => buildConnectedSet(selectedRef), [selectedRef, buildConnectedSet]);
+
+  const handleCanvasPointerMissed = useCallback(() => {
+    setSelectedRef(null);
+  }, []);
 
   // Build and run 3D simulation
   useEffect(() => {
