@@ -139,6 +139,9 @@ interface Nodes3DProps {
   hoveredRef: string | null;
   setHoveredRef: (ref: string | null) => void;
   connectedToHovered: Set<string>;
+  selectedRef: string | null;
+  setSelectedRef: (ref: string | null) => void;
+  connectedToSelected: Set<string>;
 }
 
 const _dummy = new THREE.Object3D();
