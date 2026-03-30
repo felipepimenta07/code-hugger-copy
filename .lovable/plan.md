@@ -1,30 +1,41 @@
 
 
-## Plano: Forçar todos os nós para dentro de uma esfera compacta
+## Plano: Reduzir brilho + highlight no hover + mostrar conexões ao clicar
 
-### Por que ainda estão longe
+### Mudanças em `src/components/MasterCanvas.tsx`
 
-O `forceCenter` com `strength(0.15)` é fraco demais — ele só empurra o **centro de massa** para (0,0,0), mas não impede que nós individuais se afastem. Já existe `forceRadial` no import mas **não está sendo usado** na simulação atual. Sem uma força radial forte, os nós de flows diferentes (que não têm links entre si) se repelem e ficam em "ilhas" distantes.
+#### 1. Reduzir Bloom (brilho) geral
+- `Bloom intensity={1.5}` → `intensity={0.4}`, `luminanceThreshold={0}` → `0.6`
+- Nós ficam visíveis mas sem "explodir" de brilho no estado normal
 
-### Correções em `src/components/MasterCanvas.tsx`
+#### 2. Reduzir vibração da simulação
+- `alpha(0.8)` → `alpha(0.6)` (menos energia inicial)
+- `alphaDecay(0.02)` → `alphaDecay(0.04)` (estabiliza mais rápido)
+- `velocityDecay(0.5)` → `velocityDecay(0.7)` (mais atrito, menos vibração)
 
-#### 1. Adicionar `forceRadial` forte para confinar tudo numa esfera
-- `.force('radial', forceRadial(4, 0, 0, 0).strength(0.3))` — puxa todos os nós para ficarem a ~4 unidades do centro, como uma casca de esfera
-- Isso garante que flows desconectados não fujam para longe
+#### 3. Cores mais suaves no estado normal
+- `Nodes3D`: cor base com `multiplyScalar(0.5)` no estado normal (sem hover)
+- No hover: cor base cheia (brilho total)
+- Nós conectados ao hovered: cor base com `multiplyScalar(0.8)`
+- Dimmed: mantém `multiplyScalar(0.15)`
 
-#### 2. Aumentar `forceCenter` 
-- `forceCenter(0, 0, 0).strength(0.15)` → `.strength(0.4)` — puxa o centro de massa mais forte
+#### 4. Adicionar estado "selected" ao clicar
+- Novo state `selectedRef: string | null` na Scene
+- Ao clicar um nó: seta `selectedRef` (além de chamar `onNodeClick`)
+- Clicar no fundo: limpa `selectedRef`
 
-#### 3. Reduzir repulsão ainda mais
-- `forceManyBody().strength(-3)` → `strength(-1.5)` — menos repulsão = nós ficam mais grudados
+#### 5. Mostrar conexões do nó selecionado
+- Novo set `connectedToSelected` (mesmo padrão do `connectedToHovered`)
+- Links: quando `selectedRef` ativo, links conectados ao selecionado ficam `opacity={0.8}`, os outros `opacity={0.08}`
+- Nós: quando `selectedRef` ativo, nós conectados ficam brilhantes, os outros dimmed
+- Hover continua funcionando por cima (mostra label)
 
-#### 4. Links mais curtos
-- `forceLink.distance(2)` → `distance(1.2)` — nós conectados ficam ainda mais perto
-
-#### 5. Câmera mais perto
-- Câmera inicial: `z=18` → `z=14`
-- Auto-fit: `maxDist * 2.4` → `maxDist * 2.0`, mínimo `10` → `8`
+#### 6. Links3D reage ao selected
+- Passar `selectedRef` e `connectedToSelected` para `Links3D`
+- No `useFrame`, ajustar alpha/cor dos links: conectados ao selecionado = cor cheia, outros = quase invisíveis
 
 ### Resultado
-Todos os flows ficam confinados numa esfera de raio ~4-6 unidades — como um globo terrestre com tudo dentro. Flows sem conexão entre si ficam em partes diferentes da esfera, mas **dentro dela**, não em ilhas distantes.
+- Nós ficam com brilho suave no estado normal, sem vibração excessiva
+- Hover: nó brilha + mostra nome
+- Click: destaca o nó + todas as suas conexões (links e nós conectados), o resto fica opaco
 
