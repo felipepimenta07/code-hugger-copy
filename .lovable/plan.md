@@ -1,39 +1,38 @@
 
 
-## Plano: Corrigir Zoom e Visibilidade do Master View 3D
+## Plano: Corrigir layout 3D dos nós (plano → esfera)
 
-### Problemas
-1. **336 nós** se espalham muito no espaço 3D — câmera em z=80 não alcança a rede toda
-2. `onWheel stopPropagation` no div container **bloqueia** o evento de scroll antes de chegar ao Canvas/OrbitControls
-3. Sem auto-fit: a câmera não se ajusta ao tamanho da rede
+### Problema
 
-### Correções em `src/components/MasterCanvas.tsx`
+Os nós aparecem "lado a lado" (achatados) porque **`d3-force` é 2D** — só simula `x` e `y`. O `z` é definido uma vez aleatoriamente e nunca muda durante a simulação, resultando num disco plano com leve ruído em z.
 
-#### 1. Remover `onWheel stopPropagation` do container
-O `e.stopPropagation()` impede o scroll de chegar ao R3F Canvas. Remover essa linha resolve o zoom com scroll.
+### Solução
 
-#### 2. Adicionar auto-fit da câmera após simulação estabilizar
-Criar um componente `CameraAutoFit` que:
-- Após a simulação terminar (ou após N ticks), calcula o bounding box dos nós
-- Usa `camera.position.set(0, 0, maxExtent * 1.5)` para enquadrar toda a rede
-- Permite que o OrbitControls continue funcionando normalmente depois
+Substituir `d3-force` por **`d3-force-3d`**, que estende a mesma API para 3 dimensões (x, y, z). Todas as forças (charge, link, center, collision) passam a atuar nos 3 eixos.
 
-#### 3. Ajustar forças para rede mais compacta
-- `charge`: `-80` → `-40` (menos repulsão, rede mais densa)
-- `link.distance`: `25` → `15`
-- `forceCollide.radius`: `5` → `3`
-- Camera inicial: `z=80` → `z=120` (mais distante para capturar rede maior)
+Além disso, adicionar **bloom post-processing** para o visual brilhante do arquivo de referência.
 
-#### 4. Implementar auto-fit com `useThree`
-Dentro do Scene, após simulação estabilizar:
-```
-const { camera } = useThree();
-// calcular bounds dos nós e ajustar camera.position.z
-```
+### Mudanças
+
+#### 1. Instalar `d3-force-3d`
+- `npm install d3-force-3d`
+- Remover imports de `d3-force`, usar `d3-force-3d` no lugar (mesma API, com z)
+
+#### 2. `src/components/MasterCanvas.tsx`
+
+**Simulação**:
+- Trocar imports de `d3-force` → `d3-force-3d` (`forceSimulation`, `forceManyBody`, `forceCenter`, `forceCollide`, `forceLink`)
+- `forceCenter(0, 0, 0)` — agora com z
+- Remover `forceX` e `forceY` separados, usar o centering 3D
+- Inicializar z com distribuição esférica em vez de ruído linear
+
+**Bloom**:
+- Adicionar `@react-three/postprocessing` e usar `EffectComposer` + `Bloom` do R3F para o efeito de glow nos nós (similar ao `UnrealBloomPass` do arquivo de referência)
+- `strength: 1.5`, `radius: 0.4`, `threshold: 0`
+
+**Material dos nós**:
+- Trocar `meshStandardMaterial` por `meshBasicMaterial` para que o bloom funcione melhor (sem iluminação, cor pura = brilho máximo)
 
 ### Resultado
-- Scroll do mouse faz zoom
-- Click-drag rotaciona
-- Câmera se ajusta automaticamente ao tamanho da rede
-- Nós mais próximos e visíveis
+Os nós se distribuem como uma **nuvem esférica 3D** (não mais um disco plano), com efeito de bloom/glow brilhante.
 
