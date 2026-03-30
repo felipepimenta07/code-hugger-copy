@@ -391,9 +391,9 @@ const Scene: React.FC<SceneProps> = ({ allNodes, allConnections, onNodeClick, on
       .force('center', forceCenter(0, 0, 0).strength(0.4))
       .force('radial', forceRadial(4, 0, 0, 0).strength(0.3))
       .force('collision', forceCollide().radius(0.35).strength(0.9))
-      .alpha(0.8)
-      .alphaDecay(0.02)
-      .velocityDecay(0.5);
+      .alpha(0.6)
+      .alphaDecay(0.04)
+      .velocityDecay(0.7);
 
     tickRef.current = 0;
 
