@@ -416,7 +416,7 @@ const Scene: React.FC<SceneProps> = ({ allNodes, allConnections, onNodeClick, on
   }, [allNodes.length, allConnections.length]);
 
   return (
-    <>
+    <group onPointerMissed={handleCanvasPointerMissed}>
       <ambientLight intensity={0.22} />
       <Stars radius={220} depth={80} count={2200} factor={3} saturation={0.2} fade speed={0.35} />
       <OrbitControls
@@ -441,7 +441,7 @@ const Scene: React.FC<SceneProps> = ({ allNodes, allConnections, onNodeClick, on
         makeDefault
       />
       <CameraAutoFit nodes={simNodes} />
-      <Links3D nodes={simNodes} links={simLinks} />
+      <Links3D nodes={simNodes} links={simLinks} selectedRef={selectedRef} connectedToSelected={connectedToSelected} />
       <Nodes3D
         nodes={simNodes}
         allNodesRaw={allNodes}
@@ -450,17 +450,20 @@ const Scene: React.FC<SceneProps> = ({ allNodes, allConnections, onNodeClick, on
         hoveredRef={hoveredRef}
         setHoveredRef={setHoveredRef}
         connectedToHovered={connectedToHovered}
+        selectedRef={selectedRef}
+        setSelectedRef={setSelectedRef}
+        connectedToSelected={connectedToSelected}
       />
       <NodeLabels nodes={simNodes} hoveredRef={hoveredRef} />
       <EffectComposer>
         <Bloom
-          intensity={1.5}
-          luminanceThreshold={0}
+          intensity={0.4}
+          luminanceThreshold={0.6}
           luminanceSmoothing={0.4}
           mipmapBlur
         />
       </EffectComposer>
-    </>
+    </group>
   );
 };
 
