@@ -334,13 +334,13 @@ const Scene: React.FC<SceneProps> = ({ allNodes, allConnections, onNodeClick, on
 
     const sim = forceSimulation(masterNodes, 3)
       .force('link', forceLink(masterLinks)
-        .id((d: any) => d.nodeRef).distance(8).strength(0.4))
-      .force('charge', forceManyBody().strength(-20))
+        .id((d: any) => d.nodeRef).distance(4).strength(0.6))
+      .force('charge', forceManyBody().strength(-8))
       .force('center', forceCenter(0, 0, 0))
-      .force('collision', forceCollide().radius(2))
+      .force('collision', forceCollide().radius(1.5))
       .alpha(0.8)
       .alphaDecay(0.02)
-      .velocityDecay(0.4);
+      .velocityDecay(0.5);
 
     tickRef.current = 0;
 
