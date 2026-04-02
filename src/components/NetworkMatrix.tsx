@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { ZoomIn, ZoomOut, Target } from 'lucide-react';
 import { toast } from 'sonner';
 import { Canvas } from './Canvas';
+import { SingleCanvas3D } from './SingleCanvas3D';
 import { MasterCanvas } from './MasterCanvas';
 import { NetworkToolbar } from './NetworkToolbar';
 import { NetworkModals } from './NetworkModals';
@@ -984,44 +985,16 @@ export const NetworkMatrix = () => {
               }}
             />
           ) : (
-            <Canvas
-              svgRef={svgRef}
-              state={state}
-              updateState={updateState}
-              viewMode={viewMode}
-              workflows={workflows}
+            <SingleCanvas3D
               nodes={nodes}
               connections={connections}
+              centerNodeRef={centerNode?.node_ref ?? null}
               selectedNodes={selectedNodes}
               setSelectedNodes={setSelectedNodes}
-              onWheel={handleWheel}
-              selectedConnection={selectedConnection}
-              setSelectedConnection={setSelectedConnection}
               highlightedPath={highlightedPath}
-              hoveredNode={hoveredNode}
-              setHoveredNode={setHoveredNode}
-              updateNodePosition={updateNodePosition}
-              setConnections={setConnections}
-              saveToHistory={saveToHistory}
-              projects={projects}
-              flows={flows}
-              allConnections={allConnections}
               showLabels={showLabels}
               onOpenEditModal={(node) => { setEditingNodeInModal(node); setNodeCreationType(node.type); setShowNodeCreationModal(true); }}
               onSingleClick={(node) => { setDetailPanelNode(node); }}
-              onGoToFlow={(flowId) => { 
-                setDetailPanelNode(null); 
-                const flow = flows.find(f => f.id === flowId);
-                if (flow) {
-                  setActiveNodeRef(makeRef(flow.center_type, flow.center_id)); 
-                  setViewMode('single'); 
-                }
-              }}
-              forcePositions={forcePositions}
-              onForceDragStart={onForceDragStart}
-              onForceDrag={onForceDrag}
-              onForceDragEnd={onForceDragEnd}
-              useForceLayout={viewMode === 'single'}
             />
           )}
 
