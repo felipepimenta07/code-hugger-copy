@@ -213,25 +213,25 @@ const Nodes3D: React.FC<Nodes3DProps> = ({
 
       if (selectedRef) {
         if (isSelected) {
-          _color.copy(baseColor); // Full brightness for selected
+          _color.copy(baseColor).lerp(new THREE.Color('#ffffff'), 0.35); // Bright white-blended glow
         } else if (isConnectedSelect) {
-          _color.copy(baseColor).multiplyScalar(0.85); // Slightly dimmed for connected
+          _color.copy(baseColor).multiplyScalar(0.7);
         } else {
-          _color.copy(baseColor).multiplyScalar(0.12); // Very dim for rest
+          _color.copy(baseColor).multiplyScalar(0.06);
         }
       } else if (highlightedCategory) {
         if (isCategoryMatch) {
-          _color.copy(baseColor); // Full brightness for matching category
+          _color.copy(baseColor).lerp(new THREE.Color('#ffffff'), 0.15);
         } else {
-          _color.copy(baseColor).multiplyScalar(0.12);
+          _color.copy(baseColor).multiplyScalar(0.06);
         }
       } else if (hoveredRef) {
         if (isHovered) {
-          _color.copy(baseColor);
+          _color.copy(baseColor).lerp(new THREE.Color('#ffffff'), 0.3);
         } else if (isConnectedHover) {
-          _color.copy(baseColor).multiplyScalar(0.8);
+          _color.copy(baseColor).multiplyScalar(0.75);
         } else {
-          _color.copy(baseColor).multiplyScalar(0.15);
+          _color.copy(baseColor).multiplyScalar(0.1);
         }
       } else {
         _color.copy(baseColor).multiplyScalar(0.7);
