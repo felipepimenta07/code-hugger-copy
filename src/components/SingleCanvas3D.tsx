@@ -619,7 +619,7 @@ export const SingleCanvas3D: React.FC<SingleCanvas3DProps> = ({
         onCreated={({ gl }) => {
           gl.setClearColor('#0a0b14');
           gl.toneMapping = THREE.ACESFilmicToneMapping;
-          gl.toneMappingExposure = 1.5;
+          gl.toneMappingExposure = 1.0;
         }}
       >
         <SingleScene
