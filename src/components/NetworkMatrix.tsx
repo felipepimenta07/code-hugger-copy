@@ -930,7 +930,12 @@ export const NetworkMatrix = () => {
   return (
     <div className="min-h-screen h-screen flex flex-col overflow-hidden">
       {/* Sidebar - Groups only */}
-      <NetworkSidebar viewMode={viewMode} allNodes={allNodes} nodes={nodes} />
+      <NetworkSidebar
+        viewMode={viewMode}
+        allNodes={allNodes}
+        nodes={nodes}
+        onHighlightCategory={setHighlightedCategory}
+      />
 
       {/* Main area */}
       <div className="flex-1 flex flex-col relative">
