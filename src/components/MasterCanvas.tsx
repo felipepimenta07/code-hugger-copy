@@ -193,7 +193,7 @@ const Nodes3D: React.FC<Nodes3DProps> = ({
           _color.copy(baseColor).multiplyScalar(0.15);
         }
       } else {
-        _color.copy(baseColor).multiplyScalar(0.5);
+        _color.copy(baseColor).multiplyScalar(0.7);
       }
 
       meshRef.current.setColorAt(i, _color);
