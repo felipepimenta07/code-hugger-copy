@@ -597,7 +597,7 @@ const SingleScene: React.FC<{
       />
       <SingleNodeLabels nodes={simNodes} hoveredRef={hoveredRef} showLabels={showLabels} />
       <EffectComposer>
-        <Bloom intensity={1.2} luminanceThreshold={0.1} luminanceSmoothing={0.9} mipmapBlur />
+        <Bloom intensity={0.4} luminanceThreshold={0.6} luminanceSmoothing={0.9} mipmapBlur />
       </EffectComposer>
     </group>
   );
