@@ -97,19 +97,20 @@ const Links3D: React.FC<Links3DProps> = ({ nodes, links, selectedRef, connectedT
       positions.setXYZ(i * 2, s.x ?? 0, s.y ?? 0, s.z ?? 0);
       positions.setXYZ(i * 2 + 1, t.x ?? 0, t.y ?? 0, t.z ?? 0);
 
-      const neutralGray = 0.18;
-
+      const baseC = CONNECTION_COLORS[links[i].connectionType] || DEFAULT_LINK_COLOR;
+      
       if (selectedRef) {
         const sRef = s.nodeRef;
         const tRef = t.nodeRef;
         const isActive = connectedToSelected.has(sRef) && connectedToSelected.has(tRef);
         if (isActive) {
+          // Pulse animation for active connections
           const pulse = 0.7 + 0.3 * Math.sin(time * 3 + i * 0.5);
-          colors.setXYZ(i * 2, neutralGray * pulse * 3, neutralGray * pulse * 3, neutralGray * pulse * 3);
-          colors.setXYZ(i * 2 + 1, neutralGray * pulse * 3, neutralGray * pulse * 3, neutralGray * pulse * 3);
+          colors.setXYZ(i * 2, baseC.r * pulse, baseC.g * pulse, baseC.b * pulse);
+          colors.setXYZ(i * 2 + 1, baseC.r * pulse, baseC.g * pulse, baseC.b * pulse);
         } else {
-          colors.setXYZ(i * 2, neutralGray * 0.15, neutralGray * 0.15, neutralGray * 0.15);
-          colors.setXYZ(i * 2 + 1, neutralGray * 0.15, neutralGray * 0.15, neutralGray * 0.15);
+          colors.setXYZ(i * 2, baseC.r * 0.04, baseC.g * 0.04, baseC.b * 0.04);
+          colors.setXYZ(i * 2 + 1, baseC.r * 0.04, baseC.g * 0.04, baseC.b * 0.04);
         }
       } else if (highlightedCategory) {
         const sNode = nodeMap.get(s.nodeRef);
@@ -120,13 +121,12 @@ const Links3D: React.FC<Links3DProps> = ({ nodes, links, selectedRef, connectedT
           colors.setXYZ(i * 2, catColor.r * 0.8, catColor.g * 0.8, catColor.b * 0.8);
           colors.setXYZ(i * 2 + 1, catColor.r * 0.8, catColor.g * 0.8, catColor.b * 0.8);
         } else {
-          colors.setXYZ(i * 2, neutralGray * 0.1, neutralGray * 0.1, neutralGray * 0.1);
-          colors.setXYZ(i * 2 + 1, neutralGray * 0.1, neutralGray * 0.1, neutralGray * 0.1);
+          colors.setXYZ(i * 2, baseC.r * 0.04, baseC.g * 0.04, baseC.b * 0.04);
+          colors.setXYZ(i * 2 + 1, baseC.r * 0.04, baseC.g * 0.04, baseC.b * 0.04);
         }
       } else {
-        // Neutral: all links same subtle gray
-        colors.setXYZ(i * 2, neutralGray, neutralGray, neutralGray);
-        colors.setXYZ(i * 2 + 1, neutralGray, neutralGray, neutralGray);
+        colors.setXYZ(i * 2, baseC.r * 0.5, baseC.g * 0.5, baseC.b * 0.5);
+        colors.setXYZ(i * 2 + 1, baseC.r * 0.5, baseC.g * 0.5, baseC.b * 0.5);
       }
     }
     positions.needsUpdate = true;
@@ -179,7 +179,6 @@ interface Nodes3DProps {
 
 const _dummy = new THREE.Object3D();
 const _color = new THREE.Color();
-const NEUTRAL_COLOR = new THREE.Color('#94a3b8');
 
 const Nodes3D: React.FC<Nodes3DProps> = ({
   nodes, allNodesRaw, onNodeClick, onNodeDoubleClick,
@@ -187,68 +186,66 @@ const Nodes3D: React.FC<Nodes3DProps> = ({
   selectedRef, setSelectedRef, connectedToSelected,
   highlightedCategory,
 }) => {
-  const outerRef = useRef<THREE.InstancedMesh>(null);
+  const meshRef = useRef<THREE.InstancedMesh>(null);
   const clickTimerRef = useRef<any>(null);
   const clockRef = useRef(new THREE.Clock());
 
   useFrame(() => {
-    if (!outerRef.current) return;
+    if (!meshRef.current) return;
     const time = clockRef.current.getElapsedTime();
-    const isNeutral = !highlightedCategory && !selectedRef && !hoveredRef;
-
     for (let i = 0; i < nodes.length; i++) {
       const n = nodes[i];
+      _dummy.position.set(n.x ?? 0, n.y ?? 0, n.z ?? 0);
+
       const isHovered = n.nodeRef === hoveredRef;
       const isSelected = n.nodeRef === selectedRef;
       const isConnectedHover = connectedToHovered.has(n.nodeRef);
       const isConnectedSelect = connectedToSelected.has(n.nodeRef);
       const isCategoryMatch = highlightedCategory ? n.category === highlightedCategory : false;
 
+      // Scale hierarchy: selected > hovered > connected > normal
       let scale = 0.92;
       if (isSelected) scale = 1.6;
       else if (isHovered) scale = 1.35;
-      else if (highlightedCategory && isCategoryMatch) scale = 1.3;
       else if (isConnectedSelect) scale = 1.0;
-      else if (highlightedCategory && !isCategoryMatch) scale = 0.5;
 
-      _dummy.position.set(n.x ?? 0, n.y ?? 0, n.z ?? 0);
       _dummy.scale.setScalar(scale);
       _dummy.rotation.set(time * 0.2 + i * 0.5, time * 0.1 + i * 0.3, 0);
       _dummy.updateMatrix();
-      outerRef.current.setMatrixAt(i, _dummy.matrix);
+      meshRef.current.setMatrixAt(i, _dummy.matrix);
 
       const baseColor = getNodeCategoryColor(n.category);
 
-      // Color logic: neutral = all uniform gray
-      if (isNeutral) {
-        _color.copy(NEUTRAL_COLOR).multiplyScalar(0.5);
+      if (selectedRef) {
+        if (isSelected) {
+          _color.copy(baseColor).lerp(new THREE.Color('#ffffff'), 0.35);
+        } else if (isConnectedSelect) {
+          _color.copy(baseColor).multiplyScalar(0.7);
+        } else {
+          _color.copy(baseColor).multiplyScalar(0.06);
+        }
       } else if (highlightedCategory) {
         if (isCategoryMatch) {
-          _color.copy(baseColor).multiplyScalar(1.3);
+          _color.copy(baseColor).lerp(new THREE.Color('#ffffff'), 0.15);
         } else {
-          _color.copy(NEUTRAL_COLOR).multiplyScalar(0.05);
-        }
-      } else if (selectedRef) {
-        if (isSelected) {
-          _color.copy(baseColor).multiplyScalar(1.3);
-        } else if (isConnectedSelect) {
-          _color.copy(NEUTRAL_COLOR).multiplyScalar(0.7);
-        } else {
-          _color.copy(NEUTRAL_COLOR).multiplyScalar(0.06);
+          _color.copy(baseColor).multiplyScalar(0.06);
         }
       } else if (hoveredRef) {
         if (isHovered) {
-          _color.copy(baseColor).multiplyScalar(1.3);
+          _color.copy(baseColor).lerp(new THREE.Color('#ffffff'), 0.3);
         } else if (isConnectedHover) {
-          _color.copy(NEUTRAL_COLOR).multiplyScalar(0.75);
+          _color.copy(baseColor).multiplyScalar(0.75);
         } else {
-          _color.copy(NEUTRAL_COLOR).multiplyScalar(0.1);
+          _color.copy(baseColor).multiplyScalar(0.1);
         }
+      } else {
+        _color.copy(baseColor).multiplyScalar(0.7);
       }
-      outerRef.current.setColorAt(i, _color);
+
+      meshRef.current.setColorAt(i, _color);
     }
-    outerRef.current.instanceMatrix.needsUpdate = true;
-    if (outerRef.current.instanceColor) outerRef.current.instanceColor.needsUpdate = true;
+    meshRef.current.instanceMatrix.needsUpdate = true;
+    if (meshRef.current.instanceColor) meshRef.current.instanceColor.needsUpdate = true;
   });
 
   const handlePointerDown = useCallback((e: ThreeEvent<PointerEvent>) => {
@@ -287,14 +284,14 @@ const Nodes3D: React.FC<Nodes3DProps> = ({
 
   return (
     <instancedMesh
-      ref={outerRef}
+      ref={meshRef}
       args={[undefined, undefined, nodes.length]}
       onPointerDown={handlePointerDown}
       onPointerOver={handlePointerOver}
       onPointerOut={handlePointerOut}
     >
       <tetrahedronGeometry args={[0.35]} />
-      <meshStandardMaterial emissive="#000000" emissiveIntensity={0.3} roughness={0.4} metalness={0.2} toneMapped={false} transparent opacity={0.9} />
+      <meshStandardMaterial emissive="#ffffff" emissiveIntensity={0.6} roughness={0.6} metalness={0.2} toneMapped={false} />
     </instancedMesh>
   );
 };
@@ -585,8 +582,8 @@ const Scene: React.FC<SceneProps> = ({ allNodes, allConnections, onNodeClick, on
       <NodeLabels nodes={simNodes} hoveredRef={hoveredRef} />
       <EffectComposer>
         <Bloom
-          intensity={0.4}
-          luminanceThreshold={0.6}
+          intensity={1.2}
+          luminanceThreshold={0.1}
           luminanceSmoothing={0.9}
           mipmapBlur
         />
@@ -616,7 +613,7 @@ export const MasterCanvas: React.FC<MasterCanvasProps> = ({
         onCreated={({ gl }) => {
           gl.setClearColor('#0a0b14');
           gl.toneMapping = THREE.ACESFilmicToneMapping;
-          gl.toneMappingExposure = 1.0;
+          gl.toneMappingExposure = 1.5;
         }}
       >
         <Scene

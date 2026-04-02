@@ -904,14 +904,12 @@ export const NetworkMatrix = () => {
   };
 
   const handleMasterView = () => {
-    setHighlightedCategory(null);
     setViewMode('master');
   };
 
   const handleSingleView = () => {
     if (!activeNodeRef) { toast.error('Selecione um flow para entrar no Single View.'); return; }
     if (viewMode === 'master') setMasterViewState({ zoom: state.zoom, pan: state.pan, hasBeenOrganized: true });
-    setHighlightedCategory(null);
     setViewMode('single');
   };
 
@@ -982,7 +980,6 @@ export const NetworkMatrix = () => {
                   const flow = flows.find(f => f.id === node.flow_id);
                   if (flow) {
                     setDetailPanelNode(null);
-                    setHighlightedCategory(null);
                     setActiveNodeRef(makeRef(flow.center_type, flow.center_id));
                     setViewMode('single');
                   }
@@ -997,7 +994,6 @@ export const NetworkMatrix = () => {
               selectedNodes={selectedNodes}
               setSelectedNodes={setSelectedNodes}
               highlightedPath={highlightedPath}
-              highlightedCategory={highlightedCategory}
               showLabels={showLabels}
               onOpenEditModal={(node) => { setEditingNodeInModal(node); setNodeCreationType(node.type); setShowNodeCreationModal(true); }}
               onSingleClick={(node) => { setDetailPanelNode(node); }}

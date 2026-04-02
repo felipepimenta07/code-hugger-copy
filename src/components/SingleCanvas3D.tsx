@@ -11,7 +11,6 @@ import {
   forceLink,
   forceRadial,
 } from 'd3-force-3d';
-import { getCategoryColor } from '@/utils/categoryColors';
 
 // ---------- types ----------
 interface SimNode {
@@ -49,14 +48,16 @@ interface SingleCanvas3DProps {
   selectedNodes: string[];
   setSelectedNodes: (nodes: string[]) => void;
   highlightedPath: string[];
-  highlightedCategory?: string | null;
   showLabels?: boolean;
 }
 
-// ---------- color helpers ----------
+// ---------- color maps ----------
+import { getCategoryColor } from '@/utils/categoryColors';
+
 function getNodeCategoryColor(category: string | null): THREE.Color {
   return new THREE.Color(getCategoryColor(category));
 }
+const DEFAULT_COLOR = new THREE.Color('#94a3b8');
 
 const CONNECTION_COLORS: Record<string, THREE.Color> = {
   strong: new THREE.Color('hsl(210, 100%, 56%)'),
@@ -68,6 +69,7 @@ const CONNECTION_COLORS: Record<string, THREE.Color> = {
 };
 const DEFAULT_LINK_COLOR = new THREE.Color('hsl(220, 10%, 30%)');
 
+// Depth brightness multipliers
 const DEPTH_BRIGHTNESS = [1.0, 0.75, 0.55, 0.4, 0.3];
 
 // ---------- BFS depth ----------
@@ -75,6 +77,7 @@ function computeBFS(nodes: any[], connections: any[], centerRef: string): Map<st
   const depths = new Map<string, number>();
   const queue: { ref: string; depth: number }[] = [{ ref: centerRef, depth: 0 }];
   const visited = new Set<string>();
+
   while (queue.length > 0) {
     const { ref, depth } = queue.shift()!;
     if (visited.has(ref)) continue;
@@ -99,8 +102,7 @@ const SingleLinks3D: React.FC<{
   selectedRef: string | null;
   connectedToSelected: Set<string>;
   centerRef: string | null;
-  highlightedCategory: string | null;
-}> = ({ nodes, links, selectedRef, connectedToSelected, centerRef, highlightedCategory }) => {
+}> = ({ nodes, links, selectedRef, connectedToSelected, centerRef }) => {
   const geomRef = useRef<THREE.BufferGeometry>(null);
   const matRef = useRef<THREE.LineBasicMaterial>(null);
   const clockRef = useRef(new THREE.Clock());
@@ -112,10 +114,6 @@ const SingleLinks3D: React.FC<{
     if (!positions || !colors) return;
 
     const time = clockRef.current.getElapsedTime();
-    const nodeMap = new Map<string, SimNode>();
-    if (highlightedCategory) {
-      nodes.forEach(n => nodeMap.set(n.nodeRef, n));
-    }
 
     for (let i = 0; i < links.length; i++) {
       const s = links[i].source as SimNode;
@@ -123,8 +121,8 @@ const SingleLinks3D: React.FC<{
       positions.setXYZ(i * 2, s.x ?? 0, s.y ?? 0, s.z ?? 0);
       positions.setXYZ(i * 2 + 1, t.x ?? 0, t.y ?? 0, t.z ?? 0);
 
-      // Neutral: uniform gray for all links
-      const neutralGray = 0.18;
+      const baseC = CONNECTION_COLORS[links[i].connectionType] || DEFAULT_LINK_COLOR;
+      const isFromCenter = (s.isCenter || t.isCenter);
 
       if (selectedRef) {
         const sRef = s.nodeRef;
@@ -132,33 +130,24 @@ const SingleLinks3D: React.FC<{
         const isActive = connectedToSelected.has(sRef) && connectedToSelected.has(tRef);
         if (isActive) {
           const pulse = 0.7 + 0.3 * Math.sin(time * 3 + i * 0.5);
-          colors.setXYZ(i * 2, neutralGray * pulse * 3, neutralGray * pulse * 3, neutralGray * pulse * 3);
-          colors.setXYZ(i * 2 + 1, neutralGray * pulse * 3, neutralGray * pulse * 3, neutralGray * pulse * 3);
+          colors.setXYZ(i * 2, baseC.r * pulse, baseC.g * pulse, baseC.b * pulse);
+          colors.setXYZ(i * 2 + 1, baseC.r * pulse, baseC.g * pulse, baseC.b * pulse);
         } else {
-          colors.setXYZ(i * 2, neutralGray * 0.15, neutralGray * 0.15, neutralGray * 0.15);
-          colors.setXYZ(i * 2 + 1, neutralGray * 0.15, neutralGray * 0.15, neutralGray * 0.15);
-        }
-      } else if (highlightedCategory) {
-        const sNode = nodeMap.get(s.nodeRef);
-        const tNode = nodeMap.get(t.nodeRef);
-        const bothInCat = sNode?.category === highlightedCategory && tNode?.category === highlightedCategory;
-        if (bothInCat) {
-          const catColor = getNodeCategoryColor(highlightedCategory);
-          colors.setXYZ(i * 2, catColor.r * 0.8, catColor.g * 0.8, catColor.b * 0.8);
-          colors.setXYZ(i * 2 + 1, catColor.r * 0.8, catColor.g * 0.8, catColor.b * 0.8);
-        } else {
-          colors.setXYZ(i * 2, neutralGray * 0.1, neutralGray * 0.1, neutralGray * 0.1);
-          colors.setXYZ(i * 2 + 1, neutralGray * 0.1, neutralGray * 0.1, neutralGray * 0.1);
+          colors.setXYZ(i * 2, baseC.r * 0.06, baseC.g * 0.06, baseC.b * 0.06);
+          colors.setXYZ(i * 2 + 1, baseC.r * 0.06, baseC.g * 0.06, baseC.b * 0.06);
         }
       } else {
-        // Neutral: all links same subtle gray
-        colors.setXYZ(i * 2, neutralGray, neutralGray, neutralGray);
-        colors.setXYZ(i * 2 + 1, neutralGray, neutralGray, neutralGray);
+        // Connections from center are brighter
+        const mult = isFromCenter ? 0.8 : 0.45;
+        const pulse = isFromCenter ? (0.85 + 0.15 * Math.sin(time * 1.5 + i * 0.3)) : mult;
+        colors.setXYZ(i * 2, baseC.r * pulse, baseC.g * pulse, baseC.b * pulse);
+        colors.setXYZ(i * 2 + 1, baseC.r * pulse, baseC.g * pulse, baseC.b * pulse);
       }
     }
     positions.needsUpdate = true;
     colors.needsUpdate = true;
     geomRef.current.computeBoundingSphere();
+
     if (matRef.current) {
       matRef.current.opacity = selectedRef ? 0.9 : 0.4;
     }
@@ -188,10 +177,9 @@ const SingleLinks3D: React.FC<{
   );
 };
 
-// ---------- Nodes3D (single tetrahedron per node) ----------
+// ---------- Nodes3D ----------
 const _dummy = new THREE.Object3D();
 const _color = new THREE.Color();
-const NEUTRAL_COLOR = new THREE.Color('#94a3b8');
 
 const SingleNodes3D: React.FC<{
   nodes: SimNode[];
@@ -203,83 +191,62 @@ const SingleNodes3D: React.FC<{
   selectedRef: string | null;
   setSelectedRef: (ref: string | null) => void;
   connectedToSelected: Set<string>;
-  highlightedCategory: string | null;
 }> = ({
   nodes, allNodesRaw, onNodeClick, onNodeDoubleClick,
   hoveredRef, setHoveredRef,
   selectedRef, setSelectedRef, connectedToSelected,
-  highlightedCategory,
 }) => {
-  const outerRef = useRef<THREE.InstancedMesh>(null);
+  const meshRef = useRef<THREE.InstancedMesh>(null);
   const clickTimerRef = useRef<any>(null);
   const clockRef = useRef(new THREE.Clock());
 
   useFrame(() => {
-    if (!outerRef.current) return;
+    if (!meshRef.current) return;
     const time = clockRef.current.getElapsedTime();
-    const isNeutral = !highlightedCategory && !selectedRef && !hoveredRef;
-
     for (let i = 0; i < nodes.length; i++) {
       const n = nodes[i];
+      _dummy.position.set(n.x ?? 0, n.y ?? 0, n.z ?? 0);
+
       const isHovered = n.nodeRef === hoveredRef;
       const isSelected = n.nodeRef === selectedRef;
       const isCenter = n.isCenter;
       const isConnectedSelect = connectedToSelected.has(n.nodeRef);
       const depthBright = DEPTH_BRIGHTNESS[Math.min(n.depth, DEPTH_BRIGHTNESS.length - 1)];
-      const isCategoryMatch = highlightedCategory ? n.category === highlightedCategory : false;
 
+      // Scale: center biggest, then selected, hovered, connected, by depth
       let scale = 0.7 + depthBright * 0.3;
       if (isCenter) scale = 2.0;
       else if (isSelected) scale = 1.5;
       else if (isHovered) scale = 1.3;
-      else if (highlightedCategory && isCategoryMatch) scale = 1.3;
       else if (isConnectedSelect) scale = 1.0;
-      else if (highlightedCategory && !isCategoryMatch) scale = 0.45;
 
-      _dummy.position.set(n.x ?? 0, n.y ?? 0, n.z ?? 0);
       _dummy.scale.setScalar(scale);
       _dummy.rotation.set(time * 0.2 + i * 0.5, time * 0.1 + i * 0.3, 0);
       _dummy.updateMatrix();
-      outerRef.current.setMatrixAt(i, _dummy.matrix);
+      meshRef.current.setMatrixAt(i, _dummy.matrix);
 
       const baseColor = getNodeCategoryColor(n.category);
 
-      // Color logic: neutral = only center colored, rest gray
-      if (isNeutral) {
-        if (isCenter) {
-          _color.copy(baseColor).multiplyScalar(1.2);
-        } else {
-          _color.copy(NEUTRAL_COLOR).multiplyScalar(depthBright * 0.5);
-        }
-      } else if (highlightedCategory) {
-        if (isCategoryMatch) {
-          _color.copy(baseColor).multiplyScalar(1.3);
-        } else if (isCenter) {
-          _color.copy(baseColor).multiplyScalar(0.8);
-        } else {
-          _color.copy(NEUTRAL_COLOR).multiplyScalar(0.06);
-        }
-      } else if (selectedRef) {
+      if (selectedRef) {
         if (isSelected || isCenter) {
-          _color.copy(baseColor).multiplyScalar(1.3);
+          _color.copy(baseColor).lerp(new THREE.Color('#ffffff'), 0.2);
         } else if (isConnectedSelect) {
-          _color.copy(NEUTRAL_COLOR).multiplyScalar(0.7);
+          _color.copy(baseColor).multiplyScalar(0.7);
         } else {
-          _color.copy(NEUTRAL_COLOR).multiplyScalar(0.08);
+          _color.copy(baseColor).multiplyScalar(0.08);
         }
-      } else if (hoveredRef) {
-        if (isHovered) {
-          _color.copy(baseColor).multiplyScalar(1.3);
-        } else if (isCenter) {
-          _color.copy(baseColor).multiplyScalar(1.0);
-        } else {
-          _color.copy(NEUTRAL_COLOR).multiplyScalar(0.15);
-        }
+      } else if (isHovered) {
+        _color.copy(baseColor).lerp(new THREE.Color('#ffffff'), 0.25);
+      } else if (isCenter) {
+        _color.copy(baseColor).lerp(new THREE.Color('#ffffff'), 0.15);
+      } else {
+        _color.copy(baseColor).multiplyScalar(depthBright);
       }
-      outerRef.current.setColorAt(i, _color);
+
+      meshRef.current.setColorAt(i, _color);
     }
-    outerRef.current.instanceMatrix.needsUpdate = true;
-    if (outerRef.current.instanceColor) outerRef.current.instanceColor.needsUpdate = true;
+    meshRef.current.instanceMatrix.needsUpdate = true;
+    if (meshRef.current.instanceColor) meshRef.current.instanceColor.needsUpdate = true;
   });
 
   const handlePointerDown = useCallback((e: ThreeEvent<PointerEvent>) => {
@@ -289,6 +256,7 @@ const SingleNodes3D: React.FC<{
     const node = nodes[idx];
     const original = allNodesRaw.find((n: any) => n.node_ref === node.nodeRef);
     if (!original) return;
+
     if (clickTimerRef.current) {
       clearTimeout(clickTimerRef.current);
       clickTimerRef.current = null;
@@ -317,14 +285,14 @@ const SingleNodes3D: React.FC<{
 
   return (
     <instancedMesh
-      ref={outerRef}
+      ref={meshRef}
       args={[undefined, undefined, nodes.length]}
       onPointerDown={handlePointerDown}
       onPointerOver={handlePointerOver}
       onPointerOut={handlePointerOut}
     >
       <tetrahedronGeometry args={[0.35]} />
-      <meshStandardMaterial emissive="#000000" emissiveIntensity={0.3} roughness={0.4} metalness={0.2} toneMapped={false} transparent opacity={0.9} />
+      <meshStandardMaterial emissive="#ffffff" emissiveIntensity={0.6} roughness={0.6} metalness={0.2} toneMapped={false} />
     </instancedMesh>
   );
 };
@@ -333,15 +301,22 @@ const SingleNodes3D: React.FC<{
 const SingleNodeLabels: React.FC<{ nodes: SimNode[]; hoveredRef: string | null; showLabels: boolean }> = ({
   nodes, hoveredRef, showLabels,
 }) => {
+  // Show hovered label always, all labels when showLabels is on, or center node
   const visibleNodes = nodes.filter(n =>
     n.nodeRef === hoveredRef || (showLabels && true) || n.isCenter
   );
+
   if (visibleNodes.length === 0) return null;
+
   return (
     <>
       {visibleNodes.map(node => (
         <group key={node.nodeRef} position={[node.x ?? 0, (node.y ?? 0) - (node.isCenter ? 2.0 : 1.2), node.z ?? 0]}>
-          <Html center distanceFactor={70} style={{ pointerEvents: 'none', whiteSpace: 'nowrap' }}>
+          <Html
+            center
+            distanceFactor={70}
+            style={{ pointerEvents: 'none', whiteSpace: 'nowrap' }}
+          >
             <div style={{ textAlign: 'center', userSelect: 'none' }}>
               <div style={{
                 color: node.isCenter ? 'hsl(0 0% 100%)' : 'hsl(0 0% 90%)',
@@ -373,6 +348,7 @@ const SingleNodeLabels: React.FC<{ nodes: SimNode[]; hoveredRef: string | null; 
 const CameraAutoFit: React.FC<{ nodes: SimNode[] }> = ({ nodes }) => {
   const { camera } = useThree();
   const fitted = useRef(false);
+
   useEffect(() => {
     if (nodes.length === 0 || fitted.current) return;
     let maxDist = 0;
@@ -387,6 +363,7 @@ const CameraAutoFit: React.FC<{ nodes: SimNode[] }> = ({ nodes }) => {
       fitted.current = true;
     }
   }, [nodes, camera]);
+
   return null;
 };
 
@@ -406,12 +383,14 @@ const SingleCameraFocus: React.FC<{
       const node = nodes.find(n => n.nodeRef === selectedRef);
       if (node && controlsRef.current) {
         const nodePos = new THREE.Vector3(node.x ?? 0, node.y ?? 0, node.z ?? 0);
-        if (nodePos.length() > 0.01) {
-          const camDist = camera.position.length();
-          const targetCamPos = nodePos.clone().normalize().multiplyScalar(camDist);
-          targetSpherical.current.setFromVector3(targetCamPos);
-          isAnimating.current = true;
-        }
+        const radius = camera.position.length();
+        // Calculate the spherical angles that would place the camera
+        // so that the node is aligned with the camera's forward direction
+        // Camera needs to look FROM the opposite side of the node
+        const dir = nodePos.clone().normalize().negate();
+        const camTarget = dir.multiplyScalar(radius);
+        targetSpherical.current.setFromVector3(camTarget);
+        isAnimating.current = true;
       }
     }
     prevSelectedRef.current = selectedRef;
@@ -420,16 +399,22 @@ const SingleCameraFocus: React.FC<{
   useFrame(() => {
     if (!isAnimating.current || !controlsRef.current) return;
     const controls = controlsRef.current;
+    // Keep target at origin
     controls.target.set(0, 0, 0);
     const currentSpherical = new THREE.Spherical().setFromVector3(camera.position);
+    // Lerp spherical coords
     currentSpherical.phi += (targetSpherical.current.phi - currentSpherical.phi) * 0.08;
     currentSpherical.theta += (targetSpherical.current.theta - currentSpherical.theta) * 0.08;
     camera.position.setFromSpherical(currentSpherical);
     camera.lookAt(0, 0, 0);
     controls.update();
+    // Check convergence
     const dPhi = Math.abs(currentSpherical.phi - targetSpherical.current.phi);
     const dTheta = Math.abs(currentSpherical.theta - targetSpherical.current.theta);
     if (dPhi < 0.005 && dTheta < 0.005) {
+      camera.position.setFromSpherical(targetSpherical.current);
+      camera.lookAt(0, 0, 0);
+      controls.update();
       isAnimating.current = false;
     }
   });
@@ -445,8 +430,7 @@ const SingleScene: React.FC<{
   onSingleClick: (node: any) => void;
   onOpenEditModal: (node: any) => void;
   showLabels: boolean;
-  highlightedCategory: string | null;
-}> = ({ nodes: rawNodes, connections: rawConnections, centerNodeRef, onSingleClick, onOpenEditModal, showLabels, highlightedCategory }) => {
+}> = ({ nodes: rawNodes, connections: rawConnections, centerNodeRef, onSingleClick, onOpenEditModal, showLabels }) => {
   const [simNodes, setSimNodes] = useState<SimNode[]>([]);
   const [simLinks, setSimLinks] = useState<SimLink[]>([]);
   const [hoveredRef, setHoveredRef] = useState<string | null>(null);
@@ -474,9 +458,12 @@ const SingleScene: React.FC<{
     setSelectedRef(null);
   }, []);
 
+  // Build simulation
   useEffect(() => {
     if (rawNodes.length === 0) return;
+
     const depthMap = centerNodeRef ? computeBFS(rawNodes, rawConnections, centerNodeRef) : new Map<string, number>();
+
     const masterNodes: SimNode[] = rawNodes.map((n) => {
       const isCenter = n.node_ref === centerNodeRef;
       const depth = depthMap.get(n.node_ref) ?? 99;
@@ -487,7 +474,7 @@ const SingleScene: React.FC<{
         nodeRef: n.node_ref,
         name: n.name,
         type: n.type,
-        category: n.category || 'Sem categoria',
+        category: n.category || null,
         isCenter,
         depth,
         x: isCenter ? 0 : r * Math.sin(phi) * Math.cos(theta),
@@ -498,6 +485,7 @@ const SingleScene: React.FC<{
         fz: isCenter ? 0 : null,
       } as SimNode;
     });
+
     const nodeRefSet = new Set(masterNodes.map(n => n.nodeRef));
     const masterLinks: SimLink[] = rawConnections
       .filter(c => nodeRefSet.has(c.from_ref) && nodeRefSet.has(c.to_ref))
@@ -509,13 +497,17 @@ const SingleScene: React.FC<{
       }));
 
     if (simulationRef.current) simulationRef.current.stop();
+
     const sim = forceSimulation(masterNodes, 3)
-      .force('link', forceLink(masterLinks).id((d: any) => d.nodeRef).distance(1.5).strength(0.8))
+      .force('link', forceLink(masterLinks)
+        .id((d: any) => d.nodeRef).distance(1.5).strength(0.8))
       .force('charge', forceManyBody().strength(-2.0).distanceMax(10))
       .force('center', forceCenter(0, 0, 0).strength(0.5))
       .force('radial', forceRadial((d: any) => d.isCenter ? 0 : 2 + d.depth * 1.2, 0, 0, 0).strength(0.5))
       .force('collision', forceCollide().radius(0.4).strength(0.9))
-      .alpha(0.7).alphaDecay(0.04).velocityDecay(0.65);
+      .alpha(0.7)
+      .alphaDecay(0.04)
+      .velocityDecay(0.65);
 
     tickRef.current = 0;
     sim.on('tick', () => {
@@ -529,6 +521,7 @@ const SingleScene: React.FC<{
       setSimNodes([...masterNodes]);
       setSimLinks([...masterLinks]);
     });
+
     simulationRef.current = sim;
     return () => { sim.stop(); };
   }, [rawNodes.length, rawConnections.length, centerNodeRef]);
@@ -541,31 +534,54 @@ const SingleScene: React.FC<{
       <Stars radius={220} depth={80} count={2200} factor={3} saturation={0.2} fade speed={0.35} />
       <OrbitControls
         ref={controlsRef}
-        enableDamping dampingFactor={0.1}
-        enableZoom zoomSpeed={2.0} minDistance={1.0} maxDistance={80}
-        enablePan panSpeed={1.5} enableRotate
-        mouseButtons={{ LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN }}
-        touches={{ ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN }}
+        enableDamping
+        dampingFactor={0.1}
+        enableZoom
+        zoomSpeed={2.0}
+        minDistance={1.0}
+        maxDistance={80}
+        enablePan
+        panSpeed={1.5}
+        enableRotate
+        mouseButtons={{
+          LEFT: THREE.MOUSE.ROTATE,
+          MIDDLE: THREE.MOUSE.DOLLY,
+          RIGHT: THREE.MOUSE.PAN,
+        }}
+        touches={{
+          ONE: THREE.TOUCH.ROTATE,
+          TWO: THREE.TOUCH.DOLLY_PAN,
+        }}
         makeDefault
       />
       <CameraAutoFit nodes={simNodes} />
       <SingleCameraFocus nodes={simNodes} selectedRef={selectedRef} controlsRef={controlsRef} />
       <SingleLinks3D
-        nodes={simNodes} links={simLinks}
-        selectedRef={selectedRef} connectedToSelected={connectedToSelected}
-        centerRef={centerNodeRef} highlightedCategory={highlightedCategory}
+        nodes={simNodes}
+        links={simLinks}
+        selectedRef={selectedRef}
+        connectedToSelected={connectedToSelected}
+        centerRef={centerNodeRef}
       />
       <SingleNodes3D
-        nodes={simNodes} allNodesRaw={rawNodes}
-        onNodeClick={onSingleClick} onNodeDoubleClick={onOpenEditModal}
-        hoveredRef={hoveredRef} setHoveredRef={setHoveredRef}
-        selectedRef={selectedRef} setSelectedRef={setSelectedRef}
+        nodes={simNodes}
+        allNodesRaw={rawNodes}
+        onNodeClick={onSingleClick}
+        onNodeDoubleClick={onOpenEditModal}
+        hoveredRef={hoveredRef}
+        setHoveredRef={setHoveredRef}
+        selectedRef={selectedRef}
+        setSelectedRef={setSelectedRef}
         connectedToSelected={connectedToSelected}
-        highlightedCategory={highlightedCategory}
       />
       <SingleNodeLabels nodes={simNodes} hoveredRef={hoveredRef} showLabels={showLabels} />
       <EffectComposer>
-        <Bloom intensity={0.4} luminanceThreshold={0.6} luminanceSmoothing={0.9} mipmapBlur />
+        <Bloom
+          intensity={1.2}
+          luminanceThreshold={0.1}
+          luminanceSmoothing={0.9}
+          mipmapBlur
+        />
       </EffectComposer>
     </group>
   );
@@ -573,13 +589,21 @@ const SingleScene: React.FC<{
 
 // ---------- Main component ----------
 export const SingleCanvas3D: React.FC<SingleCanvas3DProps> = ({
-  nodes, connections, centerNodeRef,
-  onSingleClick = () => {}, onOpenEditModal = () => {},
-  selectedNodes, setSelectedNodes, highlightedPath,
-  highlightedCategory = null, showLabels = false,
+  nodes,
+  connections,
+  centerNodeRef,
+  onSingleClick = () => {},
+  onOpenEditModal = () => {},
+  selectedNodes,
+  setSelectedNodes,
+  highlightedPath,
+  showLabels = false,
 }) => {
   return (
-    <div className="relative w-full h-full overflow-hidden" style={{ background: '#0a0b14', touchAction: 'none' }}>
+    <div
+      className="relative w-full h-full overflow-hidden"
+      style={{ background: '#0a0b14', touchAction: 'none' }}
+    >
       <R3FCanvas
         camera={{ position: [0, 0, 10], fov: 55, near: 0.1, far: 2000 }}
         gl={{ antialias: true, alpha: false }}
@@ -587,13 +611,16 @@ export const SingleCanvas3D: React.FC<SingleCanvas3DProps> = ({
         onCreated={({ gl }) => {
           gl.setClearColor('#0a0b14');
           gl.toneMapping = THREE.ACESFilmicToneMapping;
-          gl.toneMappingExposure = 1.0;
+          gl.toneMappingExposure = 1.5;
         }}
       >
         <SingleScene
-          nodes={nodes} connections={connections} centerNodeRef={centerNodeRef}
-          onSingleClick={onSingleClick} onOpenEditModal={onOpenEditModal}
-          showLabels={showLabels} highlightedCategory={highlightedCategory}
+          nodes={nodes}
+          connections={connections}
+          centerNodeRef={centerNodeRef}
+          onSingleClick={onSingleClick}
+          onOpenEditModal={onOpenEditModal}
+          showLabels={showLabels}
         />
       </R3FCanvas>
     </div>
