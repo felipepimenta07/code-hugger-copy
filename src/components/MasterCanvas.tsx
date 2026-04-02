@@ -46,10 +46,13 @@ interface MasterCanvasProps {
 }
 
 // ---------- color maps ----------
-import { getCategoryColor } from '@/utils/categoryColors';
+import { getCategoryColor, getCategoryCoreColor } from '@/utils/categoryColors';
 
 function getNodeCategoryColor(category: string | null): THREE.Color {
   return new THREE.Color(getCategoryColor(category));
+}
+function getNodeCoreColor(category: string | null): THREE.Color {
+  return new THREE.Color(getCategoryCoreColor(category));
 }
 const DEFAULT_COLOR = new THREE.Color('#94a3b8');
 
