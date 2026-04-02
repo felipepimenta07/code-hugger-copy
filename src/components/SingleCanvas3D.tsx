@@ -192,9 +192,10 @@ const SingleLinks3D: React.FC<{
   );
 };
 
-// ---------- Nodes3D (outer shell + inner core) ----------
+// ---------- Nodes3D (single tetrahedron per node) ----------
 const _dummy = new THREE.Object3D();
 const _color = new THREE.Color();
+const NEUTRAL_COLOR = new THREE.Color('#94a3b8');
 
 const SingleNodes3D: React.FC<{
   nodes: SimNode[];
@@ -214,13 +215,14 @@ const SingleNodes3D: React.FC<{
   highlightedCategory,
 }) => {
   const outerRef = useRef<THREE.InstancedMesh>(null);
-  const coreRef = useRef<THREE.InstancedMesh>(null);
   const clickTimerRef = useRef<any>(null);
   const clockRef = useRef(new THREE.Clock());
 
   useFrame(() => {
-    if (!outerRef.current || !coreRef.current) return;
+    if (!outerRef.current) return;
     const time = clockRef.current.getElapsedTime();
+    const isNeutral = !highlightedCategory && !selectedRef && !hoveredRef;
+
     for (let i = 0; i < nodes.length; i++) {
       const n = nodes[i];
       const isHovered = n.nodeRef === hoveredRef;
@@ -238,72 +240,50 @@ const SingleNodes3D: React.FC<{
       else if (isConnectedSelect) scale = 1.0;
       else if (highlightedCategory && !isCategoryMatch) scale = 0.45;
 
-      // Outer shell
       _dummy.position.set(n.x ?? 0, n.y ?? 0, n.z ?? 0);
       _dummy.scale.setScalar(scale);
       _dummy.rotation.set(time * 0.2 + i * 0.5, time * 0.1 + i * 0.3, 0);
       _dummy.updateMatrix();
       outerRef.current.setMatrixAt(i, _dummy.matrix);
 
-      // Inner core — same position, smaller scale, different rotation
-      _dummy.scale.setScalar(scale * 0.45);
-      _dummy.rotation.set(time * -0.3 + i * 0.7, time * 0.25 + i * 0.4, time * 0.15);
-      _dummy.updateMatrix();
-      coreRef.current.setMatrixAt(i, _dummy.matrix);
-
       const baseColor = getNodeCategoryColor(n.category);
-      const coreColor = getNodeCoreColor(n.category);
 
-      // Outer color — category color, no white lerp
-      if (highlightedCategory) {
+      // Color logic: neutral = only center colored, rest gray
+      if (isNeutral) {
+        if (isCenter) {
+          _color.copy(baseColor).multiplyScalar(1.2);
+        } else {
+          _color.copy(NEUTRAL_COLOR).multiplyScalar(depthBright * 0.5);
+        }
+      } else if (highlightedCategory) {
         if (isCategoryMatch) {
           _color.copy(baseColor).multiplyScalar(1.3);
+        } else if (isCenter) {
+          _color.copy(baseColor).multiplyScalar(0.8);
         } else {
-          _color.copy(baseColor).multiplyScalar(0.05);
+          _color.copy(NEUTRAL_COLOR).multiplyScalar(0.06);
         }
       } else if (selectedRef) {
         if (isSelected || isCenter) {
           _color.copy(baseColor).multiplyScalar(1.3);
         } else if (isConnectedSelect) {
-          _color.copy(baseColor).multiplyScalar(0.7);
+          _color.copy(NEUTRAL_COLOR).multiplyScalar(0.7);
         } else {
-          _color.copy(baseColor).multiplyScalar(0.08);
+          _color.copy(NEUTRAL_COLOR).multiplyScalar(0.08);
         }
-      } else if (isHovered) {
-        _color.copy(baseColor).multiplyScalar(1.3);
-      } else if (isCenter) {
-        _color.copy(baseColor).multiplyScalar(1.2);
-      } else {
-        _color.copy(baseColor).multiplyScalar(depthBright);
+      } else if (hoveredRef) {
+        if (isHovered) {
+          _color.copy(baseColor).multiplyScalar(1.3);
+        } else if (isCenter) {
+          _color.copy(baseColor).multiplyScalar(1.0);
+        } else {
+          _color.copy(NEUTRAL_COLOR).multiplyScalar(0.15);
+        }
       }
       outerRef.current.setColorAt(i, _color);
-
-      // Core color — accent color, no white lerp
-      if (highlightedCategory) {
-        if (isCategoryMatch) {
-          _color.copy(coreColor).multiplyScalar(1.4);
-        } else {
-          _color.copy(coreColor).multiplyScalar(0.05);
-        }
-      } else if (selectedRef) {
-        if (isSelected || isCenter) {
-          _color.copy(coreColor).multiplyScalar(1.4);
-        } else if (isConnectedSelect) {
-          _color.copy(coreColor).multiplyScalar(0.7);
-        } else {
-          _color.copy(coreColor).multiplyScalar(0.08);
-        }
-      } else if (isCenter) {
-        _color.copy(coreColor).multiplyScalar(1.2);
-      } else {
-        _color.copy(coreColor).multiplyScalar(depthBright);
-      }
-      coreRef.current.setColorAt(i, _color);
     }
     outerRef.current.instanceMatrix.needsUpdate = true;
     if (outerRef.current.instanceColor) outerRef.current.instanceColor.needsUpdate = true;
-    coreRef.current.instanceMatrix.needsUpdate = true;
-    if (coreRef.current.instanceColor) coreRef.current.instanceColor.needsUpdate = true;
   });
 
   const handlePointerDown = useCallback((e: ThreeEvent<PointerEvent>) => {
@@ -340,24 +320,16 @@ const SingleNodes3D: React.FC<{
   if (nodes.length === 0) return null;
 
   return (
-    <>
-      {/* Outer shell */}
-      <instancedMesh
-        ref={outerRef}
-        args={[undefined, undefined, nodes.length]}
-        onPointerDown={handlePointerDown}
-        onPointerOver={handlePointerOver}
-        onPointerOut={handlePointerOut}
-      >
-        <tetrahedronGeometry args={[0.35]} />
-        <meshStandardMaterial emissive="#000000" emissiveIntensity={0.3} roughness={0.4} metalness={0.2} toneMapped={false} transparent opacity={0.9} />
-      </instancedMesh>
-      {/* Inner core */}
-      <instancedMesh ref={coreRef} args={[undefined, undefined, nodes.length]}>
-        <sphereGeometry args={[0.35, 8, 8]} />
-        <meshBasicMaterial toneMapped={false} />
-      </instancedMesh>
-    </>
+    <instancedMesh
+      ref={outerRef}
+      args={[undefined, undefined, nodes.length]}
+      onPointerDown={handlePointerDown}
+      onPointerOver={handlePointerOver}
+      onPointerOut={handlePointerOut}
+    >
+      <tetrahedronGeometry args={[0.35]} />
+      <meshStandardMaterial emissive="#000000" emissiveIntensity={0.3} roughness={0.4} metalness={0.2} toneMapped={false} transparent opacity={0.9} />
+    </instancedMesh>
   );
 };
 
