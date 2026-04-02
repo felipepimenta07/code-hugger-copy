@@ -632,8 +632,8 @@ const Scene: React.FC<SceneProps> = ({ allNodes, allConnections, onNodeClick, on
       <NodeLabels nodes={simNodes} hoveredRef={hoveredRef} />
       <EffectComposer>
         <Bloom
-          intensity={1.2}
-          luminanceThreshold={0.1}
+          intensity={0.4}
+          luminanceThreshold={0.6}
           luminanceSmoothing={0.9}
           mipmapBlur
         />
