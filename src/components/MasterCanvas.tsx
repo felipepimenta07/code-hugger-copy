@@ -155,8 +155,11 @@ const Nodes3D: React.FC<Nodes3DProps> = ({
   const meshRef = useRef<THREE.InstancedMesh>(null);
   const clickTimerRef = useRef<any>(null);
 
+  const clockRef = useRef(new THREE.Clock());
+
   useFrame(() => {
     if (!meshRef.current) return;
+    const time = clockRef.current.getElapsedTime();
     for (let i = 0; i < nodes.length; i++) {
       const n = nodes[i];
       _dummy.position.set(n.x ?? 0, n.y ?? 0, n.z ?? 0);
@@ -168,6 +171,8 @@ const Nodes3D: React.FC<Nodes3DProps> = ({
 
       const scale = isHovered || isSelected ? 1.35 : 0.92;
       _dummy.scale.setScalar(scale);
+      // Subtle rotation to show 3D depth
+      _dummy.rotation.set(time * 0.2 + i * 0.5, time * 0.1 + i * 0.3, 0);
       _dummy.updateMatrix();
       meshRef.current.setMatrixAt(i, _dummy.matrix);
 
