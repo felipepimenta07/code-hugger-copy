@@ -1,50 +1,31 @@
 
 
-## Plano: Cores por grupo/categoria nos nós e cada nó com cor única
+## Plano: Corrigir bugs restantes
 
-### Problema atual
-1. Quando clica num grupo (ex: "LinkedIn"), os nós usam `TYPE_COLORS[n.type]` (person/project/brand) — **não** a cor do grupo da sidebar
-2. Todos os nós do mesmo tipo têm a mesma cor base — não há diferenciação individual
+### Diagnóstico
+Após analisar o código atual:
 
-### Mudanças
+1. **Câmera no SingleCanvas3D** — ainda usa o método antigo (offset + lerp target) que "arrasta" em vez de girar. O MasterCanvas já usa rotação esférica, mas o SingleCanvas3D não foi atualizado.
 
-#### 1. Importar e usar as cores da sidebar no MasterCanvas
+2. **Cores por categoria JÁ estão implementadas** — `getCategoryColor()` é usado em ambos os canvas. Porém, o hash pode mapear categorias diferentes para a mesma cor (21 cores no pool vs 30+ categorias). Preciso aumentar a diferenciação.
 
-**Em `MasterCanvas.tsx`:**
-- Copiar a função `hashStr` e `getColor` da sidebar (ou importar de um módulo compartilhado) para mapear `category → cor HSL`
-- No `Nodes3D`, quando `highlightedCategory` está ativo e o nó faz match, usar a cor do grupo (ex: cor do "LinkedIn") em vez de `TYPE_COLORS[n.type]`
-- Quando **nenhum** filtro está ativo, cada nó usa a cor da sua categoria como cor base — assim nós "LinkedIn" são sempre azuis, nós "WhatsApp" verdes, etc.
+3. **Sidebar JÁ passa `activeCategory`** ao NetworkMatrix — o toggle deveria funcionar. O bug pode ser que `onFilterCategory` não é passado (a sidebar chama ambos `onFilterCategory` e `onHighlightCategory` no `onClick`).
 
-**Lógica de cor atualizada no `useFrame`:**
-```text
-const categoryColor = getCategoryColor(n.category);  // cor do grupo
-const baseColor = categoryColor;  // SEMPRE usar cor da categoria
+### Correções
 
-if (highlightedCategory):
-  match → cor cheia com glow
-  não match → dimmed (0.06)
-else (estado normal):
-  cada nó com a cor da sua categoria (0.7 brightness)
-```
+#### 1. Câmera esférica no SingleCanvas3D
+Copiar o padrão do MasterCanvas `CameraFocus` para o `SingleCameraFocus`:
+- Usar `THREE.Spherical` para girar a câmera ao redor da origem
+- Target fixo em (0,0,0), câmera rota nos ângulos phi/theta
 
-#### 2. Links também usam cor da categoria quando filtro ativo
+#### 2. Mais cores distintas
+Expandir `SEED_COLORS` em `categoryColors.ts` de 21 para ~35 cores, com hues mais espaçados para evitar colisões visuais entre categorias com hashes próximos.
 
-**Em `Links3D`:**
-- Quando `highlightedCategory` ativo, links entre nós da mesma categoria usam a cor do grupo
-- Links entre categorias diferentes ficam dimmed
+#### 3. Garantir que sidebar funcione completo
+Em `NetworkMatrix.tsx`, passar `onFilterCategory` ao `NetworkSidebar` (atualmente só passa `onHighlightCategory`). Sem isso, o clique no grupo não faz toggle visual correto na sidebar.
 
-#### 3. Aplicar o mesmo padrão ao SingleCanvas3D
-
-**Em `SingleCanvas3D.tsx`:**
-- Usar a mesma função de cor por categoria para os nós
-- Nó central mantém destaque de escala (2.0) mas usa a cor da sua categoria
-
-### Implementação técnica
-- Extrair `hashStr` + `getColor` do `NetworkSidebar.tsx` para um utilitário compartilhado ou duplicar no MasterCanvas
-- Converter HSL string para `THREE.Color` com `new THREE.Color(hslString)`
-- Substituir `TYPE_COLORS[n.type]` por `new THREE.Color(getColor(n.category))` como cor base
-
-### Arquivos modificados
-1. `src/components/MasterCanvas.tsx` — cores por categoria nos nós e links
-2. `src/components/SingleCanvas3D.tsx` — mesma lógica de cores por categoria
+### Arquivos
+1. **`src/components/SingleCanvas3D.tsx`** — substituir `SingleCameraFocus` por rotação esférica
+2. **`src/utils/categoryColors.ts`** — expandir paleta de cores
+3. **`src/components/NetworkMatrix.tsx`** — passar `onFilterCategory` ao sidebar
 
