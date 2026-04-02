@@ -126,8 +126,8 @@ const SingleLinks3D: React.FC<{
       positions.setXYZ(i * 2, s.x ?? 0, s.y ?? 0, s.z ?? 0);
       positions.setXYZ(i * 2 + 1, t.x ?? 0, t.y ?? 0, t.z ?? 0);
 
-      const baseC = CONNECTION_COLORS[links[i].connectionType] || DEFAULT_LINK_COLOR;
-      const isFromCenter = (s.isCenter || t.isCenter);
+      // Neutral: uniform gray for all links
+      const neutralGray = 0.18;
 
       if (selectedRef) {
         const sRef = s.nodeRef;
@@ -135,11 +135,11 @@ const SingleLinks3D: React.FC<{
         const isActive = connectedToSelected.has(sRef) && connectedToSelected.has(tRef);
         if (isActive) {
           const pulse = 0.7 + 0.3 * Math.sin(time * 3 + i * 0.5);
-          colors.setXYZ(i * 2, baseC.r * pulse, baseC.g * pulse, baseC.b * pulse);
-          colors.setXYZ(i * 2 + 1, baseC.r * pulse, baseC.g * pulse, baseC.b * pulse);
+          colors.setXYZ(i * 2, neutralGray * pulse * 3, neutralGray * pulse * 3, neutralGray * pulse * 3);
+          colors.setXYZ(i * 2 + 1, neutralGray * pulse * 3, neutralGray * pulse * 3, neutralGray * pulse * 3);
         } else {
-          colors.setXYZ(i * 2, baseC.r * 0.06, baseC.g * 0.06, baseC.b * 0.06);
-          colors.setXYZ(i * 2 + 1, baseC.r * 0.06, baseC.g * 0.06, baseC.b * 0.06);
+          colors.setXYZ(i * 2, neutralGray * 0.15, neutralGray * 0.15, neutralGray * 0.15);
+          colors.setXYZ(i * 2 + 1, neutralGray * 0.15, neutralGray * 0.15, neutralGray * 0.15);
         }
       } else if (highlightedCategory) {
         const sNode = nodeMap.get(s.nodeRef);
@@ -150,14 +150,13 @@ const SingleLinks3D: React.FC<{
           colors.setXYZ(i * 2, catColor.r * 0.8, catColor.g * 0.8, catColor.b * 0.8);
           colors.setXYZ(i * 2 + 1, catColor.r * 0.8, catColor.g * 0.8, catColor.b * 0.8);
         } else {
-          colors.setXYZ(i * 2, baseC.r * 0.04, baseC.g * 0.04, baseC.b * 0.04);
-          colors.setXYZ(i * 2 + 1, baseC.r * 0.04, baseC.g * 0.04, baseC.b * 0.04);
+          colors.setXYZ(i * 2, neutralGray * 0.1, neutralGray * 0.1, neutralGray * 0.1);
+          colors.setXYZ(i * 2 + 1, neutralGray * 0.1, neutralGray * 0.1, neutralGray * 0.1);
         }
       } else {
-        const mult = isFromCenter ? 0.8 : 0.45;
-        const pulse = isFromCenter ? (0.85 + 0.15 * Math.sin(time * 1.5 + i * 0.3)) : mult;
-        colors.setXYZ(i * 2, baseC.r * pulse, baseC.g * pulse, baseC.b * pulse);
-        colors.setXYZ(i * 2 + 1, baseC.r * pulse, baseC.g * pulse, baseC.b * pulse);
+        // Neutral: all links same subtle gray
+        colors.setXYZ(i * 2, neutralGray, neutralGray, neutralGray);
+        colors.setXYZ(i * 2 + 1, neutralGray, neutralGray, neutralGray);
       }
     }
     positions.needsUpdate = true;
