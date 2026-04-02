@@ -57,9 +57,6 @@ interface SingleCanvas3DProps {
 function getNodeCategoryColor(category: string | null): THREE.Color {
   return new THREE.Color(getCategoryColor(category));
 }
-function getNodeCoreColor(category: string | null): THREE.Color {
-  return new THREE.Color(getCategoryCoreColor(category));
-}
 
 const CONNECTION_COLORS: Record<string, THREE.Color> = {
   strong: new THREE.Color('hsl(210, 100%, 56%)'),
