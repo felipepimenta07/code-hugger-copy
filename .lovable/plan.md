@@ -1,42 +1,36 @@
 
 
-## Plano: Trocar esferas 2D por tetraedros 3D com fog + glow leve
+## Plano: Trazer de volta o glow forte inspirado no brain_hq.html
 
-### Problema
-As esferas (`sphereGeometry`) com `meshBasicMaterial` parecem bolas 2D — sem profundidade. Não dá pra distinguir frente de trás.
+### Problema atual
+O Bloom está com `intensity={0.4}` e `luminanceThreshold={0.3}` — muito fraco, quase invisível. O material tem `emissive="#ffffff"` com `emissiveIntensity={0.3}` — também fraco. Resultado: tudo parece opaco e sem vida.
 
-### Inspiração do arquivo enviado
-O `brain_hq.html` usa:
-- `TetrahedronGeometry(0.25)` — forma 3D com faces angulares que dão senso de profundidade
-- `FogExp2(0x000000, 0.01)` — nós distantes ficam mais escuros/invisíveis, criando profundidade natural
-- Bloom com `strength: 1.8`, `radius: 0.4`, `threshold: 0` — glow forte mas controlado
+### Referência do brain_hq.html
+O arquivo original usava Bloom com `strength: 1.8`, `radius: 0.4`, `threshold: 0` — glow forte e envolvente.
 
 ### Mudanças em `src/components/MasterCanvas.tsx`
 
-#### 1. Trocar geometria: esfera → tetraedro
-- `sphereGeometry args={[0.6, 12, 12]}` → `tetrahedronGeometry args={[0.35]}`
-- Forma angular = leitura clara de rotação e profundidade
+#### 1. Aumentar Bloom significativamente
+- `intensity={0.4}` → `intensity={1.2}`
+- `luminanceThreshold={0.3}` → `luminanceThreshold={0.1}`
+- `luminanceSmoothing={0.6}` → `luminanceSmoothing={0.9}`
+- Resultado: glow visível e bonito em todos os nós
 
-#### 2. Adicionar Fog exponencial na cena
-- Adicionar `<fog attach="fog" args={['#0a0b14', 8, 60]}` (fog linear) ou `<fogExp2 attach="fog" args={['#0a0b14', 0.025]}>`
-- Nós distantes desaparecem gradualmente → senso de profundidade real
+#### 2. Aumentar emissive do material
+- `emissive="#ffffff" emissiveIntensity={0.3}` → `emissiveIntensity={0.6}`
+- Os nós emitem mais luz, alimentando o Bloom
 
-#### 3. Trocar material para `meshStandardMaterial` ou `meshPhongMaterial`
-- `meshBasicMaterial` não reage a luz — tudo parece flat
-- Usar `meshStandardMaterial` com `emissive` para manter o glow mas ter sombreamento 3D
-- Adicionar `pointLight` no centro da cena para criar sombras nas faces dos tetraedros
+#### 3. Aumentar intensidade da pointLight
+- `intensity={1.2}` → `intensity={2.0}`
+- Mais luz nas faces dos tetraedros = mais brilho nas arestas
 
-#### 4. Ajustar Bloom para glow leve
-- Manter `intensity={0.4}` mas baixar `luminanceThreshold` para `0.3` (mais partículas brilham levemente)
-- `luminanceSmoothing={0.6}` para suavizar
+#### 4. Aumentar cores base no estado normal
+- `multiplyScalar(0.5)` (normal) → `multiplyScalar(0.7)`
+- Nós ficam mais coloridos mesmo sem hover, mas ainda distintos do hover (que fica 1.0)
 
-#### 5. Adicionar rotação sutil nos tetraedros
-- No `useFrame`, aplicar uma rotação leve baseada no índice: `_dummy.rotation.set(time * 0.2 + i, time * 0.1, 0)`
-- Dá vida e mostra que são objetos 3D reais
+#### 5. Ajustar tone mapping exposure
+- `toneMappingExposure = 1.2` → `1.5` para deixar a cena mais luminosa no geral
 
 ### Resultado
-- Partículas com **faces angulares** que mudam de brilho conforme o ângulo → profundidade real
-- **Fog** faz nós distantes sumirem → frente vs trás claramente distinguíveis
-- **Glow leve** mantém a estética galáxia sem saturar
-- Visual similar ao brain_hq mas adaptado ao network graph
+Visual rico com glow envolvente nos nós, faces dos tetraedros brilhando com luz, similar ao brain_hq.html mas adaptado ao network graph. Hover e seleção continuam funcionando normalmente por cima.
 
