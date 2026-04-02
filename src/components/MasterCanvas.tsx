@@ -340,7 +340,7 @@ const Nodes3D: React.FC<Nodes3DProps> = ({
       {/* Inner core */}
       <instancedMesh ref={coreRef} args={[undefined, undefined, nodes.length]}>
         <sphereGeometry args={[0.35, 8, 8]} />
-        <meshStandardMaterial emissive="#ffffff" emissiveIntensity={1.2} roughness={0.2} metalness={0.1} toneMapped={false} />
+        <meshBasicMaterial toneMapped={false} />
       </instancedMesh>
     </>
   );
