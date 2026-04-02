@@ -189,53 +189,61 @@ const Nodes3D: React.FC<Nodes3DProps> = ({
   selectedRef, setSelectedRef, connectedToSelected,
   highlightedCategory,
 }) => {
-  const meshRef = useRef<THREE.InstancedMesh>(null);
+  const outerRef = useRef<THREE.InstancedMesh>(null);
+  const coreRef = useRef<THREE.InstancedMesh>(null);
   const clickTimerRef = useRef<any>(null);
   const clockRef = useRef(new THREE.Clock());
 
   useFrame(() => {
-    if (!meshRef.current) return;
+    if (!outerRef.current || !coreRef.current) return;
     const time = clockRef.current.getElapsedTime();
     for (let i = 0; i < nodes.length; i++) {
       const n = nodes[i];
-      _dummy.position.set(n.x ?? 0, n.y ?? 0, n.z ?? 0);
-
       const isHovered = n.nodeRef === hoveredRef;
       const isSelected = n.nodeRef === selectedRef;
       const isConnectedHover = connectedToHovered.has(n.nodeRef);
       const isConnectedSelect = connectedToSelected.has(n.nodeRef);
       const isCategoryMatch = highlightedCategory ? n.category === highlightedCategory : false;
 
-      // Scale hierarchy: selected > hovered > connected > normal
       let scale = 0.92;
       if (isSelected) scale = 1.6;
       else if (isHovered) scale = 1.35;
       else if (isConnectedSelect) scale = 1.0;
 
+      // Outer shell
+      _dummy.position.set(n.x ?? 0, n.y ?? 0, n.z ?? 0);
       _dummy.scale.setScalar(scale);
       _dummy.rotation.set(time * 0.2 + i * 0.5, time * 0.1 + i * 0.3, 0);
       _dummy.updateMatrix();
-      meshRef.current.setMatrixAt(i, _dummy.matrix);
+      outerRef.current.setMatrixAt(i, _dummy.matrix);
+
+      // Inner core — same position, smaller, different rotation
+      _dummy.scale.setScalar(scale * 0.45);
+      _dummy.rotation.set(time * -0.3 + i * 0.7, time * 0.25 + i * 0.4, time * 0.15);
+      _dummy.updateMatrix();
+      coreRef.current.setMatrixAt(i, _dummy.matrix);
 
       const baseColor = getNodeCategoryColor(n.category);
+      const coreColor = getNodeCoreColor(n.category);
 
-      if (selectedRef) {
+      // Outer color
+      if (highlightedCategory) {
+        if (isCategoryMatch) {
+          _color.copy(baseColor);
+        } else {
+          _color.copy(baseColor).multiplyScalar(0.06);
+        }
+      } else if (selectedRef) {
         if (isSelected) {
-          _color.copy(baseColor).lerp(new THREE.Color('#ffffff'), 0.35);
+          _color.copy(baseColor).lerp(new THREE.Color('#ffffff'), 0.2);
         } else if (isConnectedSelect) {
           _color.copy(baseColor).multiplyScalar(0.7);
         } else {
           _color.copy(baseColor).multiplyScalar(0.06);
         }
-      } else if (highlightedCategory) {
-        if (isCategoryMatch) {
-          _color.copy(baseColor).lerp(new THREE.Color('#ffffff'), 0.15);
-        } else {
-          _color.copy(baseColor).multiplyScalar(0.06);
-        }
       } else if (hoveredRef) {
         if (isHovered) {
-          _color.copy(baseColor).lerp(new THREE.Color('#ffffff'), 0.3);
+          _color.copy(baseColor).lerp(new THREE.Color('#ffffff'), 0.25);
         } else if (isConnectedHover) {
           _color.copy(baseColor).multiplyScalar(0.75);
         } else {
@@ -244,11 +252,40 @@ const Nodes3D: React.FC<Nodes3DProps> = ({
       } else {
         _color.copy(baseColor).multiplyScalar(0.7);
       }
+      outerRef.current.setColorAt(i, _color);
 
-      meshRef.current.setColorAt(i, _color);
+      // Core color
+      if (highlightedCategory) {
+        if (isCategoryMatch) {
+          _color.copy(coreColor);
+        } else {
+          _color.copy(coreColor).multiplyScalar(0.06);
+        }
+      } else if (selectedRef) {
+        if (isSelected) {
+          _color.copy(coreColor).lerp(new THREE.Color('#ffffff'), 0.3);
+        } else if (isConnectedSelect) {
+          _color.copy(coreColor).multiplyScalar(0.7);
+        } else {
+          _color.copy(coreColor).multiplyScalar(0.06);
+        }
+      } else if (hoveredRef) {
+        if (isHovered) {
+          _color.copy(coreColor).lerp(new THREE.Color('#ffffff'), 0.3);
+        } else if (isConnectedHover) {
+          _color.copy(coreColor).multiplyScalar(0.75);
+        } else {
+          _color.copy(coreColor).multiplyScalar(0.1);
+        }
+      } else {
+        _color.copy(coreColor).multiplyScalar(0.7);
+      }
+      coreRef.current.setColorAt(i, _color);
     }
-    meshRef.current.instanceMatrix.needsUpdate = true;
-    if (meshRef.current.instanceColor) meshRef.current.instanceColor.needsUpdate = true;
+    outerRef.current.instanceMatrix.needsUpdate = true;
+    if (outerRef.current.instanceColor) outerRef.current.instanceColor.needsUpdate = true;
+    coreRef.current.instanceMatrix.needsUpdate = true;
+    if (coreRef.current.instanceColor) coreRef.current.instanceColor.needsUpdate = true;
   });
 
   const handlePointerDown = useCallback((e: ThreeEvent<PointerEvent>) => {
@@ -286,16 +323,24 @@ const Nodes3D: React.FC<Nodes3DProps> = ({
   if (nodes.length === 0) return null;
 
   return (
-    <instancedMesh
-      ref={meshRef}
-      args={[undefined, undefined, nodes.length]}
-      onPointerDown={handlePointerDown}
-      onPointerOver={handlePointerOver}
-      onPointerOut={handlePointerOut}
-    >
-      <tetrahedronGeometry args={[0.35]} />
-      <meshStandardMaterial emissive="#ffffff" emissiveIntensity={0.6} roughness={0.6} metalness={0.2} toneMapped={false} />
-    </instancedMesh>
+    <>
+      {/* Outer shell */}
+      <instancedMesh
+        ref={outerRef}
+        args={[undefined, undefined, nodes.length]}
+        onPointerDown={handlePointerDown}
+        onPointerOver={handlePointerOver}
+        onPointerOut={handlePointerOut}
+      >
+        <tetrahedronGeometry args={[0.35]} />
+        <meshStandardMaterial emissive="#ffffff" emissiveIntensity={0.5} roughness={0.6} metalness={0.2} toneMapped={false} transparent opacity={0.85} />
+      </instancedMesh>
+      {/* Inner core */}
+      <instancedMesh ref={coreRef} args={[undefined, undefined, nodes.length]}>
+        <sphereGeometry args={[0.35, 8, 8]} />
+        <meshStandardMaterial emissive="#ffffff" emissiveIntensity={0.9} roughness={0.3} metalness={0.1} toneMapped={false} />
+      </instancedMesh>
+    </>
   );
 };
 
