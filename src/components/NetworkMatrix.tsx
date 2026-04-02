@@ -936,6 +936,7 @@ export const NetworkMatrix = () => {
         allNodes={allNodes}
         nodes={nodes}
         activeCategory={highlightedCategory}
+        onFilterCategory={setHighlightedCategory}
         onHighlightCategory={setHighlightedCategory}
       />
 

@@ -374,34 +374,49 @@ const SingleCameraFocus: React.FC<{
   controlsRef: React.RefObject<any>;
 }> = ({ nodes, selectedRef, controlsRef }) => {
   const { camera } = useThree();
-  const targetPos = useRef(new THREE.Vector3());
+  const targetSpherical = useRef(new THREE.Spherical());
   const isAnimating = useRef(false);
   const prevSelectedRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (selectedRef && selectedRef !== prevSelectedRef.current) {
       const node = nodes.find(n => n.nodeRef === selectedRef);
-      if (node) {
-        targetPos.current.set(node.x ?? 0, node.y ?? 0, node.z ?? 0);
+      if (node && controlsRef.current) {
+        const nodePos = new THREE.Vector3(node.x ?? 0, node.y ?? 0, node.z ?? 0);
+        const radius = camera.position.length();
+        // Calculate the spherical angles that would place the camera
+        // so that the node is aligned with the camera's forward direction
+        // Camera needs to look FROM the opposite side of the node
+        const dir = nodePos.clone().normalize().negate();
+        const camTarget = dir.multiplyScalar(radius);
+        targetSpherical.current.setFromVector3(camTarget);
         isAnimating.current = true;
       }
     }
     prevSelectedRef.current = selectedRef;
-  }, [selectedRef, nodes]);
+  }, [selectedRef, nodes, camera, controlsRef]);
 
   useFrame(() => {
     if (!isAnimating.current || !controlsRef.current) return;
     const controls = controlsRef.current;
-    const currentTarget = controls.target as THREE.Vector3;
-    const offset = camera.position.clone().sub(currentTarget);
-    currentTarget.lerp(targetPos.current, 0.08);
-    camera.position.copy(currentTarget).add(offset);
-    if (currentTarget.distanceTo(targetPos.current) < 0.05) {
-      currentTarget.copy(targetPos.current);
-      camera.position.copy(currentTarget).add(offset);
+    // Keep target at origin
+    controls.target.set(0, 0, 0);
+    const currentSpherical = new THREE.Spherical().setFromVector3(camera.position);
+    // Lerp spherical coords
+    currentSpherical.phi += (targetSpherical.current.phi - currentSpherical.phi) * 0.08;
+    currentSpherical.theta += (targetSpherical.current.theta - currentSpherical.theta) * 0.08;
+    camera.position.setFromSpherical(currentSpherical);
+    camera.lookAt(0, 0, 0);
+    controls.update();
+    // Check convergence
+    const dPhi = Math.abs(currentSpherical.phi - targetSpherical.current.phi);
+    const dTheta = Math.abs(currentSpherical.theta - targetSpherical.current.theta);
+    if (dPhi < 0.005 && dTheta < 0.005) {
+      camera.position.setFromSpherical(targetSpherical.current);
+      camera.lookAt(0, 0, 0);
+      controls.update();
       isAnimating.current = false;
     }
-    controls.update();
   });
 
   return null;
