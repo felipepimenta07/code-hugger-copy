@@ -231,9 +231,9 @@ const Nodes3D: React.FC<Nodes3DProps> = ({
       // Outer color
       if (highlightedCategory) {
         if (isCategoryMatch) {
-          _color.copy(baseColor);
+          _color.copy(baseColor).lerp(new THREE.Color('#ffffff'), 0.15);
         } else {
-          _color.copy(baseColor).multiplyScalar(0.06);
+          _color.set(0x050508);
         }
       } else if (selectedRef) {
         if (isSelected) {
