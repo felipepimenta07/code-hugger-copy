@@ -494,7 +494,7 @@ export const MasterCanvas: React.FC<MasterCanvasProps> = ({
         onCreated={({ gl }) => {
           gl.setClearColor('#0a0b14');
           gl.toneMapping = THREE.ACESFilmicToneMapping;
-          gl.toneMappingExposure = 1.2;
+          gl.toneMappingExposure = 1.5;
         }}
       >
         <Scene
