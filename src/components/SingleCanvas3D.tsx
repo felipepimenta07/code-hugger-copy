@@ -225,20 +225,20 @@ const SingleNodes3D: React.FC<{
       _dummy.updateMatrix();
       meshRef.current.setMatrixAt(i, _dummy.matrix);
 
-      const baseColor = TYPE_COLORS[n.type] || DEFAULT_COLOR;
+      const baseColor = getNodeCategoryColor(n.category);
 
       if (selectedRef) {
         if (isSelected || isCenter) {
-          _color.copy(baseColor);
+          _color.copy(baseColor).lerp(new THREE.Color('#ffffff'), 0.2);
         } else if (isConnectedSelect) {
-          _color.copy(baseColor).multiplyScalar(0.85);
+          _color.copy(baseColor).multiplyScalar(0.7);
         } else {
-          _color.copy(baseColor).multiplyScalar(0.12);
+          _color.copy(baseColor).multiplyScalar(0.08);
         }
       } else if (isHovered) {
-        _color.copy(baseColor);
+        _color.copy(baseColor).lerp(new THREE.Color('#ffffff'), 0.25);
       } else if (isCenter) {
-        _color.copy(baseColor); // Always full brightness for center
+        _color.copy(baseColor).lerp(new THREE.Color('#ffffff'), 0.15);
       } else {
         _color.copy(baseColor).multiplyScalar(depthBright);
       }
