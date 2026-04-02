@@ -116,9 +116,14 @@ const Links3D: React.FC<Links3DProps> = ({ nodes, links, selectedRef, connectedT
         const sNode = nodeMap.get(s.nodeRef);
         const tNode = nodeMap.get(t.nodeRef);
         const bothInCat = sNode?.category === highlightedCategory && tNode?.category === highlightedCategory;
-        const mult = bothInCat ? 0.8 : 0.04;
-        colors.setXYZ(i * 2, baseC.r * mult, baseC.g * mult, baseC.b * mult);
-        colors.setXYZ(i * 2 + 1, baseC.r * mult, baseC.g * mult, baseC.b * mult);
+        if (bothInCat) {
+          const catColor = getNodeCategoryColor(highlightedCategory);
+          colors.setXYZ(i * 2, catColor.r * 0.8, catColor.g * 0.8, catColor.b * 0.8);
+          colors.setXYZ(i * 2 + 1, catColor.r * 0.8, catColor.g * 0.8, catColor.b * 0.8);
+        } else {
+          colors.setXYZ(i * 2, baseC.r * 0.04, baseC.g * 0.04, baseC.b * 0.04);
+          colors.setXYZ(i * 2 + 1, baseC.r * 0.04, baseC.g * 0.04, baseC.b * 0.04);
+        }
       } else {
         colors.setXYZ(i * 2, baseC.r * 0.5, baseC.g * 0.5, baseC.b * 0.5);
         colors.setXYZ(i * 2 + 1, baseC.r * 0.5, baseC.g * 0.5, baseC.b * 0.5);
