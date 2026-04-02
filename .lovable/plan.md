@@ -1,41 +1,50 @@
 
 
-## Plano: Corrigir 3 problemas — câmera, cores, e grupos
+## Plano: Cores por grupo/categoria nos nós e cada nó com cor única
 
-### Problema 1: Câmera "arrasta" em vez de "girar"
-O `CameraFocus` atual move tanto o target quanto a câmera juntos — isso translada a visão inteira. O usuário quer que a **esfera gire** para trazer o nó ao centro da visão, com a câmera parada.
+### Problema atual
+1. Quando clica num grupo (ex: "LinkedIn"), os nós usam `TYPE_COLORS[n.type]` (person/project/brand) — **não** a cor do grupo da sidebar
+2. Todos os nós do mesmo tipo têm a mesma cor base — não há diferenciação individual
 
-**Correção em `MasterCanvas.tsx` (`CameraFocus`):**
-- Em vez de mover target+câmera, calcular o ângulo entre a posição atual do nó e o eixo da câmera
-- Usar `spherical coordinates` para rotacionar o OrbitControls ao redor da origem (0,0,0), trazendo o nó selecionado para a frente
-- O target fica em (0,0,0), a câmera gira ao redor até que o nó fique alinhado com o eixo câmera→origem
-- Implementação: calcular azimuth/polar alvo baseado na posição do nó, e lerpar os ângulos esféricos do OrbitControls
+### Mudanças
 
+#### 1. Importar e usar as cores da sidebar no MasterCanvas
+
+**Em `MasterCanvas.tsx`:**
+- Copiar a função `hashStr` e `getColor` da sidebar (ou importar de um módulo compartilhado) para mapear `category → cor HSL`
+- No `Nodes3D`, quando `highlightedCategory` está ativo e o nó faz match, usar a cor do grupo (ex: cor do "LinkedIn") em vez de `TYPE_COLORS[n.type]`
+- Quando **nenhum** filtro está ativo, cada nó usa a cor da sua categoria como cor base — assim nós "LinkedIn" são sempre azuis, nós "WhatsApp" verdes, etc.
+
+**Lógica de cor atualizada no `useFrame`:**
 ```text
-// Pseudocódigo:
-1. Pegar posição do nó selecionado
-2. Calcular ângulo esférico (azimuth, polar) do nó relativo à origem  
-3. No useFrame, lerpar camera spherical coords para alinhar com o nó
-4. Target permanece em (0,0,0) — centro de rotação não muda
+const categoryColor = getCategoryColor(n.category);  // cor do grupo
+const baseColor = categoryColor;  // SEMPRE usar cor da categoria
+
+if (highlightedCategory):
+  match → cor cheia com glow
+  não match → dimmed (0.06)
+else (estado normal):
+  cada nó com a cor da sua categoria (0.7 brightness)
 ```
 
-### Problema 2: Cores dos nós selecionados não diferenciadas
-O código já tem a lógica de escala e cor (selected=1.6/full, connected=1.0/0.85, rest=0.12). Preciso verificar se está funcionando — possivelmente o `selectedRef` não está sendo setado corretamente ou o visual é sutil demais.
+#### 2. Links também usam cor da categoria quando filtro ativo
 
-**Correção em `Nodes3D`:**
-- Adicionar um glow ring ou emissive boost extra para o nó selecionado (cor white blend para destacar mais)
-- Aumentar diferença: selected = `multiplyScalar(1.2)` com lerpTowards white, connected = `0.7`, rest = `0.08`
+**Em `Links3D`:**
+- Quando `highlightedCategory` ativo, links entre nós da mesma categoria usam a cor do grupo
+- Links entre categorias diferentes ficam dimmed
 
-### Problema 3: Grupos da sidebar não funcionam
-Dois bugs:
-1. `activeCategory` nunca é passado ao `NetworkSidebar` — o toggle `isActive` sempre é `false`, então nunca desliga
-2. O match falha porque sidebar usa `'Sem categoria'` para nós sem category, mas MasterCanvas guarda `null`
+#### 3. Aplicar o mesmo padrão ao SingleCanvas3D
 
-**Correções:**
-- Em `NetworkMatrix.tsx`: passar `activeCategory={highlightedCategory}` para `NetworkSidebar`
-- Em `MasterCanvas.tsx`: mudar `category: n.category || null` para `category: n.category || 'Sem categoria'` para que o match funcione
+**Em `SingleCanvas3D.tsx`:**
+- Usar a mesma função de cor por categoria para os nós
+- Nó central mantém destaque de escala (2.0) mas usa a cor da sua categoria
+
+### Implementação técnica
+- Extrair `hashStr` + `getColor` do `NetworkSidebar.tsx` para um utilitário compartilhado ou duplicar no MasterCanvas
+- Converter HSL string para `THREE.Color` com `new THREE.Color(hslString)`
+- Substituir `TYPE_COLORS[n.type]` por `new THREE.Color(getColor(n.category))` como cor base
 
 ### Arquivos modificados
-1. `src/components/MasterCanvas.tsx` — CameraFocus (rotação esférica), cores mais contrastantes, category fallback
-2. `src/components/NetworkMatrix.tsx` — passar `activeCategory={highlightedCategory}` ao sidebar
+1. `src/components/MasterCanvas.tsx` — cores por categoria nos nós e links
+2. `src/components/SingleCanvas3D.tsx` — mesma lógica de cores por categoria
 
