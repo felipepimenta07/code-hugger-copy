@@ -1,58 +1,47 @@
 
 
-## Plano: Diferenciar nó principal, highlight por grupo, auto-centralizar, e melhorar conexões
+## Plano Consolidado: Corrigir Master View + Criar Single View 3D
 
-### 1. Diferenciar nó principal (selecionado) dos conectados
+### Parte 1: Correções no Master View (`MasterCanvas.tsx`)
 
-**Em `Nodes3D` (MasterCanvas.tsx):**
-- Nó selecionado (`isSelected`): escala `1.6`, cor base cheia + `emissiveIntensity` mais alto (brilho forte)
-- Nós conectados ao selecionado (`isConnectedSelect`): escala `1.0`, cor base com `multiplyScalar(0.85)` — visíveis mas claramente secundários
-- Restante: mantém dimmed (`0.12`)
+#### 1.1 Corrigir CameraFocus — orbitar, não arrastar
+O bug atual: só move `controls.target` sem mover a câmera, mudando o centro de rotação.
 
-Isso cria hierarquia visual clara: **protagonista → coadjuvantes → figurantes**.
+**Correção**: No `useFrame`, calcular o `offset` entre câmera e target, lerpar o target, e reposicionar a câmera mantendo o offset:
+```
+const offset = camera.position.clone().sub(controls.target);
+controls.target.lerp(nodePos, 0.08);
+camera.position.copy(controls.target).add(offset);
+```
 
-### 2. Clicar no grupo da sidebar → destacar na esfera
+#### 1.2 Corrigir category matching
+Os nós são construídos com `category: n.category || null`. Se o campo vier vazio do DB, nunca dá match com o grupo da sidebar. Adicionar fallback: `category: n.category || n.group || null` e verificar o que a sidebar envia como nome.
 
-**Em `NetworkSidebar.tsx`:**
-- Adicionar nova prop `onHighlightCategory?: (category: string | null) => void`
-- Ao clicar num grupo, além do filtro atual, chamar `onHighlightCategory(name)`
+---
 
-**Em `NetworkMatrix.tsx`:**
-- Novo state `highlightedCategory: string | null`
-- Passar para `MasterCanvas` como nova prop
+### Parte 2: Criar Single View 3D (`SingleCanvas3D.tsx`)
 
-**Em `MasterCanvas.tsx` (Scene + Nodes3D):**
-- Receber `highlightedCategory`
-- No `useFrame` do `Nodes3D`: quando `highlightedCategory` está ativo, nós dessa categoria ficam com cor cheia, os outros ficam dimmed (`0.12`)
-- Links entre nós da categoria ficam visíveis, resto apagado
+Novo componente baseado no `MasterCanvas.tsx`, adaptado para visualização de um único flow.
 
-### 3. Auto-centralizar câmera ao clicar num nó
+**Estrutura idêntica**: Three.js + R3F, tetraedros, fog, bloom, stars, mesmos parâmetros visuais.
 
-**Novo componente `CameraFocus` dentro da Scene:**
-- Recebe `selectedRef` e `simNodes`
-- Quando `selectedRef` muda, encontra o nó, faz `lerp` suave da câmera em direção ao nó (usando `useFrame` com interpolação)
-- A câmera se move suavemente para enquadrar o nó selecionado no centro
-- Usa `OrbitControls.target` para mudar o ponto focal (via ref no OrbitControls)
+**Diferenças**:
+- Nó central fixado em `(0,0,0)` com escala `2.0` e cor mais brilhante
+- `forceRadial` mais forte para hierarquia radial clara
+- Cores por profundidade BFS (depth 0 = brilhante, depth 3+ = dimmed)
+- Conexões diretas do centro mais brilhantes
+- Props compatíveis com as do `Canvas.tsx` atual: `nodes`, `connections`, `onSingleClick`, `onOpenEditModal`, `selectedNodes`, `highlightedPath`, `showLabels`
 
-### 4. Conexões mais fortes e com animação
+---
 
-**Em `Links3D`:**
-- Trocar `lineBasicMaterial` por `lineBasicMaterial` com `linewidth` maior (limitado em WebGL, mas aumentar opacity)
-- Quando selecionado: links ativos com `opacity={0.9}` (atualmente 0.7)
-- Adicionar animação de "pulso" nas conexões ativas: no `useFrame`, variar a cor/opacity com `Math.sin(time * 3)` criando um efeito de energia fluindo pelos links
+### Parte 3: Integrar no NetworkMatrix
 
-### 5. Conexões sugeridas pelo sistema com cor diferente
+Em `NetworkMatrix.tsx`, no bloco `viewMode !== 'master'`, renderizar `SingleCanvas3D` no lugar de `Canvas` (SVG), passando as mesmas props.
 
-**Em `CONNECTION_COLORS`:**
-- Adicionar novo tipo `suggested: new THREE.Color('hsl(45, 100%, 60%)')` — amarelo/dourado para sugestões de IA
-- Adicionar `ai-suggested: new THREE.Color('hsl(45, 100%, 60%)')`
-- Essas conexões se distinguem visualmente das orgânicas (azul/verde/cinza)
+---
 
-**No mapeamento de links:**
-- `connectionType: c.connection_type || c.type || 'related'` já passa o tipo — basta o backend/criação de conexões usar `'suggested'` como tipo
-
-### Arquivos modificados
-1. **`src/components/MasterCanvas.tsx`** — diferenciação visual do nó principal, `CameraFocus`, animação de pulso nos links, novas cores de conexão, receber `highlightedCategory`
-2. **`src/components/NetworkSidebar.tsx`** — nova prop `onHighlightCategory`
-3. **`src/components/NetworkMatrix.tsx`** — state `highlightedCategory`, passar para MasterCanvas e NetworkSidebar
+### Arquivos
+1. **Editar** `src/components/MasterCanvas.tsx` — corrigir CameraFocus + category fallback
+2. **Criar** `src/components/SingleCanvas3D.tsx` — Single View 3D
+3. **Editar** `src/components/NetworkMatrix.tsx` — trocar Canvas por SingleCanvas3D
 
