@@ -970,6 +970,7 @@ export const NetworkMatrix = () => {
               allNodes={allNodes}
               allConnections={allConnections}
               flows={flows}
+              highlightedCategory={highlightedCategory}
               onNodeClick={(node) => { setDetailPanelNode(node); }}
               onNodeDoubleClick={(node) => {
                 if (node.flow_id) {
