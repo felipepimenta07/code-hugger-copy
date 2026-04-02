@@ -38,6 +38,7 @@ export function NetworkSidebar({
   nodes,
   onFilterCategory,
   activeCategory,
+  onHighlightCategory,
 }: NetworkSidebarProps) {
   const [isVisible, setIsVisible] = useState(true);
 
