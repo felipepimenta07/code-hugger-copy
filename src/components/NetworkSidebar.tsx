@@ -29,6 +29,7 @@ interface NetworkSidebarProps {
   activeCategory?: string | null;
   collapsed?: boolean;
   onToggleCollapse?: () => void;
+  onHighlightCategory?: (category: string | null) => void;
 }
 
 export function NetworkSidebar({
