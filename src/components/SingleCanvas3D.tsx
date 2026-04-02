@@ -350,7 +350,7 @@ const SingleNodes3D: React.FC<{
         onPointerOut={handlePointerOut}
       >
         <tetrahedronGeometry args={[0.35]} />
-        <meshStandardMaterial emissive="#ffffff" emissiveIntensity={0.7} roughness={0.5} metalness={0.3} toneMapped={false} transparent opacity={0.9} />
+        <meshStandardMaterial emissive="#000000" emissiveIntensity={0.3} roughness={0.4} metalness={0.2} toneMapped={false} transparent opacity={0.9} />
       </instancedMesh>
       {/* Inner core */}
       <instancedMesh ref={coreRef} args={[undefined, undefined, nodes.length]}>
