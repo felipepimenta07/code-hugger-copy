@@ -472,7 +472,7 @@ const Scene: React.FC<SceneProps> = ({ allNodes, allConnections, onNodeClick, on
           nodeRef: n.node_ref,
           name: n.name,
           type: n.type,
-          category: n.category || null,
+          category: n.category || 'Sem categoria',
           flowId: n.flow_id,
           profilePictureUrl: n.profile_picture_url || null,
           x: r * Math.sin(phi) * Math.cos(theta),
