@@ -1,41 +1,42 @@
 
 
-## Plano: Reduzir brilho + highlight no hover + mostrar conexões ao clicar
+## Plano: Trocar esferas 2D por tetraedros 3D com fog + glow leve
+
+### Problema
+As esferas (`sphereGeometry`) com `meshBasicMaterial` parecem bolas 2D — sem profundidade. Não dá pra distinguir frente de trás.
+
+### Inspiração do arquivo enviado
+O `brain_hq.html` usa:
+- `TetrahedronGeometry(0.25)` — forma 3D com faces angulares que dão senso de profundidade
+- `FogExp2(0x000000, 0.01)` — nós distantes ficam mais escuros/invisíveis, criando profundidade natural
+- Bloom com `strength: 1.8`, `radius: 0.4`, `threshold: 0` — glow forte mas controlado
 
 ### Mudanças em `src/components/MasterCanvas.tsx`
 
-#### 1. Reduzir Bloom (brilho) geral
-- `Bloom intensity={1.5}` → `intensity={0.4}`, `luminanceThreshold={0}` → `0.6`
-- Nós ficam visíveis mas sem "explodir" de brilho no estado normal
+#### 1. Trocar geometria: esfera → tetraedro
+- `sphereGeometry args={[0.6, 12, 12]}` → `tetrahedronGeometry args={[0.35]}`
+- Forma angular = leitura clara de rotação e profundidade
 
-#### 2. Reduzir vibração da simulação
-- `alpha(0.8)` → `alpha(0.6)` (menos energia inicial)
-- `alphaDecay(0.02)` → `alphaDecay(0.04)` (estabiliza mais rápido)
-- `velocityDecay(0.5)` → `velocityDecay(0.7)` (mais atrito, menos vibração)
+#### 2. Adicionar Fog exponencial na cena
+- Adicionar `<fog attach="fog" args={['#0a0b14', 8, 60]}` (fog linear) ou `<fogExp2 attach="fog" args={['#0a0b14', 0.025]}>`
+- Nós distantes desaparecem gradualmente → senso de profundidade real
 
-#### 3. Cores mais suaves no estado normal
-- `Nodes3D`: cor base com `multiplyScalar(0.5)` no estado normal (sem hover)
-- No hover: cor base cheia (brilho total)
-- Nós conectados ao hovered: cor base com `multiplyScalar(0.8)`
-- Dimmed: mantém `multiplyScalar(0.15)`
+#### 3. Trocar material para `meshStandardMaterial` ou `meshPhongMaterial`
+- `meshBasicMaterial` não reage a luz — tudo parece flat
+- Usar `meshStandardMaterial` com `emissive` para manter o glow mas ter sombreamento 3D
+- Adicionar `pointLight` no centro da cena para criar sombras nas faces dos tetraedros
 
-#### 4. Adicionar estado "selected" ao clicar
-- Novo state `selectedRef: string | null` na Scene
-- Ao clicar um nó: seta `selectedRef` (além de chamar `onNodeClick`)
-- Clicar no fundo: limpa `selectedRef`
+#### 4. Ajustar Bloom para glow leve
+- Manter `intensity={0.4}` mas baixar `luminanceThreshold` para `0.3` (mais partículas brilham levemente)
+- `luminanceSmoothing={0.6}` para suavizar
 
-#### 5. Mostrar conexões do nó selecionado
-- Novo set `connectedToSelected` (mesmo padrão do `connectedToHovered`)
-- Links: quando `selectedRef` ativo, links conectados ao selecionado ficam `opacity={0.8}`, os outros `opacity={0.08}`
-- Nós: quando `selectedRef` ativo, nós conectados ficam brilhantes, os outros dimmed
-- Hover continua funcionando por cima (mostra label)
-
-#### 6. Links3D reage ao selected
-- Passar `selectedRef` e `connectedToSelected` para `Links3D`
-- No `useFrame`, ajustar alpha/cor dos links: conectados ao selecionado = cor cheia, outros = quase invisíveis
+#### 5. Adicionar rotação sutil nos tetraedros
+- No `useFrame`, aplicar uma rotação leve baseada no índice: `_dummy.rotation.set(time * 0.2 + i, time * 0.1, 0)`
+- Dá vida e mostra que são objetos 3D reais
 
 ### Resultado
-- Nós ficam com brilho suave no estado normal, sem vibração excessiva
-- Hover: nó brilha + mostra nome
-- Click: destaca o nó + todas as suas conexões (links e nós conectados), o resto fica opaco
+- Partículas com **faces angulares** que mudam de brilho conforme o ângulo → profundidade real
+- **Fog** faz nós distantes sumirem → frente vs trás claramente distinguíveis
+- **Glow leve** mantém a estética galáxia sem saturar
+- Visual similar ao brain_hq mas adaptado ao network graph
 
