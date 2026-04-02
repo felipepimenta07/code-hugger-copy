@@ -208,7 +208,9 @@ const Nodes3D: React.FC<Nodes3DProps> = ({
       let scale = 0.92;
       if (isSelected) scale = 1.6;
       else if (isHovered) scale = 1.35;
+      else if (highlightedCategory && isCategoryMatch) scale = 1.3;
       else if (isConnectedSelect) scale = 1.0;
+      else if (highlightedCategory && !isCategoryMatch) scale = 0.5;
 
       // Outer shell
       _dummy.position.set(n.x ?? 0, n.y ?? 0, n.z ?? 0);
@@ -229,9 +231,9 @@ const Nodes3D: React.FC<Nodes3DProps> = ({
       // Outer color
       if (highlightedCategory) {
         if (isCategoryMatch) {
-          _color.copy(baseColor);
+          _color.copy(baseColor).lerp(new THREE.Color('#ffffff'), 0.15);
         } else {
-          _color.copy(baseColor).multiplyScalar(0.06);
+          _color.set(0x050508);
         }
       } else if (selectedRef) {
         if (isSelected) {
@@ -257,9 +259,9 @@ const Nodes3D: React.FC<Nodes3DProps> = ({
       // Core color
       if (highlightedCategory) {
         if (isCategoryMatch) {
-          _color.copy(coreColor);
+          _color.copy(coreColor).lerp(new THREE.Color('#ffffff'), 0.25);
         } else {
-          _color.copy(coreColor).multiplyScalar(0.06);
+          _color.set(0x030305);
         }
       } else if (selectedRef) {
         if (isSelected) {
@@ -333,12 +335,12 @@ const Nodes3D: React.FC<Nodes3DProps> = ({
         onPointerOut={handlePointerOut}
       >
         <tetrahedronGeometry args={[0.35]} />
-        <meshStandardMaterial emissive="#ffffff" emissiveIntensity={0.5} roughness={0.6} metalness={0.2} toneMapped={false} transparent opacity={0.85} />
+        <meshStandardMaterial emissive="#ffffff" emissiveIntensity={0.7} roughness={0.5} metalness={0.3} toneMapped={false} transparent opacity={0.9} />
       </instancedMesh>
       {/* Inner core */}
       <instancedMesh ref={coreRef} args={[undefined, undefined, nodes.length]}>
         <sphereGeometry args={[0.35, 8, 8]} />
-        <meshStandardMaterial emissive="#ffffff" emissiveIntensity={0.9} roughness={0.3} metalness={0.1} toneMapped={false} />
+        <meshStandardMaterial emissive="#ffffff" emissiveIntensity={1.2} roughness={0.2} metalness={0.1} toneMapped={false} />
       </instancedMesh>
     </>
   );
