@@ -254,47 +254,47 @@ const SingleNodes3D: React.FC<{
       const baseColor = getNodeCategoryColor(n.category);
       const coreColor = getNodeCoreColor(n.category);
 
-      // Outer color logic
+      // Outer color — category color, no white lerp
       if (highlightedCategory) {
         if (isCategoryMatch) {
-          _color.copy(baseColor).lerp(new THREE.Color('#ffffff'), 0.15);
+          _color.copy(baseColor).multiplyScalar(1.3);
         } else {
-          _color.set(0x050508);
+          _color.copy(baseColor).multiplyScalar(0.05);
         }
       } else if (selectedRef) {
         if (isSelected || isCenter) {
-          _color.copy(baseColor).lerp(new THREE.Color('#ffffff'), 0.2);
+          _color.copy(baseColor).multiplyScalar(1.3);
         } else if (isConnectedSelect) {
           _color.copy(baseColor).multiplyScalar(0.7);
         } else {
           _color.copy(baseColor).multiplyScalar(0.08);
         }
       } else if (isHovered) {
-        _color.copy(baseColor).lerp(new THREE.Color('#ffffff'), 0.25);
+        _color.copy(baseColor).multiplyScalar(1.3);
       } else if (isCenter) {
-        _color.copy(baseColor).lerp(new THREE.Color('#ffffff'), 0.15);
+        _color.copy(baseColor).multiplyScalar(1.2);
       } else {
         _color.copy(baseColor).multiplyScalar(depthBright);
       }
       outerRef.current.setColorAt(i, _color);
 
-      // Core color logic
+      // Core color — accent color, no white lerp
       if (highlightedCategory) {
         if (isCategoryMatch) {
-          _color.copy(coreColor).lerp(new THREE.Color('#ffffff'), 0.25);
+          _color.copy(coreColor).multiplyScalar(1.4);
         } else {
-          _color.set(0x030305);
+          _color.copy(coreColor).multiplyScalar(0.05);
         }
       } else if (selectedRef) {
         if (isSelected || isCenter) {
-          _color.copy(coreColor).lerp(new THREE.Color('#ffffff'), 0.3);
+          _color.copy(coreColor).multiplyScalar(1.4);
         } else if (isConnectedSelect) {
           _color.copy(coreColor).multiplyScalar(0.7);
         } else {
           _color.copy(coreColor).multiplyScalar(0.08);
         }
       } else if (isCenter) {
-        _color.copy(coreColor).lerp(new THREE.Color('#ffffff'), 0.2);
+        _color.copy(coreColor).multiplyScalar(1.2);
       } else {
         _color.copy(coreColor).multiplyScalar(depthBright);
       }
