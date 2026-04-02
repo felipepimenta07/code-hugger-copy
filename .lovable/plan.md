@@ -1,36 +1,58 @@
 
 
-## Plano: Trazer de volta o glow forte inspirado no brain_hq.html
+## Plano: Diferenciar nó principal, highlight por grupo, auto-centralizar, e melhorar conexões
 
-### Problema atual
-O Bloom está com `intensity={0.4}` e `luminanceThreshold={0.3}` — muito fraco, quase invisível. O material tem `emissive="#ffffff"` com `emissiveIntensity={0.3}` — também fraco. Resultado: tudo parece opaco e sem vida.
+### 1. Diferenciar nó principal (selecionado) dos conectados
 
-### Referência do brain_hq.html
-O arquivo original usava Bloom com `strength: 1.8`, `radius: 0.4`, `threshold: 0` — glow forte e envolvente.
+**Em `Nodes3D` (MasterCanvas.tsx):**
+- Nó selecionado (`isSelected`): escala `1.6`, cor base cheia + `emissiveIntensity` mais alto (brilho forte)
+- Nós conectados ao selecionado (`isConnectedSelect`): escala `1.0`, cor base com `multiplyScalar(0.85)` — visíveis mas claramente secundários
+- Restante: mantém dimmed (`0.12`)
 
-### Mudanças em `src/components/MasterCanvas.tsx`
+Isso cria hierarquia visual clara: **protagonista → coadjuvantes → figurantes**.
 
-#### 1. Aumentar Bloom significativamente
-- `intensity={0.4}` → `intensity={1.2}`
-- `luminanceThreshold={0.3}` → `luminanceThreshold={0.1}`
-- `luminanceSmoothing={0.6}` → `luminanceSmoothing={0.9}`
-- Resultado: glow visível e bonito em todos os nós
+### 2. Clicar no grupo da sidebar → destacar na esfera
 
-#### 2. Aumentar emissive do material
-- `emissive="#ffffff" emissiveIntensity={0.3}` → `emissiveIntensity={0.6}`
-- Os nós emitem mais luz, alimentando o Bloom
+**Em `NetworkSidebar.tsx`:**
+- Adicionar nova prop `onHighlightCategory?: (category: string | null) => void`
+- Ao clicar num grupo, além do filtro atual, chamar `onHighlightCategory(name)`
 
-#### 3. Aumentar intensidade da pointLight
-- `intensity={1.2}` → `intensity={2.0}`
-- Mais luz nas faces dos tetraedros = mais brilho nas arestas
+**Em `NetworkMatrix.tsx`:**
+- Novo state `highlightedCategory: string | null`
+- Passar para `MasterCanvas` como nova prop
 
-#### 4. Aumentar cores base no estado normal
-- `multiplyScalar(0.5)` (normal) → `multiplyScalar(0.7)`
-- Nós ficam mais coloridos mesmo sem hover, mas ainda distintos do hover (que fica 1.0)
+**Em `MasterCanvas.tsx` (Scene + Nodes3D):**
+- Receber `highlightedCategory`
+- No `useFrame` do `Nodes3D`: quando `highlightedCategory` está ativo, nós dessa categoria ficam com cor cheia, os outros ficam dimmed (`0.12`)
+- Links entre nós da categoria ficam visíveis, resto apagado
 
-#### 5. Ajustar tone mapping exposure
-- `toneMappingExposure = 1.2` → `1.5` para deixar a cena mais luminosa no geral
+### 3. Auto-centralizar câmera ao clicar num nó
 
-### Resultado
-Visual rico com glow envolvente nos nós, faces dos tetraedros brilhando com luz, similar ao brain_hq.html mas adaptado ao network graph. Hover e seleção continuam funcionando normalmente por cima.
+**Novo componente `CameraFocus` dentro da Scene:**
+- Recebe `selectedRef` e `simNodes`
+- Quando `selectedRef` muda, encontra o nó, faz `lerp` suave da câmera em direção ao nó (usando `useFrame` com interpolação)
+- A câmera se move suavemente para enquadrar o nó selecionado no centro
+- Usa `OrbitControls.target` para mudar o ponto focal (via ref no OrbitControls)
+
+### 4. Conexões mais fortes e com animação
+
+**Em `Links3D`:**
+- Trocar `lineBasicMaterial` por `lineBasicMaterial` com `linewidth` maior (limitado em WebGL, mas aumentar opacity)
+- Quando selecionado: links ativos com `opacity={0.9}` (atualmente 0.7)
+- Adicionar animação de "pulso" nas conexões ativas: no `useFrame`, variar a cor/opacity com `Math.sin(time * 3)` criando um efeito de energia fluindo pelos links
+
+### 5. Conexões sugeridas pelo sistema com cor diferente
+
+**Em `CONNECTION_COLORS`:**
+- Adicionar novo tipo `suggested: new THREE.Color('hsl(45, 100%, 60%)')` — amarelo/dourado para sugestões de IA
+- Adicionar `ai-suggested: new THREE.Color('hsl(45, 100%, 60%)')`
+- Essas conexões se distinguem visualmente das orgânicas (azul/verde/cinza)
+
+**No mapeamento de links:**
+- `connectionType: c.connection_type || c.type || 'related'` já passa o tipo — basta o backend/criação de conexões usar `'suggested'` como tipo
+
+### Arquivos modificados
+1. **`src/components/MasterCanvas.tsx`** — diferenciação visual do nó principal, `CameraFocus`, animação de pulso nos links, novas cores de conexão, receber `highlightedCategory`
+2. **`src/components/NetworkSidebar.tsx`** — nova prop `onHighlightCategory`
+3. **`src/components/NetworkMatrix.tsx`** — state `highlightedCategory`, passar para MasterCanvas e NetworkSidebar
 
