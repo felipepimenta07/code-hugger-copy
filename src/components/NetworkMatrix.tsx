@@ -904,12 +904,14 @@ export const NetworkMatrix = () => {
   };
 
   const handleMasterView = () => {
+    setHighlightedCategory(null);
     setViewMode('master');
   };
 
   const handleSingleView = () => {
     if (!activeNodeRef) { toast.error('Selecione um flow para entrar no Single View.'); return; }
     if (viewMode === 'master') setMasterViewState({ zoom: state.zoom, pan: state.pan, hasBeenOrganized: true });
+    setHighlightedCategory(null);
     setViewMode('single');
   };
 
@@ -980,6 +982,7 @@ export const NetworkMatrix = () => {
                   const flow = flows.find(f => f.id === node.flow_id);
                   if (flow) {
                     setDetailPanelNode(null);
+                    setHighlightedCategory(null);
                     setActiveNodeRef(makeRef(flow.center_type, flow.center_id));
                     setViewMode('single');
                   }
