@@ -69,6 +69,7 @@ export const NetworkMatrix = () => {
   const [masterViewState, setMasterViewState] = useState<any>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [detailPanelNode, setDetailPanelNode] = useState<any>(null);
+  const [highlightedCategory, setHighlightedCategory] = useState<string | null>(null);
 
   const prevViewModeRef = useRef<string>(viewMode);
   const { state, updateState } = useNetworkState();
@@ -929,7 +930,12 @@ export const NetworkMatrix = () => {
   return (
     <div className="min-h-screen h-screen flex flex-col overflow-hidden">
       {/* Sidebar - Groups only */}
-      <NetworkSidebar viewMode={viewMode} allNodes={allNodes} nodes={nodes} />
+      <NetworkSidebar
+        viewMode={viewMode}
+        allNodes={allNodes}
+        nodes={nodes}
+        onHighlightCategory={setHighlightedCategory}
+      />
 
       {/* Main area */}
       <div className="flex-1 flex flex-col relative">
@@ -964,6 +970,7 @@ export const NetworkMatrix = () => {
               allNodes={allNodes}
               allConnections={allConnections}
               flows={flows}
+              highlightedCategory={highlightedCategory}
               onNodeClick={(node) => { setDetailPanelNode(node); }}
               onNodeDoubleClick={(node) => {
                 if (node.flow_id) {

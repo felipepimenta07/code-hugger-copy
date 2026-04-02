@@ -29,6 +29,7 @@ interface NetworkSidebarProps {
   activeCategory?: string | null;
   collapsed?: boolean;
   onToggleCollapse?: () => void;
+  onHighlightCategory?: (category: string | null) => void;
 }
 
 export function NetworkSidebar({
@@ -37,6 +38,7 @@ export function NetworkSidebar({
   nodes,
   onFilterCategory,
   activeCategory,
+  onHighlightCategory,
 }: NetworkSidebarProps) {
   const [isVisible, setIsVisible] = useState(true);
 
@@ -110,7 +112,10 @@ export function NetworkSidebar({
               onMouseLeave={(e) => {
                 if (!isActive) e.currentTarget.style.backgroundColor = 'transparent';
               }}
-              onClick={() => onFilterCategory?.(isActive ? null : name)}
+              onClick={() => {
+                onFilterCategory?.(isActive ? null : name);
+                onHighlightCategory?.(isActive ? null : name);
+              }}
             >
               <span
                 className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] rounded-r transition-all duration-150"
