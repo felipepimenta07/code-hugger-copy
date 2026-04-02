@@ -52,11 +52,11 @@ interface SingleCanvas3DProps {
 }
 
 // ---------- color maps ----------
-const TYPE_COLORS: Record<string, THREE.Color> = {
-  person: new THREE.Color('hsl(328, 86%, 61%)'),
-  project: new THREE.Color('hsl(158, 64%, 52%)'),
-  brand: new THREE.Color('hsl(258, 90%, 66%)'),
-};
+import { getCategoryColor } from '@/utils/categoryColors';
+
+function getNodeCategoryColor(category: string | null): THREE.Color {
+  return new THREE.Color(getCategoryColor(category));
+}
 const DEFAULT_COLOR = new THREE.Color('#94a3b8');
 
 const CONNECTION_COLORS: Record<string, THREE.Color> = {
@@ -225,20 +225,20 @@ const SingleNodes3D: React.FC<{
       _dummy.updateMatrix();
       meshRef.current.setMatrixAt(i, _dummy.matrix);
 
-      const baseColor = TYPE_COLORS[n.type] || DEFAULT_COLOR;
+      const baseColor = getNodeCategoryColor(n.category);
 
       if (selectedRef) {
         if (isSelected || isCenter) {
-          _color.copy(baseColor);
+          _color.copy(baseColor).lerp(new THREE.Color('#ffffff'), 0.2);
         } else if (isConnectedSelect) {
-          _color.copy(baseColor).multiplyScalar(0.85);
+          _color.copy(baseColor).multiplyScalar(0.7);
         } else {
-          _color.copy(baseColor).multiplyScalar(0.12);
+          _color.copy(baseColor).multiplyScalar(0.08);
         }
       } else if (isHovered) {
-        _color.copy(baseColor);
+        _color.copy(baseColor).lerp(new THREE.Color('#ffffff'), 0.25);
       } else if (isCenter) {
-        _color.copy(baseColor); // Always full brightness for center
+        _color.copy(baseColor).lerp(new THREE.Color('#ffffff'), 0.15);
       } else {
         _color.copy(baseColor).multiplyScalar(depthBright);
       }

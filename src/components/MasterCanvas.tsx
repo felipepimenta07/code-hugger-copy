@@ -46,11 +46,11 @@ interface MasterCanvasProps {
 }
 
 // ---------- color maps ----------
-const TYPE_COLORS: Record<string, THREE.Color> = {
-  person: new THREE.Color('hsl(328, 86%, 61%)'),
-  project: new THREE.Color('hsl(158, 64%, 52%)'),
-  brand: new THREE.Color('hsl(258, 90%, 66%)'),
-};
+import { getCategoryColor } from '@/utils/categoryColors';
+
+function getNodeCategoryColor(category: string | null): THREE.Color {
+  return new THREE.Color(getCategoryColor(category));
+}
 const DEFAULT_COLOR = new THREE.Color('#94a3b8');
 
 const CONNECTION_COLORS: Record<string, THREE.Color> = {
@@ -116,9 +116,14 @@ const Links3D: React.FC<Links3DProps> = ({ nodes, links, selectedRef, connectedT
         const sNode = nodeMap.get(s.nodeRef);
         const tNode = nodeMap.get(t.nodeRef);
         const bothInCat = sNode?.category === highlightedCategory && tNode?.category === highlightedCategory;
-        const mult = bothInCat ? 0.8 : 0.04;
-        colors.setXYZ(i * 2, baseC.r * mult, baseC.g * mult, baseC.b * mult);
-        colors.setXYZ(i * 2 + 1, baseC.r * mult, baseC.g * mult, baseC.b * mult);
+        if (bothInCat) {
+          const catColor = getNodeCategoryColor(highlightedCategory);
+          colors.setXYZ(i * 2, catColor.r * 0.8, catColor.g * 0.8, catColor.b * 0.8);
+          colors.setXYZ(i * 2 + 1, catColor.r * 0.8, catColor.g * 0.8, catColor.b * 0.8);
+        } else {
+          colors.setXYZ(i * 2, baseC.r * 0.04, baseC.g * 0.04, baseC.b * 0.04);
+          colors.setXYZ(i * 2 + 1, baseC.r * 0.04, baseC.g * 0.04, baseC.b * 0.04);
+        }
       } else {
         colors.setXYZ(i * 2, baseC.r * 0.5, baseC.g * 0.5, baseC.b * 0.5);
         colors.setXYZ(i * 2 + 1, baseC.r * 0.5, baseC.g * 0.5, baseC.b * 0.5);
@@ -209,11 +214,11 @@ const Nodes3D: React.FC<Nodes3DProps> = ({
       _dummy.updateMatrix();
       meshRef.current.setMatrixAt(i, _dummy.matrix);
 
-      const baseColor = TYPE_COLORS[n.type] || DEFAULT_COLOR;
+      const baseColor = getNodeCategoryColor(n.category);
 
       if (selectedRef) {
         if (isSelected) {
-          _color.copy(baseColor).lerp(new THREE.Color('#ffffff'), 0.35); // Bright white-blended glow
+          _color.copy(baseColor).lerp(new THREE.Color('#ffffff'), 0.35);
         } else if (isConnectedSelect) {
           _color.copy(baseColor).multiplyScalar(0.7);
         } else {
