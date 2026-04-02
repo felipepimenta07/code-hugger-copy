@@ -52,11 +52,11 @@ interface SingleCanvas3DProps {
 }
 
 // ---------- color maps ----------
-const TYPE_COLORS: Record<string, THREE.Color> = {
-  person: new THREE.Color('hsl(328, 86%, 61%)'),
-  project: new THREE.Color('hsl(158, 64%, 52%)'),
-  brand: new THREE.Color('hsl(258, 90%, 66%)'),
-};
+import { getCategoryColor } from '@/utils/categoryColors';
+
+function getNodeCategoryColor(category: string | null): THREE.Color {
+  return new THREE.Color(getCategoryColor(category));
+}
 const DEFAULT_COLOR = new THREE.Color('#94a3b8');
 
 const CONNECTION_COLORS: Record<string, THREE.Color> = {
