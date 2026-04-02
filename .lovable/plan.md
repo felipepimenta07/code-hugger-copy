@@ -1,73 +1,72 @@
 
-Diagnóstico direto: você está certo. O que você pediu não apareceu completo por 2 motivos no código atual:
+Objetivo: fazer os poliedros receberem um destaque visual forte quando um grupo/categoria estiver ativo, em vez de parecer que só as ligações mudam.
 
-1. No Master View, a cor por grupo foi aplicada parcialmente.
-2. No Single View, isso nem foi conectado: `SingleCanvas3D` não recebe `highlightedCategory`, então clicar em "linkedin" na sidebar não muda as cores lá.
-3. O “centro do nó com cor diferente pra cada” também não foi implementado de verdade. Hoje cada nó é um tetraedro sólido único, então não existe uma camada interna/miolo separada para colorir.
+Diagnóstico
+- Não é impossível. O destaque dos nós já existe no código, mas hoje ele fica fraco demais.
+- Em `MasterCanvas.tsx` e `SingleCanvas3D.tsx`, quando a categoria bate, o poliedro praticamente mantém a cor “normal”; quem muda muito são as linhas.
+- O material atual dos nós (`meshStandardMaterial` com emissive branco + bloom global) achata a percepção da cor. Resultado: link parece destacado, nó não.
+- Falta dar ao nó 3 sinais visuais claros ao mesmo tempo: cor mais viva, escala maior e brilho/opacity diferentes.
 
 Plano de correção
 
-1. Corrigir o filtro de cor por grupo no Single View
-- Passar `highlightedCategory` de `NetworkMatrix.tsx` para `SingleCanvas3D.tsx`
-- Aplicar a mesma lógica já usada no `MasterCanvas`:
-  - se clicar em “linkedin”, todos os nós com categoria `linkedin` ficam com a cor do linkedin
-  - todos os outros ficam apagados
-- Fazer o mesmo para links, para manter consistência visual entre Master e Single
+1. Reforçar o destaque dos poliedros nos dois canvases
+- Em `MasterCanvas.tsx` e `SingleCanvas3D.tsx`, mudar a lógica de `Nodes3D` / `SingleNodes3D` para que, com `highlightedCategory` ativo:
+  - nós da categoria ativa:
+    - usem a cor do grupo em intensidade máxima
+    - aumentem levemente de escala
+    - recebam um ganho de brilho visível
+  - nós fora da categoria:
+    - reduzam mais a intensidade
+    - percam emissive/glow
+    - fiquem realmente secundários
 
-2. Garantir que a cor do grupo domine o visual quando o grupo estiver ativo
-- Revisar a lógica do `MasterCanvas.tsx` para garantir que, com grupo ativo, a cor do grupo tenha prioridade total
-- Evitar mistura excessiva com branco no estado filtrado, para não “lavar” a cor que você pediu
-- Manter dim forte nos nós fora do grupo
+2. Separar melhor casca e núcleo
+- Hoje existe casca + miolo, mas o contraste visual ainda é pequeno.
+- Vou aumentar a diferença entre:
+  - casca externa = cor principal do grupo
+  - núcleo = cor secundária/accent mais forte
+- Isso faz o poliedro “acender” de verdade quando o grupo for clicado.
 
-3. Implementar o “centro do nó” com cor própria
-Hoje o nó é desenhado com uma geometria só. Para fazer o que você pediu, vou mudar o visual do nó para ter 2 camadas:
-```text
-camada externa = cor do grupo/categoria
-camada interna (miolo) = cor secundária única
-```
+3. Ajustar materiais para não lavar as cores
+- Reduzir a interferência do branco nos materiais dos nós destacados.
+- Fazer o bloom responder mais ao nó ativo, não só às ligações.
+- Se necessário, aumentar `emissiveIntensity` somente nos nós ativos e reduzir nos demais.
 
-- Camada externa:
-  - continua representando a categoria/grupo
-  - ex: LinkedIn = azul, WhatsApp = verde, etc.
+4. Dar destaque geométrico além da cor
+- Aplicar um pequeno bump de escala para os nós da categoria ativa.
+- Opcionalmente aumentar um pouco o tamanho do núcleo interno quando a categoria estiver ativa.
+- Assim o destaque fica visível mesmo quando as cores forem parecidas.
 
-- Miolo do nó:
-  - terá uma cor diferente e consistente por categoria ou por tipo visual definido
-  - isso cria o contraste visível que você pediu
-
-4. Aplicar o mesmo padrão nos dois canvases
-- `MasterCanvas.tsx`
-- `SingleCanvas3D.tsx`
-
-Assim o comportamento fica igual nos dois modos:
-- grupo clicado na sidebar pinta os nós daquele grupo
-- o miolo de cada nó tem cor diferente
-- o nó central do Single View continua destacado, mas sem perder esse novo padrão visual
+5. Manter consistência entre Master e Single View
+- Aplicar exatamente a mesma regra em:
+  - `src/components/MasterCanvas.tsx`
+  - `src/components/SingleCanvas3D.tsx`
+- O comportamento esperado será:
+  - clicou “LinkedIn”:
+    - poliedros LinkedIn ficam claramente em evidência
+    - os outros apagam
+    - links continuam ajudando, mas deixam de ser o único destaque perceptível
 
 Arquivos a ajustar
-- `src/components/NetworkMatrix.tsx`
 - `src/components/MasterCanvas.tsx`
 - `src/components/SingleCanvas3D.tsx`
-- possivelmente `src/utils/categoryColors.ts` se eu precisar separar:
-  - cor externa do grupo
-  - cor interna do miolo
+- possivelmente `src/utils/categoryColors.ts` se eu precisar aumentar contraste entre cor externa e cor do núcleo
 
-Detalhe técnico importante
-Hoje os nós usam `instancedMesh`, o que é ótimo para performance, mas limita um pouco visuais mais compostos. Para implementar o “miolo” corretamente, vou seguir um destes caminhos:
-- opção preferida: dois `instancedMesh` sobrepostos por nó
-  - malha externa
-  - malha interna menor
-- isso preserva performance e entrega o efeito visual certo
+Detalhes técnicos
+```text
+Estado com highlightedCategory ativo:
+- match:
+  outerColor = categoryColor * 1.0
+  coreColor = coreColor * 1.15
+  scale += pequeno boost
+  emissiveIntensity = alta
+- non-match:
+  outerColor = categoryColor * 0.03~0.06
+  coreColor = coreColor * 0.03~0.06
+  emissiveIntensity = baixa
+```
 
-Resultado esperado depois da correção
-- clicar em “linkedin” na sidebar:
-  - todos os nós linkedin ficam com a cor do linkedin
-  - os demais ficam escurecidos
-- clicar em outro grupo:
-  - troca imediatamente para a cor daquele grupo
-- cada nó passa a ter um centro/miolo visual com cor própria e visível
-- Master View e Single View ficam consistentes
-
-Resumo do que faltou antes
-- faltou propagar `highlightedCategory` para o Single View
-- faltou implementar o miolo colorido dos nós
-- parte do destaque atual clareia demais os nós com branco, o que esconde a cor forte que você pediu
+Resultado esperado
+- O destaque passa a aparecer claramente nos poliedros, não só nas ligações.
+- Fica visualmente óbvio qual grupo está ativo.
+- Master View e Single View ficam consistentes.
