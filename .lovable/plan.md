@@ -1,47 +1,41 @@
 
 
-## Plano Consolidado: Corrigir Master View + Criar Single View 3D
+## Plano: Corrigir 3 problemas — câmera, cores, e grupos
 
-### Parte 1: Correções no Master View (`MasterCanvas.tsx`)
+### Problema 1: Câmera "arrasta" em vez de "girar"
+O `CameraFocus` atual move tanto o target quanto a câmera juntos — isso translada a visão inteira. O usuário quer que a **esfera gire** para trazer o nó ao centro da visão, com a câmera parada.
 
-#### 1.1 Corrigir CameraFocus — orbitar, não arrastar
-O bug atual: só move `controls.target` sem mover a câmera, mudando o centro de rotação.
+**Correção em `MasterCanvas.tsx` (`CameraFocus`):**
+- Em vez de mover target+câmera, calcular o ângulo entre a posição atual do nó e o eixo da câmera
+- Usar `spherical coordinates` para rotacionar o OrbitControls ao redor da origem (0,0,0), trazendo o nó selecionado para a frente
+- O target fica em (0,0,0), a câmera gira ao redor até que o nó fique alinhado com o eixo câmera→origem
+- Implementação: calcular azimuth/polar alvo baseado na posição do nó, e lerpar os ângulos esféricos do OrbitControls
 
-**Correção**: No `useFrame`, calcular o `offset` entre câmera e target, lerpar o target, e reposicionar a câmera mantendo o offset:
+```text
+// Pseudocódigo:
+1. Pegar posição do nó selecionado
+2. Calcular ângulo esférico (azimuth, polar) do nó relativo à origem  
+3. No useFrame, lerpar camera spherical coords para alinhar com o nó
+4. Target permanece em (0,0,0) — centro de rotação não muda
 ```
-const offset = camera.position.clone().sub(controls.target);
-controls.target.lerp(nodePos, 0.08);
-camera.position.copy(controls.target).add(offset);
-```
 
-#### 1.2 Corrigir category matching
-Os nós são construídos com `category: n.category || null`. Se o campo vier vazio do DB, nunca dá match com o grupo da sidebar. Adicionar fallback: `category: n.category || n.group || null` e verificar o que a sidebar envia como nome.
+### Problema 2: Cores dos nós selecionados não diferenciadas
+O código já tem a lógica de escala e cor (selected=1.6/full, connected=1.0/0.85, rest=0.12). Preciso verificar se está funcionando — possivelmente o `selectedRef` não está sendo setado corretamente ou o visual é sutil demais.
 
----
+**Correção em `Nodes3D`:**
+- Adicionar um glow ring ou emissive boost extra para o nó selecionado (cor white blend para destacar mais)
+- Aumentar diferença: selected = `multiplyScalar(1.2)` com lerpTowards white, connected = `0.7`, rest = `0.08`
 
-### Parte 2: Criar Single View 3D (`SingleCanvas3D.tsx`)
+### Problema 3: Grupos da sidebar não funcionam
+Dois bugs:
+1. `activeCategory` nunca é passado ao `NetworkSidebar` — o toggle `isActive` sempre é `false`, então nunca desliga
+2. O match falha porque sidebar usa `'Sem categoria'` para nós sem category, mas MasterCanvas guarda `null`
 
-Novo componente baseado no `MasterCanvas.tsx`, adaptado para visualização de um único flow.
+**Correções:**
+- Em `NetworkMatrix.tsx`: passar `activeCategory={highlightedCategory}` para `NetworkSidebar`
+- Em `MasterCanvas.tsx`: mudar `category: n.category || null` para `category: n.category || 'Sem categoria'` para que o match funcione
 
-**Estrutura idêntica**: Three.js + R3F, tetraedros, fog, bloom, stars, mesmos parâmetros visuais.
-
-**Diferenças**:
-- Nó central fixado em `(0,0,0)` com escala `2.0` e cor mais brilhante
-- `forceRadial` mais forte para hierarquia radial clara
-- Cores por profundidade BFS (depth 0 = brilhante, depth 3+ = dimmed)
-- Conexões diretas do centro mais brilhantes
-- Props compatíveis com as do `Canvas.tsx` atual: `nodes`, `connections`, `onSingleClick`, `onOpenEditModal`, `selectedNodes`, `highlightedPath`, `showLabels`
-
----
-
-### Parte 3: Integrar no NetworkMatrix
-
-Em `NetworkMatrix.tsx`, no bloco `viewMode !== 'master'`, renderizar `SingleCanvas3D` no lugar de `Canvas` (SVG), passando as mesmas props.
-
----
-
-### Arquivos
-1. **Editar** `src/components/MasterCanvas.tsx` — corrigir CameraFocus + category fallback
-2. **Criar** `src/components/SingleCanvas3D.tsx` — Single View 3D
-3. **Editar** `src/components/NetworkMatrix.tsx` — trocar Canvas por SingleCanvas3D
+### Arquivos modificados
+1. `src/components/MasterCanvas.tsx` — CameraFocus (rotação esférica), cores mais contrastantes, category fallback
+2. `src/components/NetworkMatrix.tsx` — passar `activeCategory={highlightedCategory}` ao sidebar
 
