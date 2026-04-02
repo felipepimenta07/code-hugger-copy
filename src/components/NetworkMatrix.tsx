@@ -994,6 +994,7 @@ export const NetworkMatrix = () => {
               selectedNodes={selectedNodes}
               setSelectedNodes={setSelectedNodes}
               highlightedPath={highlightedPath}
+              highlightedCategory={highlightedCategory}
               showLabels={showLabels}
               onOpenEditModal={(node) => { setEditingNodeInModal(node); setNodeCreationType(node.type); setShowNodeCreationModal(true); }}
               onSingleClick={(node) => { setDetailPanelNode(node); }}
