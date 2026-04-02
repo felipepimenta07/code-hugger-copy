@@ -254,47 +254,47 @@ const SingleNodes3D: React.FC<{
       const baseColor = getNodeCategoryColor(n.category);
       const coreColor = getNodeCoreColor(n.category);
 
-      // Outer color logic
+      // Outer color — category color, no white lerp
       if (highlightedCategory) {
         if (isCategoryMatch) {
-          _color.copy(baseColor).lerp(new THREE.Color('#ffffff'), 0.15);
+          _color.copy(baseColor).multiplyScalar(1.3);
         } else {
-          _color.set(0x050508);
+          _color.copy(baseColor).multiplyScalar(0.05);
         }
       } else if (selectedRef) {
         if (isSelected || isCenter) {
-          _color.copy(baseColor).lerp(new THREE.Color('#ffffff'), 0.2);
+          _color.copy(baseColor).multiplyScalar(1.3);
         } else if (isConnectedSelect) {
           _color.copy(baseColor).multiplyScalar(0.7);
         } else {
           _color.copy(baseColor).multiplyScalar(0.08);
         }
       } else if (isHovered) {
-        _color.copy(baseColor).lerp(new THREE.Color('#ffffff'), 0.25);
+        _color.copy(baseColor).multiplyScalar(1.3);
       } else if (isCenter) {
-        _color.copy(baseColor).lerp(new THREE.Color('#ffffff'), 0.15);
+        _color.copy(baseColor).multiplyScalar(1.2);
       } else {
         _color.copy(baseColor).multiplyScalar(depthBright);
       }
       outerRef.current.setColorAt(i, _color);
 
-      // Core color logic
+      // Core color — accent color, no white lerp
       if (highlightedCategory) {
         if (isCategoryMatch) {
-          _color.copy(coreColor).lerp(new THREE.Color('#ffffff'), 0.25);
+          _color.copy(coreColor).multiplyScalar(1.4);
         } else {
-          _color.set(0x030305);
+          _color.copy(coreColor).multiplyScalar(0.05);
         }
       } else if (selectedRef) {
         if (isSelected || isCenter) {
-          _color.copy(coreColor).lerp(new THREE.Color('#ffffff'), 0.3);
+          _color.copy(coreColor).multiplyScalar(1.4);
         } else if (isConnectedSelect) {
           _color.copy(coreColor).multiplyScalar(0.7);
         } else {
           _color.copy(coreColor).multiplyScalar(0.08);
         }
       } else if (isCenter) {
-        _color.copy(coreColor).lerp(new THREE.Color('#ffffff'), 0.2);
+        _color.copy(coreColor).multiplyScalar(1.2);
       } else {
         _color.copy(coreColor).multiplyScalar(depthBright);
       }
@@ -350,12 +350,12 @@ const SingleNodes3D: React.FC<{
         onPointerOut={handlePointerOut}
       >
         <tetrahedronGeometry args={[0.35]} />
-        <meshStandardMaterial emissive="#ffffff" emissiveIntensity={0.7} roughness={0.5} metalness={0.3} toneMapped={false} transparent opacity={0.9} />
+        <meshStandardMaterial emissive="#000000" emissiveIntensity={0.3} roughness={0.4} metalness={0.2} toneMapped={false} transparent opacity={0.9} />
       </instancedMesh>
       {/* Inner core */}
       <instancedMesh ref={coreRef} args={[undefined, undefined, nodes.length]}>
         <sphereGeometry args={[0.35, 8, 8]} />
-        <meshStandardMaterial emissive="#ffffff" emissiveIntensity={1.2} roughness={0.2} metalness={0.1} toneMapped={false} />
+        <meshBasicMaterial toneMapped={false} />
       </instancedMesh>
     </>
   );
@@ -597,7 +597,7 @@ const SingleScene: React.FC<{
       />
       <SingleNodeLabels nodes={simNodes} hoveredRef={hoveredRef} showLabels={showLabels} />
       <EffectComposer>
-        <Bloom intensity={1.2} luminanceThreshold={0.1} luminanceSmoothing={0.9} mipmapBlur />
+        <Bloom intensity={0.4} luminanceThreshold={0.6} luminanceSmoothing={0.9} mipmapBlur />
       </EffectComposer>
     </group>
   );
@@ -619,7 +619,7 @@ export const SingleCanvas3D: React.FC<SingleCanvas3DProps> = ({
         onCreated={({ gl }) => {
           gl.setClearColor('#0a0b14');
           gl.toneMapping = THREE.ACESFilmicToneMapping;
-          gl.toneMappingExposure = 1.5;
+          gl.toneMappingExposure = 1.0;
         }}
       >
         <SingleScene
