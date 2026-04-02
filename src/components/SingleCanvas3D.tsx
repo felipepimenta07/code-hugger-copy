@@ -234,7 +234,9 @@ const SingleNodes3D: React.FC<{
       if (isCenter) scale = 2.0;
       else if (isSelected) scale = 1.5;
       else if (isHovered) scale = 1.3;
+      else if (highlightedCategory && isCategoryMatch) scale = 1.3;
       else if (isConnectedSelect) scale = 1.0;
+      else if (highlightedCategory && !isCategoryMatch) scale = 0.45;
 
       // Outer shell
       _dummy.position.set(n.x ?? 0, n.y ?? 0, n.z ?? 0);
