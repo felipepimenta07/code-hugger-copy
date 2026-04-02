@@ -69,6 +69,7 @@ export const NetworkMatrix = () => {
   const [masterViewState, setMasterViewState] = useState<any>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [detailPanelNode, setDetailPanelNode] = useState<any>(null);
+  const [highlightedCategory, setHighlightedCategory] = useState<string | null>(null);
 
   const prevViewModeRef = useRef<string>(viewMode);
   const { state, updateState } = useNetworkState();
