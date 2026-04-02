@@ -209,11 +209,11 @@ const Nodes3D: React.FC<Nodes3DProps> = ({
       _dummy.updateMatrix();
       meshRef.current.setMatrixAt(i, _dummy.matrix);
 
-      const baseColor = TYPE_COLORS[n.type] || DEFAULT_COLOR;
+      const baseColor = getNodeCategoryColor(n.category);
 
       if (selectedRef) {
         if (isSelected) {
-          _color.copy(baseColor).lerp(new THREE.Color('#ffffff'), 0.35); // Bright white-blended glow
+          _color.copy(baseColor).lerp(new THREE.Color('#ffffff'), 0.35);
         } else if (isConnectedSelect) {
           _color.copy(baseColor).multiplyScalar(0.7);
         } else {
