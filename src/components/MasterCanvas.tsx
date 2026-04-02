@@ -465,8 +465,8 @@ const Scene: React.FC<SceneProps> = ({ allNodes, allConnections, onNodeClick, on
       <EffectComposer>
         <Bloom
           intensity={0.4}
-          luminanceThreshold={0.6}
-          luminanceSmoothing={0.4}
+          luminanceThreshold={0.3}
+          luminanceSmoothing={0.6}
           mipmapBlur
         />
       </EffectComposer>
