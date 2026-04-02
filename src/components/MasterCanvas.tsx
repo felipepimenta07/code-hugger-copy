@@ -424,7 +424,7 @@ const Scene: React.FC<SceneProps> = ({ allNodes, allConnections, onNodeClick, on
     <group onPointerMissed={handleCanvasPointerMissed}>
       <fogExp2 attach="fog" args={['#0a0b14', 0.025]} />
       <ambientLight intensity={0.35} />
-      <pointLight position={[0, 0, 0]} intensity={1.2} distance={50} decay={2} color="#8888ff" />
+      <pointLight position={[0, 0, 0]} intensity={2.0} distance={50} decay={2} color="#8888ff" />
       <Stars radius={220} depth={80} count={2200} factor={3} saturation={0.2} fade speed={0.35} />
       <OrbitControls
         enableDamping
