@@ -155,8 +155,11 @@ const Nodes3D: React.FC<Nodes3DProps> = ({
   const meshRef = useRef<THREE.InstancedMesh>(null);
   const clickTimerRef = useRef<any>(null);
 
+  const clockRef = useRef(new THREE.Clock());
+
   useFrame(() => {
     if (!meshRef.current) return;
+    const time = clockRef.current.getElapsedTime();
     for (let i = 0; i < nodes.length; i++) {
       const n = nodes[i];
       _dummy.position.set(n.x ?? 0, n.y ?? 0, n.z ?? 0);
@@ -168,6 +171,8 @@ const Nodes3D: React.FC<Nodes3DProps> = ({
 
       const scale = isHovered || isSelected ? 1.35 : 0.92;
       _dummy.scale.setScalar(scale);
+      // Subtle rotation to show 3D depth
+      _dummy.rotation.set(time * 0.2 + i * 0.5, time * 0.1 + i * 0.3, 0);
       _dummy.updateMatrix();
       meshRef.current.setMatrixAt(i, _dummy.matrix);
 
@@ -239,8 +244,8 @@ const Nodes3D: React.FC<Nodes3DProps> = ({
       onPointerOver={handlePointerOver}
       onPointerOut={handlePointerOut}
     >
-      <sphereGeometry args={[0.6, 12, 12]} />
-      <meshBasicMaterial toneMapped={false} />
+      <tetrahedronGeometry args={[0.35]} />
+      <meshStandardMaterial emissive="#ffffff" emissiveIntensity={0.3} roughness={0.6} metalness={0.2} toneMapped={false} />
     </instancedMesh>
   );
 };
@@ -417,7 +422,9 @@ const Scene: React.FC<SceneProps> = ({ allNodes, allConnections, onNodeClick, on
 
   return (
     <group onPointerMissed={handleCanvasPointerMissed}>
-      <ambientLight intensity={0.22} />
+      <fogExp2 attach="fog" args={['#0a0b14', 0.025]} />
+      <ambientLight intensity={0.35} />
+      <pointLight position={[0, 0, 0]} intensity={1.2} distance={50} decay={2} color="#8888ff" />
       <Stars radius={220} depth={80} count={2200} factor={3} saturation={0.2} fade speed={0.35} />
       <OrbitControls
         enableDamping
@@ -458,8 +465,8 @@ const Scene: React.FC<SceneProps> = ({ allNodes, allConnections, onNodeClick, on
       <EffectComposer>
         <Bloom
           intensity={0.4}
-          luminanceThreshold={0.6}
-          luminanceSmoothing={0.4}
+          luminanceThreshold={0.3}
+          luminanceSmoothing={0.6}
           mipmapBlur
         />
       </EffectComposer>
