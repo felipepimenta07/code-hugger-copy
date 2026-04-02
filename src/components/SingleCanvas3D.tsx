@@ -11,7 +11,7 @@ import {
   forceLink,
   forceRadial,
 } from 'd3-force-3d';
-import { getCategoryColor, getCategoryCoreColor } from '@/utils/categoryColors';
+import { getCategoryColor } from '@/utils/categoryColors';
 
 // ---------- types ----------
 interface SimNode {
