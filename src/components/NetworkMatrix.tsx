@@ -904,12 +904,14 @@ export const NetworkMatrix = () => {
   };
 
   const handleMasterView = () => {
+    setHighlightedCategory(null);
     setViewMode('master');
   };
 
   const handleSingleView = () => {
     if (!activeNodeRef) { toast.error('Selecione um flow para entrar no Single View.'); return; }
     if (viewMode === 'master') setMasterViewState({ zoom: state.zoom, pan: state.pan, hasBeenOrganized: true });
+    setHighlightedCategory(null);
     setViewMode('single');
   };
 

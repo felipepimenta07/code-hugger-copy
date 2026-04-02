@@ -100,20 +100,19 @@ const Links3D: React.FC<Links3DProps> = ({ nodes, links, selectedRef, connectedT
       positions.setXYZ(i * 2, s.x ?? 0, s.y ?? 0, s.z ?? 0);
       positions.setXYZ(i * 2 + 1, t.x ?? 0, t.y ?? 0, t.z ?? 0);
 
-      const baseC = CONNECTION_COLORS[links[i].connectionType] || DEFAULT_LINK_COLOR;
-      
+      const neutralGray = 0.18;
+
       if (selectedRef) {
         const sRef = s.nodeRef;
         const tRef = t.nodeRef;
         const isActive = connectedToSelected.has(sRef) && connectedToSelected.has(tRef);
         if (isActive) {
-          // Pulse animation for active connections
           const pulse = 0.7 + 0.3 * Math.sin(time * 3 + i * 0.5);
-          colors.setXYZ(i * 2, baseC.r * pulse, baseC.g * pulse, baseC.b * pulse);
-          colors.setXYZ(i * 2 + 1, baseC.r * pulse, baseC.g * pulse, baseC.b * pulse);
+          colors.setXYZ(i * 2, neutralGray * pulse * 3, neutralGray * pulse * 3, neutralGray * pulse * 3);
+          colors.setXYZ(i * 2 + 1, neutralGray * pulse * 3, neutralGray * pulse * 3, neutralGray * pulse * 3);
         } else {
-          colors.setXYZ(i * 2, baseC.r * 0.04, baseC.g * 0.04, baseC.b * 0.04);
-          colors.setXYZ(i * 2 + 1, baseC.r * 0.04, baseC.g * 0.04, baseC.b * 0.04);
+          colors.setXYZ(i * 2, neutralGray * 0.15, neutralGray * 0.15, neutralGray * 0.15);
+          colors.setXYZ(i * 2 + 1, neutralGray * 0.15, neutralGray * 0.15, neutralGray * 0.15);
         }
       } else if (highlightedCategory) {
         const sNode = nodeMap.get(s.nodeRef);
@@ -124,12 +123,13 @@ const Links3D: React.FC<Links3DProps> = ({ nodes, links, selectedRef, connectedT
           colors.setXYZ(i * 2, catColor.r * 0.8, catColor.g * 0.8, catColor.b * 0.8);
           colors.setXYZ(i * 2 + 1, catColor.r * 0.8, catColor.g * 0.8, catColor.b * 0.8);
         } else {
-          colors.setXYZ(i * 2, baseC.r * 0.04, baseC.g * 0.04, baseC.b * 0.04);
-          colors.setXYZ(i * 2 + 1, baseC.r * 0.04, baseC.g * 0.04, baseC.b * 0.04);
+          colors.setXYZ(i * 2, neutralGray * 0.1, neutralGray * 0.1, neutralGray * 0.1);
+          colors.setXYZ(i * 2 + 1, neutralGray * 0.1, neutralGray * 0.1, neutralGray * 0.1);
         }
       } else {
-        colors.setXYZ(i * 2, baseC.r * 0.5, baseC.g * 0.5, baseC.b * 0.5);
-        colors.setXYZ(i * 2 + 1, baseC.r * 0.5, baseC.g * 0.5, baseC.b * 0.5);
+        // Neutral: all links same subtle gray
+        colors.setXYZ(i * 2, neutralGray, neutralGray, neutralGray);
+        colors.setXYZ(i * 2 + 1, neutralGray, neutralGray, neutralGray);
       }
     }
     positions.needsUpdate = true;
