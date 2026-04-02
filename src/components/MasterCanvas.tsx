@@ -208,7 +208,9 @@ const Nodes3D: React.FC<Nodes3DProps> = ({
       let scale = 0.92;
       if (isSelected) scale = 1.6;
       else if (isHovered) scale = 1.35;
+      else if (highlightedCategory && isCategoryMatch) scale = 1.3;
       else if (isConnectedSelect) scale = 1.0;
+      else if (highlightedCategory && !isCategoryMatch) scale = 0.5;
 
       // Outer shell
       _dummy.position.set(n.x ?? 0, n.y ?? 0, n.z ?? 0);
