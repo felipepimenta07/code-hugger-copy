@@ -193,7 +193,7 @@ const Nodes3D: React.FC<Nodes3DProps> = ({
           _color.copy(baseColor).multiplyScalar(0.15);
         }
       } else {
-        _color.copy(baseColor).multiplyScalar(0.5);
+        _color.copy(baseColor).multiplyScalar(0.7);
       }
 
       meshRef.current.setColorAt(i, _color);
@@ -245,7 +245,7 @@ const Nodes3D: React.FC<Nodes3DProps> = ({
       onPointerOut={handlePointerOut}
     >
       <tetrahedronGeometry args={[0.35]} />
-      <meshStandardMaterial emissive="#ffffff" emissiveIntensity={0.3} roughness={0.6} metalness={0.2} toneMapped={false} />
+      <meshStandardMaterial emissive="#ffffff" emissiveIntensity={0.6} roughness={0.6} metalness={0.2} toneMapped={false} />
     </instancedMesh>
   );
 };
@@ -424,7 +424,7 @@ const Scene: React.FC<SceneProps> = ({ allNodes, allConnections, onNodeClick, on
     <group onPointerMissed={handleCanvasPointerMissed}>
       <fogExp2 attach="fog" args={['#0a0b14', 0.025]} />
       <ambientLight intensity={0.35} />
-      <pointLight position={[0, 0, 0]} intensity={1.2} distance={50} decay={2} color="#8888ff" />
+      <pointLight position={[0, 0, 0]} intensity={2.0} distance={50} decay={2} color="#8888ff" />
       <Stars radius={220} depth={80} count={2200} factor={3} saturation={0.2} fade speed={0.35} />
       <OrbitControls
         enableDamping
@@ -464,9 +464,9 @@ const Scene: React.FC<SceneProps> = ({ allNodes, allConnections, onNodeClick, on
       <NodeLabels nodes={simNodes} hoveredRef={hoveredRef} />
       <EffectComposer>
         <Bloom
-          intensity={0.4}
-          luminanceThreshold={0.3}
-          luminanceSmoothing={0.6}
+          intensity={1.2}
+          luminanceThreshold={0.1}
+          luminanceSmoothing={0.9}
           mipmapBlur
         />
       </EffectComposer>
@@ -494,7 +494,7 @@ export const MasterCanvas: React.FC<MasterCanvasProps> = ({
         onCreated={({ gl }) => {
           gl.setClearColor('#0a0b14');
           gl.toneMapping = THREE.ACESFilmicToneMapping;
-          gl.toneMappingExposure = 1.2;
+          gl.toneMappingExposure = 1.5;
         }}
       >
         <Scene
