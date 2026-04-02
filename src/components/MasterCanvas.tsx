@@ -213,25 +213,25 @@ const Nodes3D: React.FC<Nodes3DProps> = ({
 
       if (selectedRef) {
         if (isSelected) {
-          _color.copy(baseColor); // Full brightness for selected
+          _color.copy(baseColor).lerp(new THREE.Color('#ffffff'), 0.35); // Bright white-blended glow
         } else if (isConnectedSelect) {
-          _color.copy(baseColor).multiplyScalar(0.85); // Slightly dimmed for connected
+          _color.copy(baseColor).multiplyScalar(0.7);
         } else {
-          _color.copy(baseColor).multiplyScalar(0.12); // Very dim for rest
+          _color.copy(baseColor).multiplyScalar(0.06);
         }
       } else if (highlightedCategory) {
         if (isCategoryMatch) {
-          _color.copy(baseColor); // Full brightness for matching category
+          _color.copy(baseColor).lerp(new THREE.Color('#ffffff'), 0.15);
         } else {
-          _color.copy(baseColor).multiplyScalar(0.12);
+          _color.copy(baseColor).multiplyScalar(0.06);
         }
       } else if (hoveredRef) {
         if (isHovered) {
-          _color.copy(baseColor);
+          _color.copy(baseColor).lerp(new THREE.Color('#ffffff'), 0.3);
         } else if (isConnectedHover) {
-          _color.copy(baseColor).multiplyScalar(0.8);
+          _color.copy(baseColor).multiplyScalar(0.75);
         } else {
-          _color.copy(baseColor).multiplyScalar(0.15);
+          _color.copy(baseColor).multiplyScalar(0.1);
         }
       } else {
         _color.copy(baseColor).multiplyScalar(0.7);
@@ -357,14 +357,14 @@ const CameraAutoFit: React.FC<{ nodes: MasterNode[] }> = ({ nodes }) => {
   return null;
 };
 
-// ---------- CameraFocus (auto-center on selected node) ----------
+// ---------- CameraFocus (rotate camera spherically to face selected node) ----------
 const CameraFocus: React.FC<{ 
   nodes: MasterNode[]; 
   selectedRef: string | null;
   controlsRef: React.RefObject<any>;
 }> = ({ nodes, selectedRef, controlsRef }) => {
   const { camera } = useThree();
-  const targetPos = useRef(new THREE.Vector3());
+  const targetSpherical = useRef(new THREE.Spherical());
   const isAnimating = useRef(false);
   const prevSelectedRef = useRef<string | null>(null);
 
@@ -372,32 +372,44 @@ const CameraFocus: React.FC<{
     if (selectedRef && selectedRef !== prevSelectedRef.current) {
       const node = nodes.find(n => n.nodeRef === selectedRef);
       if (node) {
-        targetPos.current.set(node.x ?? 0, node.y ?? 0, node.z ?? 0);
-        isAnimating.current = true;
+        // Calculate where the camera needs to be so the node is "in front"
+        // Node position relative to origin
+        const nodePos = new THREE.Vector3(node.x ?? 0, node.y ?? 0, node.z ?? 0);
+        if (nodePos.length() > 0.01) {
+          // Camera should be on the same direction as the node, but at current distance
+          const camDist = camera.position.length();
+          const targetCamPos = nodePos.clone().normalize().multiplyScalar(camDist);
+          targetSpherical.current.setFromVector3(targetCamPos);
+          isAnimating.current = true;
+        }
       }
     }
     prevSelectedRef.current = selectedRef;
-  }, [selectedRef, nodes]);
+  }, [selectedRef, nodes, camera]);
 
   useFrame(() => {
     if (!isAnimating.current || !controlsRef.current) return;
     
     const controls = controlsRef.current;
-    const currentTarget = controls.target as THREE.Vector3;
+    // Keep target at origin — rotation center never moves
+    controls.target.set(0, 0, 0);
     
-    // Calculate offset between camera and current target (preserves viewing angle + distance)
-    const offset = camera.position.clone().sub(currentTarget);
+    // Current camera spherical coords
+    const currentSpherical = new THREE.Spherical().setFromVector3(camera.position);
     
-    // Lerp the target towards the selected node
-    currentTarget.lerp(targetPos.current, 0.08);
+    // Lerp spherical angles towards target
+    currentSpherical.phi += (targetSpherical.current.phi - currentSpherical.phi) * 0.06;
+    currentSpherical.theta += (targetSpherical.current.theta - currentSpherical.theta) * 0.06;
+    // Keep current distance (don't zoom)
     
-    // Move camera to maintain the same relative offset (orbit around new center)
-    camera.position.copy(currentTarget).add(offset);
+    // Apply new camera position
+    camera.position.setFromSpherical(currentSpherical);
+    camera.lookAt(0, 0, 0);
     
     // Check if close enough to stop
-    if (currentTarget.distanceTo(targetPos.current) < 0.05) {
-      currentTarget.copy(targetPos.current);
-      camera.position.copy(currentTarget).add(offset);
+    const phiDiff = Math.abs(currentSpherical.phi - targetSpherical.current.phi);
+    const thetaDiff = Math.abs(currentSpherical.theta - targetSpherical.current.theta);
+    if (phiDiff < 0.005 && thetaDiff < 0.005) {
       isAnimating.current = false;
     }
     
@@ -460,7 +472,7 @@ const Scene: React.FC<SceneProps> = ({ allNodes, allConnections, onNodeClick, on
           nodeRef: n.node_ref,
           name: n.name,
           type: n.type,
-          category: n.category || null,
+          category: n.category || 'Sem categoria',
           flowId: n.flow_id,
           profilePictureUrl: n.profile_picture_url || null,
           x: r * Math.sin(phi) * Math.cos(theta),

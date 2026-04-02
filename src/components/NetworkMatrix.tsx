@@ -935,6 +935,7 @@ export const NetworkMatrix = () => {
         viewMode={viewMode}
         allNodes={allNodes}
         nodes={nodes}
+        activeCategory={highlightedCategory}
         onHighlightCategory={setHighlightedCategory}
       />
 
