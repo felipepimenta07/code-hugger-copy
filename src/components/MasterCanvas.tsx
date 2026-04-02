@@ -245,7 +245,7 @@ const Nodes3D: React.FC<Nodes3DProps> = ({
       onPointerOut={handlePointerOut}
     >
       <tetrahedronGeometry args={[0.35]} />
-      <meshStandardMaterial emissive="#ffffff" emissiveIntensity={0.3} roughness={0.6} metalness={0.2} toneMapped={false} />
+      <meshStandardMaterial emissive="#ffffff" emissiveIntensity={0.6} roughness={0.6} metalness={0.2} toneMapped={false} />
     </instancedMesh>
   );
 };
