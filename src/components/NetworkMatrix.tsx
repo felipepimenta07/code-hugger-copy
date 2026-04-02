@@ -982,6 +982,7 @@ export const NetworkMatrix = () => {
                   const flow = flows.find(f => f.id === node.flow_id);
                   if (flow) {
                     setDetailPanelNode(null);
+                    setHighlightedCategory(null);
                     setActiveNodeRef(makeRef(flow.center_type, flow.center_id));
                     setViewMode('single');
                   }
