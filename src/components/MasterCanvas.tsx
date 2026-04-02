@@ -228,16 +228,16 @@ const Nodes3D: React.FC<Nodes3DProps> = ({
       const baseColor = getNodeCategoryColor(n.category);
       const coreColor = getNodeCoreColor(n.category);
 
-      // Outer color
+      // Outer color — use category color directly, no white lerp
       if (highlightedCategory) {
         if (isCategoryMatch) {
-          _color.copy(baseColor).lerp(new THREE.Color('#ffffff'), 0.15);
+          _color.copy(baseColor).multiplyScalar(1.3);
         } else {
-          _color.set(0x050508);
+          _color.copy(baseColor).multiplyScalar(0.05);
         }
       } else if (selectedRef) {
         if (isSelected) {
-          _color.copy(baseColor).lerp(new THREE.Color('#ffffff'), 0.2);
+          _color.copy(baseColor).multiplyScalar(1.3);
         } else if (isConnectedSelect) {
           _color.copy(baseColor).multiplyScalar(0.7);
         } else {
@@ -245,7 +245,7 @@ const Nodes3D: React.FC<Nodes3DProps> = ({
         }
       } else if (hoveredRef) {
         if (isHovered) {
-          _color.copy(baseColor).lerp(new THREE.Color('#ffffff'), 0.25);
+          _color.copy(baseColor).multiplyScalar(1.3);
         } else if (isConnectedHover) {
           _color.copy(baseColor).multiplyScalar(0.75);
         } else {
@@ -256,16 +256,16 @@ const Nodes3D: React.FC<Nodes3DProps> = ({
       }
       outerRef.current.setColorAt(i, _color);
 
-      // Core color
+      // Core color — use core accent directly, no white lerp
       if (highlightedCategory) {
         if (isCategoryMatch) {
-          _color.copy(coreColor).lerp(new THREE.Color('#ffffff'), 0.25);
+          _color.copy(coreColor).multiplyScalar(1.4);
         } else {
-          _color.set(0x030305);
+          _color.copy(coreColor).multiplyScalar(0.05);
         }
       } else if (selectedRef) {
         if (isSelected) {
-          _color.copy(coreColor).lerp(new THREE.Color('#ffffff'), 0.3);
+          _color.copy(coreColor).multiplyScalar(1.4);
         } else if (isConnectedSelect) {
           _color.copy(coreColor).multiplyScalar(0.7);
         } else {
@@ -273,7 +273,7 @@ const Nodes3D: React.FC<Nodes3DProps> = ({
         }
       } else if (hoveredRef) {
         if (isHovered) {
-          _color.copy(coreColor).lerp(new THREE.Color('#ffffff'), 0.3);
+          _color.copy(coreColor).multiplyScalar(1.4);
         } else if (isConnectedHover) {
           _color.copy(coreColor).multiplyScalar(0.75);
         } else {
